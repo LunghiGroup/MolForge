@@ -246,7 +246,6 @@
          double complex, allocatable       :: wig(:,:),wig1(:,:),wig2(:,:)
          integer                           :: indx,m1,m2,m3
          
-
           pi=acos(-1.0d0)
           jj=cmplx(0.0d0,1.0d0,8)
 

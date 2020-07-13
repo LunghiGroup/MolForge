@@ -1,6 +1,5 @@
         module lists_class
-        implicit none
-        
+        implicit none        
 
 
         type :: list_node

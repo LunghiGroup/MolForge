@@ -41,7 +41,7 @@
           procedure                       ::  get_coul_ener
           procedure                       ::  get_ffgrad
           procedure                       ::  get_local_ffgrad
-!          procedure                       ::  get_coul_ffgrad
+          procedure                       ::  get_coul_ffgrad
 !          procedure                       ::  get_disp_ffgrad
          end type force_field
 
@@ -91,19 +91,20 @@
          return
          end subroutine set_ff_params
 
-         subroutine get_ffgrad(this,at_desc,at_type)         
+         subroutine get_ffgrad(this,at_desc,at_type,rij)         
          use descriptors_class
          implicit none
          class(force_field)               :: this
          type(descriptor), pointer        :: at_desc(:)
          integer, pointer                 :: at_type(:)
          integer                          :: offset,npar
+         double precision, allocatable    :: rij(:,:)
 
           if(.not.allocated(this%ffgrad)) allocate(this%ffgrad(this%nparams))
 
           this%ffgrad=0.0d0
           this%ener=0.0d0
-
+          
           offset=0
 
           if(this%do_local_ener)then
@@ -117,7 +118,7 @@
 
           if(this%do_coul_ener)then
            call this%get_charges(at_desc,at_type)         
-!           call this%get_coul_ffgrad(rij)
+           call this%get_coul_ffgrad(at_desc,at_type,rij)
            this%ener=this%ener+this%coul_ener
            npar=this%coul_nparams
            this%ffgrad(offset+1:offset+npar)=&
@@ -135,8 +136,8 @@
            offset=offset+npar
           endif
 
-          this%ener=this%sigma_out*this%ener+this%mean_out
-          this%ffgrad=this%sigma_out*this%ffgrad
+          if(this%norm_out) this%ener=this%sigma_out*this%ener+this%mean_out
+          if(this%norm_out) this%ffgrad=this%sigma_out*this%ffgrad
 
          return
          end subroutine get_ffgrad
@@ -168,7 +169,7 @@
            this%ener=this%ener+this%disp_ener
           endif
 
-          this%ener=this%sigma_out*this%ener+this%mean_out
+          if(this%norm_out) this%ener=this%sigma_out*this%ener+this%mean_out
 
          return
          end subroutine get_ener 
@@ -289,6 +290,56 @@
 
          return
          end subroutine get_coul_ener
+
+         subroutine get_coul_ffgrad(this,at_desc,at_type,rij)   
+         use descriptors_class
+         implicit none
+         class(force_field)               :: this
+         type(descriptor), pointer        :: at_desc(:)
+         integer, pointer                 :: at_type(:)
+         double precision, allocatable    :: loc_prop(:),vec(:),inps(:)
+         double precision, allocatable    :: grad_loc(:,:),rij(:,:)
+         integer                          :: at,de,i,offset,npar,j
+
+          if(.not.allocated(this%coul_ffgrad)) &
+                  allocate(this%coul_ffgrad(this%coul_nparams))
+
+          this%coul_ffgrad=0.0d0
+          this%coul_ener=0.0d0
+
+          offset=0
+
+          do i=1,this%nnets
+
+           npar=this%NN_charge(i)%nparams
+           if(allocated(grad_loc)) deallocate(grad_loc)
+           allocate(grad_loc(npar,1))
+
+           do at=1,size(at_desc)
+            if(this%types(i).eq.at_type(at) .or. this%types(i).eq.0 )then
+             if(.not.allocated(loc_prop)) allocate(loc_prop(1))
+             if(allocated(inps)) deallocate(inps)
+             inps=at_desc(at)%desc
+             call this%NN_charge(i)%get_output(inps,loc_prop)
+             call this%NN_charge(i)%backprop(grad_loc)
+             do j=1,size(at_desc)
+              if(j.ne.at) this%coul_ffgrad(offset+1:offset+npar)=&
+                          this%coul_ffgrad(offset+1:offset+npar)+grad_loc(:,1)*&
+                          this%charge(j)/rij(at,j)
+             enddo
+            endif
+           enddo
+           offset=offset+npar
+          enddo       
+
+          do i=1,size(rij,1)
+           do j=i+1,size(rij,2)
+            this%coul_ener=this%coul_ener+this%charge(i)*this%charge(j)/rij(i,j)
+           enddo
+          enddo       
+
+         return
+         end subroutine get_coul_ffgrad
 
          subroutine get_C6(this,at_desc,at_type)         
          use descriptors_class

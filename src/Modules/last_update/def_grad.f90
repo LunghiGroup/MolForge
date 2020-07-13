@@ -5,8 +5,9 @@
          type gradient_descent
           integer                        :: nval
           double precision               :: ener          
-          double precision, allocatable  :: val(:)
+          double precision, allocatable  :: val(:)          
           double precision, allocatable  :: grad(:)
+          double precision, allocatable  :: loc_lr(:)
           double precision               :: max_grad=0.01e5
           double precision               :: lr=0.0001d0
           integer                        :: max_iter=3000
@@ -41,13 +42,13 @@
          return
          end subroutine release_target_f
 
-         subroutine init(this,nval,vec)
+         subroutine init(this,nval,vec,loc_lr)
          use random_numbers_class
          implicit none
          class(gradient_descent)                   :: this
-         double precision              :: rand_num
-         double precision, allocatable, optional :: vec(:)
-         integer                       :: nval,i
+         double precision                          :: rand_num
+         double precision, allocatable, optional   :: vec(:),loc_lr(:)
+         integer                                   :: nval,i
 
           this%nval=nval
           allocate(this%val(this%nval))
@@ -61,17 +62,20 @@
            enddo
           endif
           this%grad=0.0d0
+          if(present(loc_lr)) this%loc_lr=loc_lr           
 
          return
          end subroutine init
 
-         subroutine minimize_gd(this,max_iter)
+         subroutine minimize_gd(this,max_iter,start_iter)
          implicit none
          class(gradient_descent)       :: this
-         integer                       :: iter,i
-         integer, optional             :: max_iter
+         integer                       :: iter,i,iter0
+         integer, optional             :: max_iter,start_iter
          double precision              :: gradnorm
 
+          iter0=0
+          if(present(start_iter)) iter0=start_iter
           if(present(max_iter)) this%max_iter=max_iter
           if(this%print_grad) open(this%print_grad_io,file='grad.dat')
           if(this%print_val) open(this%print_val_io,file='param.dat')
@@ -92,9 +96,13 @@
            if(this%print_grad) write(this%print_grad_io,*) this%grad
            if(this%print_val) write(this%print_val_io,*) this%val
 
-           write(*,*) 'Grad Iter: ',iter,sqrt(gradnorm/size(this%grad)),this%ener
+           write(*,*) 'Grad Iter: ',iter+iter0,sqrt(gradnorm/size(this%grad)),this%ener
 
-           this%val=this%val-this%lr*this%grad
+           if(allocated(this%loc_lr))then
+            this%val=this%val-this%lr*this%grad*this%loc_lr
+           else
+            this%val=this%val-this%lr*this%grad
+           endif
 
            iter=iter+1
           enddo
@@ -105,14 +113,16 @@
          return
          end subroutine minimize_gd
 
-         subroutine minimize_adam(this,max_iter)
+         subroutine minimize_adam(this,max_iter,start_iter)
          implicit none
          class(adam)                   :: this
-         integer                       :: iter,i
-         integer, optional             :: max_iter
+         integer                       :: iter,i,iter0
+         integer, optional             :: max_iter,start_iter
          double precision              :: gradnorm
          double precision, allocatable :: gradres(:),gradres2(:)
 
+          iter0=0
+          if(present(start_iter)) iter0=start_iter
           if(present(max_iter)) this%max_iter=max_iter
           if(this%print_grad) open(this%print_grad_io,file='grad.dat')
           if(this%print_val) open(this%print_val_io,file='param.dat')
@@ -141,16 +151,23 @@
            if(this%print_val) write(this%print_val_io,*) this%val
            if(this%print_grad) write(this%print_grad_io,*) this%grad
 
-           write(*,*) 'Grad Iter: ',iter,sqrt(gradnorm/size(this%grad)),this%ener
+           write(*,*) 'Grad Iter: ',iter+iter0,sqrt(gradnorm/size(this%grad)),this%ener
 
-           this%val=this%val-this%lr*(gradres/(1-this%beta1**(iter+1)))& 
-                /(sqrt(gradres2/(1-this%beta2**(iter+1)))+this%eps)
+           if(allocated(this%loc_lr))then
+            this%val=this%val-this%lr*(gradres/(1-this%beta1**(iter+1)))& 
+                 /(sqrt(gradres2/(1-this%beta2**(iter+1)))+this%eps)*this%loc_lr
+           else
+            this%val=this%val-this%lr*(gradres/(1-this%beta1**(iter+1)))& 
+                 /(sqrt(gradres2/(1-this%beta2**(iter+1)))+this%eps)
+           endif
 
            iter=iter+1
           enddo
 
           if(this%print_grad) close(this%print_grad_io)
           if(this%print_val) close(this%print_val_io)
+          if(allocated(gradres)) deallocate(gradres)
+          if(allocated(gradres2)) deallocate(gradres2)
 
          return
          end subroutine minimize_adam

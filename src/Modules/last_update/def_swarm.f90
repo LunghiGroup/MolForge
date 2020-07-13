@@ -9,7 +9,7 @@
           double precision               :: phi_1=1.70d0
           double precision               :: phi_2=1.70d0   
           double precision               :: lrate=0.99d0
-          double precision, allocatable  :: res(:)
+          logical, allocatable           :: fixval(:)
           double precision, allocatable  :: val(:)
           double precision, allocatable  :: vel(:)
           double precision, allocatable  :: step(:)
@@ -82,12 +82,14 @@
          return
          end subroutine get_best_val
 
-         subroutine minimize(this,max_iter)
+         subroutine minimize(this,max_iter,start_iter)
          implicit none
          class(particles_swarm)    :: this
-         integer                   :: i
-         integer, optional         :: max_iter
+         integer                   :: i,iter0
+         integer, optional         :: max_iter,start_iter
           
+          iter0=0
+          if(present(start_iter)) iter0=start_iter
           this%iter=0
           if(present(max_iter)) this%max_iter=max_iter
 
@@ -101,7 +103,7 @@
 
            if(this%print_val) write(this%print_val_io,*) this%par(this%best_par)%val
 
-           write(*,*) 'Swarm Iter: ',this%iter,this%best_par,this%par(1)%best_glo_ener
+           write(*,*) 'Swarm Iter: ',this%iter*this%npar+iter0,this%best_par,this%par(1)%best_glo_ener
 
           enddo
 
@@ -116,7 +118,7 @@
          end subroutine minimize
 
 
-         subroutine init_swarm(this,npar,nval,step,min_val,max_val)
+         subroutine init_swarm(this,npar,nval,step,min_val,max_val,fixval)
          use random_numbers_class
          implicit none
          class(particles_swarm)                  :: this
@@ -126,6 +128,8 @@
          double precision, allocatable           :: step1(:)
          double precision, allocatable, optional :: min_val(:),max_val(:)
          double precision, allocatable           :: min_val1(:),max_val1(:)
+         logical, allocatable, optional          :: fixval(:)
+         logical, allocatable                    :: fixval1(:)
 
           call init_random_seed()
 
@@ -149,6 +153,12 @@
           else
            max_val1 = max_val
           endif
+          if(.not.present(fixval))then
+           allocate(fixval1(nval))
+           fixval1=.false.
+          else
+           fixval1=fixval
+          endif
 
           allocate(this%par(npar))
 
@@ -156,7 +166,7 @@
 
           do i=1,npar
            this%par(i)%nval=nval
-           call this%par(i)%init_par(nval,step1,min_val1,max_val1)
+           call this%par(i)%init_par(nval,step1,min_val1,max_val1,fixval1)
           enddo
 
           this%best_par=1
@@ -211,25 +221,26 @@
          end subroutine propagate_swarm
 
 
-         subroutine init_par(this,nval,step,min_val,max_val)
+         subroutine init_par(this,nval,step,min_val,max_val,fixval)
          use random_numbers_class
          implicit none
          class(particle)    :: this
          integer            :: nval,i
          double precision, allocatable :: val0(:),step(:)
          double precision, allocatable :: min_val(:),max_val(:)
+         logical, allocatable          :: fixval(:)
 
           this%nval=nval
           allocate(this%val(nval))
           allocate(this%vel(nval))
           allocate(this%step(nval))
-          allocate(this%res(nval))
+          allocate(this%fixval(nval))
           allocate(this%min_val(nval))
           allocate(this%max_val(nval))
           allocate(this%best_loc_val(nval))
           allocate(this%best_glo_val(nval))
           
-          this%res=1.0d0
+          this%fixval=fixval
           this%step=step
           this%min_val=min_val
           this%max_val=max_val
@@ -281,7 +292,9 @@
          integer            :: i
 
           do i=1,this%nval
-           
+          
+           if(this%fixval(i)) cycle
+            
            call random_number(rand_num)              
            phi1=this%phi_1*rand_num
            call random_number(rand_num)              

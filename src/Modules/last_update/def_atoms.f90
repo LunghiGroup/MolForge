@@ -1,5 +1,6 @@
         module atoms_class         
         use lattice_class
+        use general_types_class 
         use descriptors_class
         use ffs_class
         implicit none
@@ -23,6 +24,8 @@
          double precision, allocatable   :: charge(:)
          double precision, allocatable   :: dist(:,:,:,:)
          double precision, allocatable   :: rij(:,:)
+         type(vector_int), allocatable   :: neigh(:) 
+         double precision                :: neigh_cutoff=3.7d0
          character(len=10), allocatable  :: label(:)
          logical                         :: born_charges=.false. 
          double precision, allocatable   :: fcs2(:,:,:,:,:)
@@ -31,6 +34,7 @@
          type(force_field), pointer      :: FF
          contains
          procedure        :: build_descriptors
+         procedure        :: build_neighbour_list
          procedure        :: read_restart_file
          procedure        :: read_structure_file
          procedure        :: read_extended_xyz
@@ -46,13 +50,45 @@
 
         contains
 
-        ! compute MD
-        ! compute neighbours list
+        subroutine build_neighbour_list(this,cutoff)
+        use lists_class
+        implicit none
+        class(atoms_group)               :: this
+        integer                          :: i,j
+        double precision, optional       :: cutoff
+        type(list)                       :: listid
+        
+         if(allocated(this%neigh))then
+          do i=1,size(this%neigh)
+           if(allocated(this%neigh(i)%v)) deallocate(this%neigh(i)%v)
+          enddo
+          deallocate(this%neigh)
+         endif
+         allocate(this%neigh(this%nats))         
+
+         if (present(cutoff)) this%neigh_cutoff=cutoff
+         
+         do i=1,this%nats
+          call listid%init()
+          do j=1,this%nats
+           if(this%dist(i,1,j,1).lt.this%neigh_cutoff .and. i.ne.j) call listid%add_node(j)
+          enddo
+          allocate(this%neigh(i)%v(listid%nelem))
+          call listid%reboot()
+          do j=1,listid%nelem
+           call listid%rd_val(this%neigh(i)%v(j))
+           call listid%skip()
+          enddo
+          call listid%delete()
+         enddo
+
+        return
+        end subroutine build_neighbour_list
 
         subroutine build_descriptors(this,kind_desc,Jmax,r0)
         implicit none
         class(atoms_group)               :: this
-        integer                          :: i,j,s
+        integer                          :: i,j,s,id
         double precision, optional       :: r0
         integer, optional                :: Jmax
         double precision, allocatable    :: neighbours(:,:)
@@ -74,21 +110,19 @@
           call bis%BI%setup()
 
           allocate(this%at_desc(this%nats))
-          allocate(neighbours(this%nats-1,3))
 
           do i=1,this%nats
-           s=1
-           do j=1,this%nats
-            if(i.ne.j)then
-             neighbours(s,:)=this%x(i,:)-this%x(j,:)
-             s=s+1
-            endif
+           allocate(neighbours(size(this%neigh(i)%v),3))
+           do j=1,size(this%neigh(i)%v)
+            id=this%neigh(i)%v(j)
+            neighbours(j,:)=this%x(i,:)-this%x(id,:)
            enddo
            call bis%get_desc(neighbours,r0)
            this%at_desc(i)%desc=bis%desc
            this%at_desc(i)%size_desc=bis%size_desc
            deallocate(bis%desc)
            call bis%BI%reset()
+           deallocate(neighbours)
           enddo
 
           call bis%BI%delete()
@@ -142,6 +176,7 @@
          call this%init()
          call this%do_supercell()
          call this%dist_ij()
+         call this%build_neighbour_list()
 
         return
         end subroutine read_extended_xyz        

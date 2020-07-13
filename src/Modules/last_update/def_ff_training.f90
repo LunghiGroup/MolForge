@@ -12,8 +12,9 @@
          double precision, allocatable   :: tr_fval(:,:),te_fval(:,:)  
          double precision, allocatable   :: tr_dval(:,:),te_dval(:,:)  
          integer                         :: ndim=1
-         double precision                :: L2=0.001
-         logical                         :: regular_L2=.true.
+         double precision, allocatable   :: L2val(:)
+         integer, allocatable            :: L2id(:)
+         logical                         :: L2=.false.
          logical                         :: fit_ener=.true.
          logical                         :: fit_forces=.false.
          logical                         :: fit_dipols=.false.
@@ -22,6 +23,7 @@
          procedure                       :: get_fgrad => get_chi2_grad
          procedure                       :: ridge
          procedure                       :: set_nets
+         procedure                       :: set_L2
          procedure                       :: map_nets
          procedure                       :: read_sets
          procedure                       :: std_sets
@@ -46,7 +48,7 @@
 
           dimA=this%FF%nparams
           dimB=size(this%tr_val)
-          if(this%regular_L2) dimB=dimB+this%FF%nparams-1
+          if(this%L2) dimB=dimB+size(this%L2id)
           allocate(A(dimB,dimA))
           allocate(B(dimB))
           A=0.0d0
@@ -71,11 +73,11 @@
 
           enddo
 
-          if(this%regular_L2)then
+          if(this%L2)then
            offset=size(this%tr_val)
-           do l=1,this%FF%nparams-1
-            A(l+offset,l)=this%L2
-            B(l+offset)=0.0d0
+           do l=1,size(this%L2id) 
+            A(this%L2id(l)+offset,this%L2id(l))=this%L2val(l)
+            B(this%L2id(l)+offset)=0.0d0
            enddo
           endif
 
@@ -120,32 +122,24 @@
          double precision, allocatable  :: rij(:,:)
 
           open(13,file='tr_rmse.dat')
-          open(14,file='tr_ener.dat')
 
           do i=1,size(this%tr)
            rij=this%tr(i)%dist(:,1,:,1)
            call this%tr(i)%FF%get_ener(this%tr(i)%at_desc,this%tr(i)%kind,rij)           
            write(13,*) this%tr_val(i),this%tr(i)%FF%ener
-           write(14,*) this%FF%sigma_out*this%tr(i)%FF%local_ener,&
-                this%FF%sigma_out*this%tr(i)%FF%coul_ener,this%FF%sigma_out*this%tr(i)%FF%disp_ener
           enddo
 
           close(13)
-          close(14)
 
           open(13,file='te_rmse.dat')
-          open(14,file='te_ener.dat')
 
           do i=1,size(this%te)
            rij=this%te(i)%dist(:,1,:,1)
            call this%te(i)%FF%get_ener(this%te(i)%at_desc,this%te(i)%kind,rij)
            write(13,*) this%te_val(i),this%te(i)%FF%ener
-           write(14,*) this%FF%sigma_out*this%te(i)%FF%local_ener,&
-                this%FF%sigma_out*this%te(i)%FF%coul_ener,this%FF%sigma_out*this%te(i)%FF%disp_ener
           enddo
 
           close(13)
-          close(14)
 
          return
          end subroutine out_results
@@ -318,7 +312,7 @@
           do i=1,this%npoints_tr
            call this%tr(i)%read_extended_xyz(IOid=13)
            read(14,*) this%tr_val(i)
-           call this%tr(i)%build_descriptors(kind_desc,Jmax=8,r0=4.1d0)
+           call this%tr(i)%build_descriptors(kind_desc,Jmax=8,r0=3.7d0)
           enddo
 
           close(13)          
@@ -330,7 +324,7 @@
           do i=1,this%npoints_te
            call this%te(i)%read_extended_xyz(IOid=13)
            read(14,*) this%te_val(i)
-           call this%te(i)%build_descriptors(kind_desc,Jmax=8,r0=4.1d0)
+           call this%te(i)%build_descriptors(kind_desc,Jmax=8,r0=3.7d0)
           enddo
 
           close(13)          
@@ -338,6 +332,34 @@
           
          return
          end subroutine read_sets
+
+         subroutine set_L2(this,L2val,L2id,L2)
+         use general_types_class
+         use random_numbers_class 
+         implicit none
+         class(chi2)                              :: this
+         integer                                  :: i,j
+         double precision, allocatable, optional  :: L2val(:)
+         integer, allocatable, optional           :: L2id(:)
+         double precision, optional               :: L2
+         
+          if(present(L2)) this%L2=.true.
+          if(present(L2id).and.present(L2val)) this%L2=.true.
+
+          if(present(L2))then
+           allocate(this%L2val(this%FF%nparams))
+           allocate(this%L2id(this%FF%nparams))
+           this%L2val=L2
+           do i=1,size(this%L2id)
+            this%L2id(i)=i
+           enddo
+          else if (this%L2) then                  
+           this%L2val=L2val
+           this%L2id=L2id
+          endif
+
+         return
+         end subroutine set_L2
 
          subroutine set_nets(this,nnets,types,ninp,topo)
          use general_types_class
@@ -439,7 +461,7 @@
          class(chi2)                    :: this
          double precision               :: val
          double precision, allocatable  :: vec(:),outs(:),inps(:),vec_loc(:),rij(:,:)
-         integer                        :: i,offset,npar
+         integer                        :: i,j,offset,npar
 
           val=0.0d0
 
@@ -453,7 +475,12 @@
 
           val=val/size(this%tr)
 
-          if(this%regular_L2) val=val+this%L2*norm2(vec)**2
+          if( this%L2 )then
+           do i=1,size(this%L2id)
+            val=val+this%L2val(i)*vec(this%L2id(i))**2
+           enddo
+          endif
+
 
           val=sqrt(val)
 
@@ -465,17 +492,17 @@
          class(chi2)                    :: this
          integer                        :: i,j,offset,npar
          double precision               :: val
-         double precision, allocatable  :: vec(:),vec_loc(:)
+         double precision, allocatable  :: vec(:),vec_loc(:),rij(:,:)
          double precision, allocatable  :: grad(:),grad_loc(:,:),grad2(:)
 
           val=0.0d0
           grad=0.0d0
-          
+         
           call this%FF%set_ff_params(vec)
 
           do i=1,size(this%tr)
-
-           call this%tr(i)%FF%get_ffgrad(this%tr(i)%at_desc,this%tr(i)%kind)
+           rij=this%tr(i)%dist(:,1,:,1)
+           call this%tr(i)%FF%get_ffgrad(this%tr(i)%at_desc,this%tr(i)%kind,rij)
 
            do j=1,size(grad)
             grad(j)=grad(j)-2.0d0*(this%tr_val(i)-this%tr(i)%FF%ener)*&
@@ -489,14 +516,16 @@
           grad=grad/size(this%tr_val)
           val=val/size(this%tr_val)
 
-          if(this%regular_L2)then
-           do j=1,size(grad)
-            grad(j)=grad(j)+2.0d0*this%L2*vec(j)
+          if(this%L2)then
+
+           do j=1,size(this%L2id)
+            val=val+this%L2val(j)*vec(this%L2id(j))**2
+            grad(this%L2id(j))=grad(this%L2id(j))&
+                +2.0e0*this%L2val(j)*vec(this%L2id(j))
            enddo
+
           endif
 
-          if(this%regular_L2) val=val+this%L2*norm2(vec)**2
- 
           val=sqrt(val)
 
          return
