@@ -136,7 +136,7 @@
           swarm%target_f => ff
           call swarm%init_swarm(nval=ff%FF%nparams,npar=25,min_val=vecmin,max_val=vecmax,fixval=fixval)
 !          call swarm%init_swarm(nval=ff%FF%nparams,npar=25) 
-          swarm%print_val=.true.
+!          swarm%print_val=.true.
           call swarm%minimize(max_iter=1000)        
           call swarm%get_best_val(vec)
           call swarm%release_target_f()
@@ -150,9 +150,9 @@
           grad%target_f => ff
           call grad%init(nval=ff%FF%nparams,vec=vec,loc_lr=loc_lr)
 !          call grad%init(nval=ff%FF%nparams)
-          grad%print_val=.true.
+!          grad%print_val=.true.
 !          grad%print_grad=.true.
-          grad%lr=1.0e-4
+          grad%lr=1.0e-5
           call grad%minimize(max_iter=50000,start_iter=25000)          
           call grad%release_target_f()
 
