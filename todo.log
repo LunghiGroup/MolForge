@@ -1,0 +1,23 @@
+	- Constraints
+	- MPI
+	- Training Set with vdW and electrostatic
+
+	- Implement Test Set in grad and swarm
+	- Generalize to tensors and covariancy
+	- Generalize to dipoles
+
+	- Optimize Bispectrum	  
+           - Implement Recursive definition of Hyper Spher
+	- Implement Bispectrum Derivatives
+
+	- Call external software
+ 	- Farming 
+
+	- Implement Calculation Forces
+ 	- Implement Velocity Verlet
+	- Implement Langevin
+	- Implement Active Learning
+
+	- Implement Nose Hoover Chain
+	- Implement Barostat
+	- Implement Metadynamics

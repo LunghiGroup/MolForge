@@ -1,0 +1,40 @@
+def_angmom.f90
+def_atoms.f90
+def_blacs.f90
+def_dist.f90
+def_exponential.f90
+def_general_types.f90
+def_hilbert_dist.f90
+def_lapack.f90
+def_lattice.f90
+def_lists.f90
+def_matrix.f90
+def_mpi.f90
+def_parser.f90
+def_phonons.f90
+603a604
+>           this%list(j)%freq=this%list(j)%freq*0.8d0
+1043,1044d1043
+< !            ph%hess(v1,v2)=ph%hess(v1,v2)+sys%fcs2(l,i1,s1,i2,s2)*&
+< !                                        0.5d0*(exp(CMPLX(0.0d0,2*pi*A,8))+exp(CMPLX(0.0d0,-2*pi*A,8)))
+1052a1052
+> 
+def_proj_disp.f90
+def_pulses.f90
+def_random_numbers.f90
+def_rotations.f90
+def_scalapack.f90
+111c111
+<          call pzlahqr('T','T',N,ILO,IHI,HC%mat,HC%desc,W,1,N,VR%mat,VR%desc,cwork,lwork,iwork,ilwork,info)
+---
+>          call pzlahqr(1,1,N,ILO,IHI,HC%mat,HC%desc,W,1,N,VR%mat,VR%desc,cwork,lwork,iwork,ilwork,info)
+285c285
+<          call pzlahqr('T','T',N,ILO,IHI,HC%mat,HC%desc,W,1,N,VR%mat,VR%desc,cwork,lwork,iwork,ilwork,info)
+---
+>          call pzlahqr(1,1,N,ILO,IHI,HC%mat,HC%desc,W,1,N,VR%mat,VR%desc,cwork,lwork,iwork,ilwork,info)
+def_sparse.f90
+def_spinham.f90
+def_spinphonon.f90
+def_spins_dist_rs.f90
+def_stevens.f90
+def_utils.f90
