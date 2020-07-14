@@ -141,6 +141,28 @@
 
           close(13)
 
+          if(this%FF%do_coul_ener)then
+
+           open(13,file='tr_charges.dat')
+
+           do i=1,size(this%tr)
+            call this%tr(i)%FF%get_charges(this%tr(i)%at_desc,this%tr(i)%kind)
+            write(13,*) this%tr(i)%FF%charge
+           enddo
+
+           close(13)
+
+           open(13,file='te_charges.dat')
+
+           do i=1,size(this%te)
+            call this%te(i)%FF%get_charges(this%te(i)%at_desc,this%te(i)%kind)
+            write(13,*) this%te(i)%FF%charge
+           enddo
+
+           close(13)
+
+          endif
+
          return
          end subroutine out_results
 

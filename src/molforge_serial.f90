@@ -35,7 +35,7 @@
           allocate(ff)
           allocate(ff%FF)          
           ff%FF%do_local_ener=.true.
-          ff%FF%do_coul_ener=.false.
+          ff%FF%do_coul_ener=.true.
           ff%FF%do_disp_ener=.false.
 
           input_file='input_datas'
@@ -106,11 +106,11 @@
            L2id(j)=i
            j=j+1
           enddo
-!          offset=ff%FF%local_nparams
-!          do i=1,ff%FF%coul_nparams
-!           L2id(j)=i+offset
-!           j=j+1
-!          enddo
+          offset=ff%FF%local_nparams
+          do i=1,ff%FF%coul_nparams
+           L2id(j)=i+offset
+           j=j+1
+          enddo
 
           call ff%set_L2(L2id=L2id,L2val=L2val)
 
@@ -128,10 +128,16 @@
           vecmax(112)=-23915.318176339031
           vecmin(56)=0.0d0
           vecmax(56)=0.0d0
+          vecmin(168)=0.0d0
+          vecmax(168)=0.0d0
+          vecmin(224)=0.0d0
+          vecmax(224)=0.0d0
           allocate(fixval(ff%FF%nparams))
           fixval=.false.
           fixval(56)=.true.
           fixval(112)=.true.          
+          fixval(168)=.true.          
+          fixval(224)=.true.          
 
           swarm%target_f => ff
           call swarm%init_swarm(nval=ff%FF%nparams,npar=25,min_val=vecmin,max_val=vecmax,fixval=fixval)
@@ -147,13 +153,15 @@
           loc_lr=1.0d0
           loc_lr(56)=0.0d0
           loc_lr(112)=0.0d0
+          loc_lr(168)=0.0d0
+          loc_lr(224)=0.0d0
           grad%target_f => ff
           call grad%init(nval=ff%FF%nparams,vec=vec,loc_lr=loc_lr)
-!          call grad%init(nval=ff%FF%nparams)
-!          grad%print_val=.true.
-!          grad%print_grad=.true.
+!!          call grad%init(nval=ff%FF%nparams)
+!!          grad%print_val=.true.
+!!          grad%print_grad=.true.
           grad%lr=1.0e-5
-          call grad%minimize(max_iter=50000,start_iter=25000)          
+          call grad%minimize(max_iter=10000,start_iter=25000)          
           call grad%release_target_f()
 
          ! Print Results

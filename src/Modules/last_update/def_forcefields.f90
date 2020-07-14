@@ -284,7 +284,7 @@
 
           do i=1,size(rij,1)
            do j=i+1,size(rij,2)
-            this%coul_ener=this%coul_ener+this%charge(i)*this%charge(j)/rij(i,j)
+            this%coul_ener=this%coul_ener+0.5d0*(erf(3.1d0)+1)*this%charge(i)*this%charge(j)/rij(i,j)
            enddo
           enddo       
 
@@ -325,7 +325,7 @@
              do j=1,size(at_desc)
               if(j.ne.at) this%coul_ffgrad(offset+1:offset+npar)=&
                           this%coul_ffgrad(offset+1:offset+npar)+grad_loc(:,1)*&
-                          this%charge(j)/rij(at,j)
+                          this%charge(j)/rij(at,j)*0.5d0*(erf(3.1d0)+1)
              enddo
             endif
            enddo
@@ -334,7 +334,7 @@
 
           do i=1,size(rij,1)
            do j=i+1,size(rij,2)
-            this%coul_ener=this%coul_ener+this%charge(i)*this%charge(j)/rij(i,j)
+            this%coul_ener=this%coul_ener+0.5d0*(erf(3.1d0)+1)*this%charge(i)*this%charge(j)/rij(i,j)
            enddo
           enddo       
 
