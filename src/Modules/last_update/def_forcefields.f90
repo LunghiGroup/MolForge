@@ -28,11 +28,15 @@
           logical                         ::  do_local_ener=.true.
           logical                         ::  do_coul_ener=.false.
           logical                         ::  do_disp_ener=.false.
+          logical                         ::  fit_local_ener=.true.
+          logical                         ::  fit_coul_ener=.false.
+          logical                         ::  fit_disp_ener=.false.
           double precision                ::  mean_out
           double precision                ::  sigma_out
           logical                         ::  norm_out=.false.
          contains
           procedure                       ::  set_ff_params
+          procedure                       ::  update_ff_params
           procedure                       ::  get_charges
           procedure                       ::  get_C6
           procedure                       ::  get_ener 
@@ -46,6 +50,50 @@
          end type force_field
 
         contains
+
+         subroutine update_ff_params(this,vec)
+         implicit none
+         class(force_field)               :: this
+         double precision, allocatable    :: vec(:),vec_loc(:)
+         integer                          :: offset,i,npar
+                 
+          offset=0
+
+          if(this%fit_local_ener)then 
+           do i=1,this%nnets
+            npar=this%NN(i)%nparams
+            if(allocated(vec_loc)) deallocate(vec_loc)
+            vec_loc=vec(offset+1:offset+npar)
+            call this%NN(i)%set_parameters(vec_loc)
+            offset=offset+npar
+           enddo
+           if(allocated(vec_loc)) deallocate(vec_loc)
+          endif
+
+          if(this%fit_coul_ener)then 
+           do i=1,this%nnets
+            npar=this%NN_charge(i)%nparams
+            if(allocated(vec_loc)) deallocate(vec_loc)
+            vec_loc=vec(offset+1:offset+npar)
+            call this%NN_charge(i)%set_parameters(vec_loc)
+            offset=offset+npar
+           enddo
+           if(allocated(vec_loc)) deallocate(vec_loc)
+          endif
+
+          if(this%fit_disp_ener)then 
+           do i=1,this%nnets
+            npar=this%NN_C6(i)%nparams
+            if(allocated(vec_loc)) deallocate(vec_loc)
+            vec_loc=vec(offset+1:offset+npar)
+            call this%NN_C6(i)%set_parameters(vec_loc)
+            offset=offset+npar
+           enddo
+           if(allocated(vec_loc)) deallocate(vec_loc)
+          endif
+
+         return
+         end subroutine update_ff_params
 
          subroutine set_ff_params(this,vec)
          implicit none

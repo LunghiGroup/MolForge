@@ -2211,7 +2211,7 @@
              do l=1,size_block
               i=this%kblc(kpt)+l 
               call pzelset(this%rho%mat,i,i,this%rho%desc, &
-                       exp(-this%Ener(kpt)%v(l)/(temp*kboltz)))
+                       cmplx(exp(-this%Ener(kpt)%v(l)/(temp*kboltz)),0.0d0,8))
              enddo
             enddo
 
@@ -5149,7 +5149,7 @@
           if( pulse(i)%dx .and. (.not. pulse(i)%sx) )then
 
            call pzgemm('N','C',this%Hdim,this%Hdim,this%Hdim,&
-                        (1.0d0,0.0d0),this%rho,1,1,this%rho%desc,pulse(i)%rot%mat,1,1,pulse(i)%rot%desc,&
+                        (1.0d0,0.0d0),this%rho%mat,1,1,this%rho%desc,pulse(i)%rot%mat,1,1,pulse(i)%rot%desc,&
                         (0.0d0,0.0d0),AA%mat,1,1,AA%desc) 
 
           endif
