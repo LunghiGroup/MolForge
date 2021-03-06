@@ -210,15 +210,22 @@
         use lists_class
         use sparse_class
         implicit none
-        class(atoms_group)           :: this
-        integer                      :: i,j,celli,cellj,v1,v2,v,N
-        integer, allocatable         :: mapp(:),blc(:)
-        type(csr_mat_int)            :: CN
-        type(list)                   :: AI,AJ,Aval
+        class(atoms_group)            :: this
+        integer                       :: i,j,celli,cellj,v1,v2,v,N,jj,l
+        logical, allocatable          :: check(:)
+        integer, allocatable          :: mapp(:),blc(:),NearNeigh(:),new_kind(:)
+        double precision              :: diff,a(3),b(3),c(3)
+        double precision, allocatable :: new_geo(:,:)
+        type(csr_mat_int)             :: CN
+        type(list)                    :: AI,AJ,Aval
+        logical                       :: print_flag
 
          if(.not.allocated(this%dist)) call this%dist_ij()
 
-         N=this%nats*this%ntot
+         N=this%ntot*this%nats
+
+         allocate(NearNeigh(N))
+         NearNeigh=0
 
          allocate(CN%AI(N+1))
          CN%AI(1)=0
@@ -229,14 +236,20 @@
          do v1=1,this%nats
          do celli=1,this%ntot
           i=(celli-1)*this%nats+v1
+
           CN%AI(i+1)=CN%AI(i)
 
           do v2=1,this%nats
           do cellj=1,this%ntot
            j=(cellj-1)*this%nats+v2
-           
-           if(this%dist(v1,celli,v2,cellj).lt.2.3d0 )then
-            CN%AI(i+1)=CN%AI(i+1)+1  
+
+           if(j.eq.i)cycle
+           diff=0.0d0
+           if( this%label(this%kind(v1)).eq.'H' ) diff=diff+0.5d0
+           if( this%label(this%kind(v2)).eq.'H' ) diff=diff+0.5d0
+           if(this%dist(v1,celli,v2,cellj).lt.2.5d0-diff)then
+            CN%AI(i+1)=CN%AI(i+1)+1
+            NearNeigh(i)=NearNeigh(i)+1
             call AJ%add_node(j)
             call Aval%add_node(1)
            endif
@@ -248,37 +261,141 @@
 
          call AJ%reboot()
          call Aval%reboot()
-
+         CN%nzel=AJ%nelem
          allocate(CN%AJ(AJ%nelem))
          allocate(CN%A(AJ%nelem))
 
-         do i=1,AJ%nelem         
-          call AJ%rd_val(CN%AJ(i)) 
-          call Aval%rd_val(CN%A(i)) 
+         do i=1,AJ%nelem
+          call AJ%rd_val(CN%AJ(i))
+          call Aval%rd_val(CN%A(i))
           call AJ%skip()
           call Aval%skip()
          enddo
 
          call AJ%delete()
-         call Aval%delete() 
+         call Aval%delete()
 
-         call CN%do_coord()
-         call CN%block(mapp,blc)
+         call CN%block(blc,mapp)
 
+         allocate(new_geo(this%nats,3))
+         allocate(new_kind(this%nats))
          if(allocated(this%molid))deallocate(this%molid)
          allocate(this%molid(this%nats))
 
          v=1
          do j=1,size(blc)-1
           do i=1+blc(j),blc(j+1)
+           new_geo(v,:)=this%x(mapp(i),:)
+           new_kind(v)=this%kind(mapp(i))
            this%molid(v)=j
            v=v+1
           enddo
          enddo
 
+         this%x=new_geo
+         this%kind=new_kind
+         call this%cart2frac()
+
+         do jj=1,size(blc)-1
+          j=1+blc(jj)
+          do i=2+blc(jj),blc(jj+1)
+           a=this%x(j,:)
+           b=this%x(i,:)
+           c(1)=a(1)-b(1)
+           c(1)=nint(c(1)/dble(this%nx))*this%nx
+           c(2)=a(2)-b(2)
+           c(2)=nint(c(2)/dble(this%ny))*this%ny
+           c(3)=a(3)-b(3)
+           c(3)=nint(c(3)/dble(this%nz))*this%nz
+           this%x(i,:)=this%x(i,:)+c(:)
+          enddo
+         enddo
+
+         call this%frac2cart()
+
+         write(*,*) this%nats
+         write(*,*)
+         do j=1,size(blc)-1
+          do i=1+blc(j),blc(j+1)
+           write(*,"(a2,2x,3(f10.6,2x))") this%label(this%kind(i)),this%x(i,:)
+          enddo
+         enddo
 
         return
         end subroutine find_mols
+
+!        subroutine find_mols(this)
+!        use lists_class
+!        use sparse_class
+!        implicit none
+!        class(atoms_group)           :: this
+!        integer                      :: i,j,celli,cellj,v1,v2,v,N
+!        integer, allocatable         :: mapp(:),blc(:)
+!        type(csr_mat_int)            :: CN
+!        type(list)                   :: AI,AJ,Aval
+
+!         if(.not.allocated(this%dist)) call this%dist_ij()
+
+!         N=this%nats*this%ntot
+
+!         allocate(CN%AI(N+1))
+!         CN%AI(1)=0
+
+!         call AJ%init()
+!         call Aval%init()
+
+!         do v1=1,this%nats
+!         do celli=1,this%ntot
+!          i=(celli-1)*this%nats+v1
+!          CN%AI(i+1)=CN%AI(i)
+!
+!          do v2=1,this%nats
+!          do cellj=1,this%ntot
+!           j=(cellj-1)*this%nats+v2
+           
+!           if(this%dist(v1,celli,v2,cellj).lt.2.3d0 )then
+!            CN%AI(i+1)=CN%AI(i+1)+1  
+!            call AJ%add_node(j)
+!            call Aval%add_node(1)
+!           endif
+
+!          enddo
+!          enddo
+!         enddo
+!         enddo
+
+!         call AJ%reboot()
+!         call Aval%reboot()
+
+!         allocate(CN%AJ(AJ%nelem))
+!         allocate(CN%A(AJ%nelem))
+
+!         do i=1,AJ%nelem         
+!          call AJ%rd_val(CN%AJ(i)) 
+!          call Aval%rd_val(CN%A(i)) 
+!          call AJ%skip()
+!          call Aval%skip()
+!         enddo
+
+!         call AJ%delete()
+!         call Aval%delete() 
+
+!         call CN%do_coord()
+!         call CN%block(mapp,blc)
+
+!         if(allocated(this%molid))deallocate(this%molid)
+!         allocate(this%molid(this%nats))
+
+!         v=1
+!         do j=1,size(blc)-1
+!          do i=1+blc(j),blc(j+1)
+!           this%molid(v)=j
+!           v=v+1
+!          enddo
+!         enddo
+
+!        return
+!        end subroutine find_mols
 
         subroutine dist_ij(this)
         implicit none

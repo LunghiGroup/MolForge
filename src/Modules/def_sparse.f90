@@ -785,7 +785,7 @@
         enddo ! ciclo su graphs
        
 
-        deallocate(A%AC)
+        if( allocated(A%AC)) deallocate(A%AC)
         call r%delete()
         call r2%delete()
         call queue%delete()
