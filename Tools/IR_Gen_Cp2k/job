@@ -1,0 +1,39 @@
+#!/bin/sh
+#SBATCH -n 256         # 16 cores
+#SBATCH -t 00-24:00:00 # 1 day and 3 hours
+#SBATCH -p compute     # partition name
+#SBATCH -J GNTNit_XXX      # sensible name for the job
+
+# [optional] specify a project name - it will use your default
+# (i.e. your most recent project) if you leave this blank
+#####SBATCH -U HPC_12_12345 # optional project name
+
+# load up the correct modules, if required
+. /etc/profile.d/modules.sh
+
+module load apps libs cports
+module load gcc/6.4.0-gnu
+module load openmpi/2.1.1-gnu6.4.0
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/support/apps/intel/15.0.6/composer_xe_2015.6.233/mkl/lib/intel64
+
+export EXE_DIR=/home/users/lunghia/Sources/cp2k-5.1/exe/Linux-x86-64-gfortran
+export EXE=cp2k.popt
+
+export INP_DIR=/home/users/lunghia/Nanoribbon/IR_3x/XXX
+export OUT_DIR=/home/users/lunghia/Nanoribbon/IR_3x/XXX
+
+cd ${INP_DIR}
+
+for i in {1..6}
+do
+
+ export INP=GNR_Nit_3x_IR_XXX_${i}.inp
+ export OUT=GNR_Nit_3x_IR_XXX_${i}.out
+
+# launch the code
+ mpirun -n 256 $EXE_DIR/$EXE -i $INP_DIR/$INP -o $OUT_DIR/$OUT
+ rm $OUT_DIR/*wfn*
+ 
+done
+
