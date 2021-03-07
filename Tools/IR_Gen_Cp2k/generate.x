@@ -12,8 +12,7 @@ mkdir -p ${WORK_DIR}
 
 ################### Generate job files in WORK_DIR/
 
-export nats=$(  head -n 1 ${data_file}.xyz )
-export totjobs=$(( ${nats}/${numperjob} ))
+export totjobs=$(( ${nats_unit}/${numperjob} ))
 
 echo Total number of jobs: ${totjobs}
 
@@ -61,9 +60,6 @@ endmsg2
  done
 
 done
-
-exit
-
 
 ################### Generate inpute_files and distortions in WORK_DIR/XXX
 
