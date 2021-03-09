@@ -220,13 +220,10 @@
         type(csr_mat_int)             :: CN
         type(list)                    :: AI,AJ,Aval
         logical                       :: print_flag
-
-!        class(csr_mat)         :: A
-!        integer, allocatable   :: mapp(:),blc(:)
-        type(list)             :: r,r2,queue
-        integer                :: dim_block,pos
-        integer                :: k,m,x
-        class(*), pointer      :: arrow
+        type(list)                    :: r,r2,queue
+        integer                       :: dim_block,pos
+        integer                       :: k,m,x
+        class(*), pointer             :: arrow
 
          call this%dist_ij()
 
@@ -285,140 +282,128 @@
          call AJ%delete()
          call Aval%delete()
 
-!         call CN%block(blc,mapp)
+         call this%cart2frac()
 
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                  
-        call this%cart2frac()
-
-        call r%init()      ! elementi del blocco
-        call r2%init()     ! dimensione blocco
-        call queue%init()  
+         call r%init()      ! elementi del blocco
+         call r2%init()     ! dimensione blocco
+         call queue%init()  
                    
-        N=size(CN%AI)-1
-        allocate(check(N))
-        check=.false.
+         N=size(CN%AI)-1
+         allocate(check(N))
+         check=.false.
        
         ! k scorre su gli elementi non nulli
 
-        k=1
+         k=1
 
-        do while ( .not. all(check) .or. k.le.N  )      
+         do while ( .not. all(check) .or. k.le.N  )      
         
-        if( check(k) ) then
+          if( check(k) ) then
 
-         k=k+1
+           k=k+1
 
-        else
+          else
 
-        check(k)=.true.
-        call queue%add_node(k)
-        call r%add_node(k)
-        dim_block=1
-                                
-        do while ( queue%nelem .gt. 0  ) 
+           check(k)=.true.
+           call queue%add_node(k)
+           call r%add_node(k)
+           dim_block=1
+                                 
+           do while ( queue%nelem .gt. 0  ) 
 
 !        prendi il primo in lista e cerca i vicini
 
-        select type (arrow=>queue%head%key) 
-         type is (integer)
-         v=arrow
-        end select
+            select type (arrow=>queue%head%key) 
+            type is (integer)
+             v=arrow
+            end select
  
-        do i=1,CN%AI(v+1)-CN%AI(v)
+            do i=1,CN%AI(v+1)-CN%AI(v)
 
-         pos=CN%AJ(i+CN%AI(v))
+             pos=CN%AJ(i+CN%AI(v))
                 
-         if(check(pos))then
+             if(check(pos))then
 
-         else
-          check(pos)=.true.
-          call queue%add_node(pos)
-          call r%add_node(pos)
-          dim_block=dim_block+1          
+             else
+              check(pos)=.true.
+              call queue%add_node(pos)
+              call r%add_node(pos)
+              dim_block=dim_block+1          
 
+              a=this%x(v,:)
+              b=this%x(pos,:)
+              c(1)=a(1)-b(1)
+              c(2)=a(2)-b(2)
+              c(3)=a(3)-b(3)
+              c(1)=nint(c(1)/dble(this%nx))*this%nx
+              c(2)=nint(c(2)/dble(this%ny))*this%ny
+              c(3)=nint(c(3)/dble(this%nz))*this%nz
+              this%x(pos,:)=this%x(pos,:)+c(:)
 
-          a=this%x(v,:)
-          b=this%x(pos,:)
-          c(1)=a(1)-b(1)
-          c(2)=a(2)-b(2)
-          c(3)=a(3)-b(3)
-          c(1)=nint(c(1)/dble(this%nx))*this%nx
-          c(2)=nint(c(2)/dble(this%ny))*this%ny
-          c(3)=nint(c(3)/dble(this%nz))*this%nz
-          this%x(pos,:)=this%x(pos,:)+c(:)
+             endif
+            enddo
 
-         endif
+            call queue%rm
+           enddo ! while queue .ne. 0
 
-        enddo
-
-        call queue%rm
-        enddo ! while queue .ne. 0
-
-        k=k+1
+           k=k+1
         
-        call r2%add_node(dim_block)
+           call r2%add_node(dim_block)
 
-        endif
-
-        enddo ! while check
+          endif
+         enddo ! while check
 
 !!!     compatta liste e crea matrice permutazioni e determina
 !!!     dimensioni blocchi
 
-        check=.true.
+         check=.true.
 
-        allocate(mapp(N))
-        allocate(blc(r2%nelem+1))
+         allocate(mapp(N))
+         allocate(blc(r2%nelem+1))
 
-        blc(1)=0
+         blc(1)=0
 
-        call r2%reboot
-        call r%reboot       
+         call r2%reboot
+         call r%reboot       
 
-        m=1
+         m=1
 
-        do v=1,r2%nelem
+         do v=1,r2%nelem
   
-         blc(v+1)=blc(v)
+          blc(v+1)=blc(v)
 
-         select type (arrow=>r2%node%key)
+          select type (arrow=>r2%node%key)
           type is (integer)
            l=arrow
-         end select
-
-         call r2%skip        
-
-         do k=1,l
-                         
-          select type (arrow=>r%node%key)
-           type is (integer)
-            x=arrow
           end select
 
-          call r%skip 
+          call r2%skip        
 
-          if ( check(x) ) then
+          do k=1,l
+                         
+           select type (arrow=>r%node%key)
+           type is (integer)
+            x=arrow
+           end select
+
+           call r%skip 
+
+           if ( check(x) ) then
             mapp(m)=x
             check(x)=.false.
             m=m+1
             blc(v+1)=blc(v+1)+1
-          endif
+           endif
 
-         enddo ! ciclo su blocco
-
-        enddo ! ciclo su graphs
+          enddo ! ciclo su blocco
+         enddo ! ciclo su graphs
        
-        if( allocated(CN%AC)) deallocate(CN%AC)
-        call r%delete()
-        call r2%delete()
-        call queue%delete()
+         if( allocated(CN%AC)) deallocate(CN%AC)
+         call r%delete()
+         call r2%delete()
+         call queue%delete()
 
-        call this%frac2cart()
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         call this%frac2cart()
 
          allocate(new_geo(this%nats,3))
          allocate(new_kind(this%nats))
@@ -439,27 +424,6 @@
          this%kind=new_kind
          call this%dist_ij()
 
-!         call this%cart2frac()
-
-!         do jj=1,size(blc)-1
-!          write(*,*) '##### Mol:',jj,'ATOM0:',j
-!          j=1+blc(jj)
-!          a=this%x(j,:)
-!          do i=2+blc(jj),blc(jj+1)
-!           b=this%x(i,:)
-!           c(1)=a(1)-b(1)
-!           c(2)=a(2)-b(2)
-!           c(3)=a(3)-b(3)
-!           c(1)=nint(c(1)/dble(this%nx))*this%nx
-!           c(2)=nint(c(2)/dble(this%ny))*this%ny
-!           c(3)=nint(c(3)/dble(this%nz))*this%nz
-!           write(*,*) 'Mol:',jj,'ATOM:',i,this%dist(i,1,j,1)
-!           this%x(i,:)=this%x(i,:)+c(:)
-!          enddo
-!         enddo
-
-!         call this%frac2cart()
-
          write(*,*) this%nats
          write(*,*)
          do j=1,size(blc)-1
@@ -470,79 +434,6 @@
 
         return
         end subroutine find_mols
-
-!        subroutine find_mols(this)
-!        use lists_class
-!        use sparse_class
-!        implicit none
-!        class(atoms_group)           :: this
-!        integer                      :: i,j,celli,cellj,v1,v2,v,N
-!        integer, allocatable         :: mapp(:),blc(:)
-!        type(csr_mat_int)            :: CN
-!        type(list)                   :: AI,AJ,Aval
-
-!         if(.not.allocated(this%dist)) call this%dist_ij()
-
-!         N=this%nats*this%ntot
-
-!         allocate(CN%AI(N+1))
-!         CN%AI(1)=0
-
-!         call AJ%init()
-!         call Aval%init()
-
-!         do v1=1,this%nats
-!         do celli=1,this%ntot
-!          i=(celli-1)*this%nats+v1
-!          CN%AI(i+1)=CN%AI(i)
-!
-!          do v2=1,this%nats
-!          do cellj=1,this%ntot
-!           j=(cellj-1)*this%nats+v2
-           
-!           if(this%dist(v1,celli,v2,cellj).lt.2.3d0 )then
-!            CN%AI(i+1)=CN%AI(i+1)+1  
-!            call AJ%add_node(j)
-!            call Aval%add_node(1)
-!           endif
-
-!          enddo
-!          enddo
-!         enddo
-!         enddo
-
-!         call AJ%reboot()
-!         call Aval%reboot()
-
-!         allocate(CN%AJ(AJ%nelem))
-!         allocate(CN%A(AJ%nelem))
-
-!         do i=1,AJ%nelem         
-!          call AJ%rd_val(CN%AJ(i)) 
-!          call Aval%rd_val(CN%A(i)) 
-!          call AJ%skip()
-!          call Aval%skip()
-!         enddo
-
-!         call AJ%delete()
-!         call Aval%delete() 
-
-!         call CN%do_coord()
-!         call CN%block(mapp,blc)
-
-!         if(allocated(this%molid))deallocate(this%molid)
-!         allocate(this%molid(this%nats))
-
-!         v=1
-!         do j=1,size(blc)-1
-!          do i=1+blc(j),blc(j+1)
-!           this%molid(v)=j
-!           v=v+1
-!          enddo
-!         enddo
-
-!        return
-!        end subroutine find_mols
 
         subroutine dist_ij(this)
         implicit none
