@@ -42,6 +42,7 @@
          procedure        :: atoms_bcast
          procedure        :: dist_ij
          procedure        :: find_mols
+         procedure        :: wrap_geo
          procedure        :: cart2frac
          procedure        :: frac2cart
          procedure        :: init_fcs2
@@ -214,13 +215,20 @@
         integer                       :: i,j,celli,cellj,v1,v2,v,N,jj,l
         logical, allocatable          :: check(:)
         integer, allocatable          :: mapp(:),blc(:),NearNeigh(:),new_kind(:)
-        double precision              :: diff,a(3),b(3),c(3)
+        double precision              :: diff,a(3),b(3),c(3),c2(3)
         double precision, allocatable :: new_geo(:,:)
         type(csr_mat_int)             :: CN
         type(list)                    :: AI,AJ,Aval
         logical                       :: print_flag
 
-         if(.not.allocated(this%dist)) call this%dist_ij()
+!        class(csr_mat)         :: A
+!        integer, allocatable   :: mapp(:),blc(:)
+        type(list)             :: r,r2,queue
+        integer                :: dim_block,pos
+        integer                :: k,m,x
+        class(*), pointer      :: arrow
+
+         call this%dist_ij()
 
          N=this%ntot*this%nats
 
@@ -247,7 +255,9 @@
            diff=0.0d0
            if( this%label(this%kind(v1)).eq.'H' ) diff=diff+0.5d0
            if( this%label(this%kind(v2)).eq.'H' ) diff=diff+0.5d0
-           if(this%dist(v1,celli,v2,cellj).lt.2.6d0-diff)then
+           if( this%label(this%kind(v1)).eq.'Dy' ) diff=diff-0.7d0
+           if( this%label(this%kind(v2)).eq.'Dy' ) diff=diff-0.7d0
+           if(this%dist(v1,celli,v2,cellj).lt.2.1d0-diff)then
             CN%AI(i+1)=CN%AI(i+1)+1
             NearNeigh(i)=NearNeigh(i)+1
             call AJ%add_node(j)
@@ -275,7 +285,140 @@
          call AJ%delete()
          call Aval%delete()
 
-         call CN%block(blc,mapp)
+!         call CN%block(blc,mapp)
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                  
+        call this%cart2frac()
+
+        call r%init()      ! elementi del blocco
+        call r2%init()     ! dimensione blocco
+        call queue%init()  
+                   
+        N=size(CN%AI)-1
+        allocate(check(N))
+        check=.false.
+       
+        ! k scorre su gli elementi non nulli
+
+        k=1
+
+        do while ( .not. all(check) .or. k.le.N  )      
+        
+        if( check(k) ) then
+
+         k=k+1
+
+        else
+
+        check(k)=.true.
+        call queue%add_node(k)
+        call r%add_node(k)
+        dim_block=1
+                                
+        do while ( queue%nelem .gt. 0  ) 
+
+!        prendi il primo in lista e cerca i vicini
+
+        select type (arrow=>queue%head%key) 
+         type is (integer)
+         v=arrow
+        end select
+ 
+        do i=1,CN%AI(v+1)-CN%AI(v)
+
+         pos=CN%AJ(i+CN%AI(v))
+                
+         if(check(pos))then
+
+         else
+          check(pos)=.true.
+          call queue%add_node(pos)
+          call r%add_node(pos)
+          dim_block=dim_block+1          
+
+
+          a=this%x(v,:)
+          b=this%x(pos,:)
+          c(1)=a(1)-b(1)
+          c(2)=a(2)-b(2)
+          c(3)=a(3)-b(3)
+          c(1)=nint(c(1)/dble(this%nx))*this%nx
+          c(2)=nint(c(2)/dble(this%ny))*this%ny
+          c(3)=nint(c(3)/dble(this%nz))*this%nz
+          this%x(pos,:)=this%x(pos,:)+c(:)
+
+         endif
+
+        enddo
+
+        call queue%rm
+        enddo ! while queue .ne. 0
+
+        k=k+1
+        
+        call r2%add_node(dim_block)
+
+        endif
+
+        enddo ! while check
+
+!!!     compatta liste e crea matrice permutazioni e determina
+!!!     dimensioni blocchi
+
+        check=.true.
+
+        allocate(mapp(N))
+        allocate(blc(r2%nelem+1))
+
+        blc(1)=0
+
+        call r2%reboot
+        call r%reboot       
+
+        m=1
+
+        do v=1,r2%nelem
+  
+         blc(v+1)=blc(v)
+
+         select type (arrow=>r2%node%key)
+          type is (integer)
+           l=arrow
+         end select
+
+         call r2%skip        
+
+         do k=1,l
+                         
+          select type (arrow=>r%node%key)
+           type is (integer)
+            x=arrow
+          end select
+
+          call r%skip 
+
+          if ( check(x) ) then
+            mapp(m)=x
+            check(x)=.false.
+            m=m+1
+            blc(v+1)=blc(v+1)+1
+          endif
+
+         enddo ! ciclo su blocco
+
+        enddo ! ciclo su graphs
+       
+        if( allocated(CN%AC)) deallocate(CN%AC)
+        call r%delete()
+        call r2%delete()
+        call queue%delete()
+
+        call this%frac2cart()
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
          allocate(new_geo(this%nats,3))
          allocate(new_kind(this%nats))
@@ -294,24 +437,28 @@
 
          this%x=new_geo
          this%kind=new_kind
-         call this%cart2frac()
+         call this%dist_ij()
 
-         do jj=1,size(blc)-1
-          j=1+blc(jj)
-          do i=2+blc(jj),blc(jj+1)
-           a=this%x(j,:)
-           b=this%x(i,:)
-           c(1)=a(1)-b(1)
-           c(1)=nint(c(1)/dble(this%nx))*this%nx
-           c(2)=a(2)-b(2)
-           c(2)=nint(c(2)/dble(this%ny))*this%ny
-           c(3)=a(3)-b(3)
-           c(3)=nint(c(3)/dble(this%nz))*this%nz
-           this%x(i,:)=this%x(i,:)+c(:)
-          enddo
-         enddo
+!         call this%cart2frac()
 
-         call this%frac2cart()
+!         do jj=1,size(blc)-1
+!          write(*,*) '##### Mol:',jj,'ATOM0:',j
+!          j=1+blc(jj)
+!          a=this%x(j,:)
+!          do i=2+blc(jj),blc(jj+1)
+!           b=this%x(i,:)
+!           c(1)=a(1)-b(1)
+!           c(2)=a(2)-b(2)
+!           c(3)=a(3)-b(3)
+!           c(1)=nint(c(1)/dble(this%nx))*this%nx
+!           c(2)=nint(c(2)/dble(this%ny))*this%ny
+!           c(3)=nint(c(3)/dble(this%nz))*this%nz
+!           write(*,*) 'Mol:',jj,'ATOM:',i,this%dist(i,1,j,1)
+!           this%x(i,:)=this%x(i,:)+c(:)
+!          enddo
+!         enddo
+
+!         call this%frac2cart()
 
          write(*,*) this%nats
          write(*,*)
@@ -403,9 +550,10 @@
         integer                 :: i,j,celli,cellj,v1,v2,v
         double precision        :: c(3),a(3),b(3)
 
-         call this%cart2frac()
+         if(allocated(this%dist)) deallocate(this%dist)
          allocate(this%dist(this%nats,this%ntot,this%nats,this%ntot))
 
+         call this%cart2frac()
          do i=1,this%nats
           do j=1,this%nats
            do celli=1,this%ntot
