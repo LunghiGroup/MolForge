@@ -441,14 +441,6 @@
          this%kind=new_kind
          call this%dist_ij()
 
-         write(*,*) this%nats
-         write(*,*)
-         do j=1,size(blc)-1
-          do i=1+blc(j),blc(j+1)
-           write(*,"(a2,2x,3(f10.6,2x))") this%label(this%kind(i)),this%x(i,:)
-          enddo
-         enddo
-
         return
         end subroutine find_mols
 
