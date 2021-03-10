@@ -60,7 +60,7 @@
          open(10,file=inp_file)
 
          do ii=1,frames
-          
+                    
           cell=0.0d0
           read(11,*) cell(1,1),cell(1,2),cell(1,3)
           read(11,*) cell(2,1),cell(2,2),cell(2,3)
@@ -76,10 +76,9 @@
           read(10,*) sys%nats
           read(10,*)
 
-          if(ii.eq.1)then
-           allocate(sys%x(sys%nats,3))
-           allocate(label(sys%nats))
-          endif
+          allocate(sys%x(sys%nats,3))
+          if(allocated(label)) deallocate(label)
+          allocate(label(sys%nats))
 
           do i=1,sys%nats
            read(10,*) label(i),sys%x(i,:)
@@ -87,7 +86,6 @@
 
           if (ii.gt.skip .and. (ii.eq.(skip+1) .or. mod(ii+skip,step).eq.0))then      
 
-          if(ii.eq.1)then
            allocate(sys%kind(sys%nats))
            sys%kind(1)=1
            sys%nkinds=1
@@ -103,6 +101,7 @@
              endif
 
             enddo
+
             if(new_type)then
              sys%nkinds=sys%nkinds+1
              sys%kind(i)=sys%nkinds
@@ -137,12 +136,12 @@
             if(trim(sys%label(i)).eq.'O') sys%mass(i)=15.999899864196777
            enddo
 
-          endif
-
-          if(centre_atom) call sys%wrap_geo(centre_atom_id)
-          call sys%find_mols()
+           if(centre_atom) call sys%wrap_geo(centre_atom_id)
+           call sys%find_mols()
 
           endif
+        
+          call sys%delete()
 
          enddo ! frames
 

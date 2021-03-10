@@ -33,6 +33,7 @@
          type(descriptor), pointer       :: at_desc(:)
          type(force_field), pointer      :: FF
          contains
+         procedure        :: delete => delete_atoms_group
          procedure        :: build_descriptors
          procedure        :: build_neighbour_list
          procedure        :: read_restart_file
@@ -50,6 +51,22 @@
         end type atoms_group
 
         contains
+
+        subroutine delete_atoms_group(this)
+        implicit none
+        class(atoms_group)               :: this
+ 
+         if(associated(this%kind)) deallocate(this%kind)
+         this%kind=>null()
+         if(allocated(this%x)) deallocate(this%x)
+         if(allocated(this%v)) deallocate(this%v)
+         if(allocated(this%mass)) deallocate(this%mass)
+         if(allocated(this%charge)) deallocate(this%charge)
+         if(allocated(this%dist)) deallocate(this%dist)
+         if(allocated(this%label)) deallocate(this%label)
+
+        return
+        end subroutine delete_atoms_group
 
         subroutine build_neighbour_list(this,cutoff)
         use lists_class
