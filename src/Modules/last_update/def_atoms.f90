@@ -224,7 +224,7 @@
         return
         end subroutine wrap_geo
 
-        subroutine find_mols(this)
+        subroutine find_mols(this,reorder,remap)
         use lists_class
         use sparse_class
         implicit none
@@ -236,7 +236,7 @@
         double precision, allocatable :: new_geo(:,:)
         type(csr_mat_int)             :: CN
         type(list)                    :: AI,AJ,Aval
-        logical                       :: print_flag
+        logical                       :: print_flag,reorder,remap
         type(list)                    :: r,r2,queue
         integer                       :: dim_block,pos
         integer                       :: k,m,x
@@ -347,15 +347,17 @@
               call r%add_node(pos)
               dim_block=dim_block+1          
 
-              a=this%x(v,:)
-              b=this%x(pos,:)
-              c(1)=a(1)-b(1)
-              c(2)=a(2)-b(2)
-              c(3)=a(3)-b(3)
-              c(1)=nint(c(1)/dble(this%nx))*this%nx
-              c(2)=nint(c(2)/dble(this%ny))*this%ny
-              c(3)=nint(c(3)/dble(this%nz))*this%nz
-              this%x(pos,:)=this%x(pos,:)+c(:)
+              if( remap )then
+               a=this%x(v,:)
+               b=this%x(pos,:)
+               c(1)=a(1)-b(1)
+               c(2)=a(2)-b(2)
+               c(3)=a(3)-b(3)
+               c(1)=nint(c(1)/dble(this%nx))*this%nx
+               c(2)=nint(c(2)/dble(this%ny))*this%ny
+               c(3)=nint(c(3)/dble(this%nz))*this%nz
+               this%x(pos,:)=this%x(pos,:)+c(:)
+              endif
 
              endif
             enddo
@@ -422,24 +424,29 @@
 
          call this%frac2cart()
 
-         allocate(new_geo(this%nats,3))
-         allocate(new_kind(this%nats))
-         if(allocated(this%molid))deallocate(this%molid)
-         allocate(this%molid(this%nats))
 
-         v=1
-         do j=1,size(blc)-1
-          do i=1+blc(j),blc(j+1)
-           new_geo(v,:)=this%x(mapp(i),:)
-           new_kind(v)=this%kind(mapp(i))
-           this%molid(v)=j
-           v=v+1
+         if ( reorder ) then
+
+          allocate(new_geo(this%nats,3))
+          allocate(new_kind(this%nats))
+          if(allocated(this%molid))deallocate(this%molid)
+          allocate(this%molid(this%nats))
+
+          v=1
+          do j=1,size(blc)-1
+           do i=1+blc(j),blc(j+1)
+            new_geo(v,:)=this%x(mapp(i),:)
+            new_kind(v)=this%kind(mapp(i))
+            this%molid(v)=j
+            v=v+1
+           enddo
           enddo
-         enddo
 
-         this%x=new_geo
-         this%kind=new_kind
-         call this%dist_ij()
+          this%x=new_geo
+          this%kind=new_kind
+          call this%dist_ij()
+
+         endif
 
         return
         end subroutine find_mols

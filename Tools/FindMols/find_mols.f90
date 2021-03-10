@@ -4,7 +4,7 @@
         use atoms_class
         implicit none
         integer                        :: i,j,frames=1,ii,step=1,skip=0,centre_atom_id=1
-        logical                        :: new_type,centre_atom=.false.,remap_mols=.false.
+        logical                        :: new_type,centre_atom=.false.,remap_mols=.false.,reorder_mols=.false.
         double precision               :: cell(3,3)
         character(len=100)             :: word,inp_file,cell_file
         character(len=10), allocatable :: label(:)
@@ -21,7 +21,8 @@
           write(*,*) '-frames       : Number of frames in the xyz file'
           write(*,*) '-step         : Sampling Frequency from xyz file'
           write(*,*) '-skip_steps   : Skip N steps before Sampling the xyz file'
-          write(*,*) '-remap_mols   : Find Molecules, remap them around pbc, and order list '
+          write(*,*) '-remap_mols   : Find Molecules and remap them around pbc'
+          write(*,*) '-reorder_mols : Find Molecules and order list '
           write(*,*) '-centre       : Set the centre of the cell around one atom'
           call MPI_FINALIZE(err)
           stop
@@ -50,6 +51,9 @@
 
              case ('-remap_mols') 
                  remap_mols=.true.
+
+             case ('-reorder_mols') 
+                 reorder_mols=.true.
 
              case ('-centre')
                  call getarg(i+1,word)
@@ -141,7 +145,7 @@
            enddo
 
            if(centre_atom) call sys%wrap_geo(centre_atom_id)
-           if(remap_mols)  call sys%find_mols()
+           if(remap_mols .or. reorder_mols)  call sys%find_mols(reorder_mols,remap_mols)
 
            write(*,*) sys%nats
            write(*,*)
