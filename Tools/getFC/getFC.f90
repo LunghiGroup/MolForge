@@ -92,86 +92,88 @@
          sys%ntot=nz*ny*nx
          call sys%do_supercell()
 
-         open(10,file=inp_file)
+!         open(10,file=inp_file)
 
-         read(10,*) sys%nats
-         allocate(sys%x(sys%nats,3))
-         allocate(x0(sys%ntot*sys%nats,3))
-         allocate(x(sys%ntot*sys%nats,3))
-         allocate(label(sys%ntot*sys%nats))
-         read(10,*)
+         call sys%read_xyz(10,inp_file)
 
-         do i=1,sys%nats
-          read(10,*) label(i),sys%x(i,:)
-         enddo
+!         read(10,*) sys%nats
+!         allocate(sys%x(sys%nats,3))
+!         allocate(x0(sys%ntot*sys%nats,3))
+!         allocate(x(sys%ntot*sys%nats,3))
+!         allocate(label(sys%ntot*sys%nats))
+!         read(10,*)
 
-         close(10)
+!         do i=1,sys%nats
+!          read(10,*) label(i),sys%x(i,:)
+!         enddo
 
-         call sys%cart2frac()
+!         close(10)
 
-         k=1
-         do kz=1,sys%nz
-          do ky=1,sys%ny
-           do kx=1,sys%nx
-            do i=1,sys%nats
-             j=(k-1)*sys%nats+i
-             x0(j,1)=sys%x(i,1)+(kx-1)
-             x0(j,2)=sys%x(i,2)+(ky-1)
-             x0(j,3)=sys%x(i,3)+(kz-1)         
-             x0(j,:)=matmul(sys%J,x0(j,:))
-             label(j)=label(i)
-            enddo
-            k=k+1
-           enddo
-          enddo
-         enddo
+!         call sys%cart2frac()
 
-         call sys%frac2cart()
+!         k=1
+!         do kz=1,sys%nz
+!          do ky=1,sys%ny
+!           do kx=1,sys%nx
+!            do i=1,sys%nats
+!             j=(k-1)*sys%nats+i
+!             x0(j,1)=sys%x(i,1)+(kx-1)
+!             x0(j,2)=sys%x(i,2)+(ky-1)
+!             x0(j,3)=sys%x(i,3)+(kz-1)         
+!             x0(j,:)=matmul(sys%J,x0(j,:))
+!             label(j)=label(i)
+!            enddo
+!            k=k+1
+!           enddo
+!          enddo
+!         enddo
 
-         allocate(sys%kind(sys%nats))
-         sys%kind(1)=1
-         sys%nkinds=1
+!         call sys%frac2cart()
 
-         do i=2,sys%nats
-          new_type=.true.
-          do j=1,i-1
+!         allocate(sys%kind(sys%nats))
+!         sys%kind(1)=1
+!         sys%nkinds=1
 
-           if(label(i).eq.label(j))then
-            sys%kind(i)=sys%kind(j)
-            new_type=.false.
-            exit
-           endif
+!         do i=2,sys%nats
+!          new_type=.true.
+!          do j=1,i-1
 
-          enddo            
-          if(new_type)then
-           sys%nkinds=sys%nkinds+1
-           sys%kind(i)=sys%nkinds
-          endif
-         enddo
+!           if(label(i).eq.label(j))then
+!            sys%kind(i)=sys%kind(j)
+!            new_type=.false.
+!            exit
+!           endif
 
-         allocate(sys%label(sys%nkinds))
+!          enddo            
+!          if(new_type)then
+!           sys%nkinds=sys%nkinds+1
+!           sys%kind(i)=sys%nkinds
+!          endif
+!         enddo
 
-         do i=1,sys%nkinds
-          do j=1,sys%nats 
-           if(i.eq.sys%kind(j))then
-            sys%label(i)=label(j)
-            exit
-           endif
-          enddo
-         enddo
+!         allocate(sys%label(sys%nkinds))
 
-         allocate(sys%mass(sys%nkinds))
-         sys%mass=0.0d0
-         do i=1,sys%nkinds
-          if(trim(sys%label(i)).eq.'C') sys%mass(i)=12.010700225830078
-          if(trim(sys%label(i)).eq.'P') sys%mass(i)=30.97376200000000
-          if(trim(sys%label(i)).eq.'Dy') sys%mass(i)=162.5000000000000
-          if(trim(sys%label(i)).eq.'H') sys%mass(i)=1.0078999996185303
-          if(trim(sys%label(i)).eq.'V') sys%mass(i)=50.941501617431641
-          if(trim(sys%label(i)).eq.'S') sys%mass(i)=32.064998626708984
-          if(trim(sys%label(i)).eq.'N') sys%mass(i)=14.006699562072754
-          if(trim(sys%label(i)).eq.'O') sys%mass(i)=15.999899864196777
-         enddo
+!         do i=1,sys%nkinds
+!          do j=1,sys%nats 
+!           if(i.eq.sys%kind(j))then
+!            sys%label(i)=label(j)
+!            exit
+!!           endif
+!          enddo
+!         enddo
+
+!         allocate(sys%mass(sys%nkinds))
+!         sys%mass=0.0d0
+!         do i=1,sys%nkinds
+!          if(trim(sys%label(i)).eq.'C') sys%mass(i)=12.010700225830078
+!          if(trim(sys%label(i)).eq.'P') sys%mass(i)=30.97376200000000
+!          if(trim(sys%label(i)).eq.'Dy') sys%mass(i)=162.5000000000000
+!          if(trim(sys%label(i)).eq.'H') sys%mass(i)=1.0078999996185303
+!          if(trim(sys%label(i)).eq.'V') sys%mass(i)=50.941501617431641
+!          if(trim(sys%label(i)).eq.'S') sys%mass(i)=32.064998626708984
+!          if(trim(sys%label(i)).eq.'N') sys%mass(i)=14.006699562072754
+!          if(trim(sys%label(i)).eq.'O') sys%mass(i)=15.999899864196777
+!         enddo
 
          if(gen_disps_2)then
 

@@ -39,6 +39,7 @@
          procedure        :: read_restart_file
          procedure        :: read_structure_file
          procedure        :: read_extended_xyz
+         procedure        :: read_xyz
          procedure        :: write_restart_file
          procedure        :: atoms_bcast
          procedure        :: dist_ij
@@ -187,7 +188,7 @@
          deallocate(mass)
          deallocate(label)
          
-         if(present(filename)) close(13)
+         if(present(filename)) close(IOid)
 
          this%touched=.true.
          call this%cell2abc()
@@ -198,6 +199,71 @@
 
         return
         end subroutine read_extended_xyz        
+
+        subroutine read_xyz(this,IOid,filename)
+        implicit none
+        class(atoms_group)            :: this
+        integer                       :: i,j,IOid
+        double precision, allocatable :: mass(:)
+        character(len=100), optional  :: filename
+        character(len=5), allocatable :: label(:)
+        logical                       :: new_type
+
+         if(present(filename)) open(IOid,file=trim(filename))
+
+         read(IOid,*) this%nats
+         read(IOid,*) 
+         allocate(this%x(this%nats,3)) 
+         allocate(label(this%nats)) 
+         allocate(this%kind(this%nats)) 
+         
+         do i=1,this%nats
+          read(IOid,*) label(i),this%x(i,:)
+         enddo
+
+         if(present(filename)) close(IOid)
+
+         this%kind(1)=1
+         this%nkinds=1
+
+         do i=2,this%nats
+          new_type=.true.
+          do j=1,i-1
+
+           if(label(i).eq.label(j))then
+            this%kind(i)=this%kind(j)
+            new_type=.false.
+            exit
+           endif
+
+          enddo            
+          if(new_type)then
+           this%nkinds=this%nkinds+1
+           this%kind(i)=this%nkinds
+          endif
+         enddo
+
+         allocate(this%label(this%nkinds))
+
+         do i=1,this%nkinds
+          do j=1,this%nats 
+           if(i.eq.this%kind(j))then
+            this%label(i)=label(j)
+            exit
+           endif
+          enddo
+         enddo
+         
+         deallocate(label)
+
+         allocate(this%mass(this%nkinds))
+         this%mass=0.0d0
+         do i=1,this%nkinds
+          call get_mass(this%label(i),this%mass(i))
+         enddo                
+
+        return
+        end subroutine read_xyz        
 
         subroutine wrap_geo(this,j)
         implicit none
@@ -1075,5 +1141,104 @@
 
         return 
         end subroutine write_restart_file
+
+        subroutine get_mass(label,mass)
+        implicit none
+        character(len=2)      :: label
+        double precision      :: mass
+
+         if(trim(label).eq.'H') mass=1.00784d0
+         if(trim(label).eq.'He') mass=4.002602d0
+         if(trim(label).eq.'Li') mass=6.938d0
+         if(trim(label).eq.'Be') mass=9.0121831d0
+         if(trim(label).eq.'B') mass=10.806d0
+         if(trim(label).eq.'C') mass=12.0096d0
+         if(trim(label).eq.'N') mass=14.00643d0
+         if(trim(label).eq.'O') mass=15.99903d0
+         if(trim(label).eq.'F') mass=18.998403163d0
+         if(trim(label).eq.'Ne') mass=20.1797d0
+         if(trim(label).eq.'Na') mass=22.98976928d0
+         if(trim(label).eq.'Mg') mass=24.304d0
+         if(trim(label).eq.'Al') mass=26.9815385d0
+         if(trim(label).eq.'Si') mass=28.084d0
+         if(trim(label).eq.'P') mass=30.973761998d0
+         if(trim(label).eq.'S') mass=32.059d0
+         if(trim(label).eq.'Cl') mass=35.446d0
+         if(trim(label).eq.'Ar') mass=39.948d0
+         if(trim(label).eq.'K') mass=39.0983d0
+         if(trim(label).eq.'Ca') mass=40.078d0
+         if(trim(label).eq.'Sc') mass=44.955908d0
+         if(trim(label).eq.'Ti') mass=47.867d0
+         if(trim(label).eq.'V') mass=50.9415d0
+         if(trim(label).eq.'Cr') mass=51.9961d0
+         if(trim(label).eq.'Mn') mass=54.938044d0
+         if(trim(label).eq.'Fe') mass=55.845d0
+         if(trim(label).eq.'Co') mass=58.933194d0
+         if(trim(label).eq.'Ni') mass=58.6934d0
+         if(trim(label).eq.'Cu') mass=63.546d0
+         if(trim(label).eq.'Zn') mass=65.38d0
+         if(trim(label).eq.'Ga') mass=69.723d0
+         if(trim(label).eq.'Ge') mass=72.630d0
+         if(trim(label).eq.'As') mass=74.921595d0
+         if(trim(label).eq.'Se') mass=78.971d0
+         if(trim(label).eq.'Br') mass=79.901d0
+         if(trim(label).eq.'Kr') mass=83.798d0
+         if(trim(label).eq.'Rb') mass=85.4678d0
+         if(trim(label).eq.'Sr') mass=87.62d0
+         if(trim(label).eq.'Y') mass=88.90584d0
+         if(trim(label).eq.'Zr') mass=91.224d0
+         if(trim(label).eq.'Nb') mass=92.90637d0
+         if(trim(label).eq.'Mo') mass=95.95d0
+         if(trim(label).eq.'Tc') mass=98.0d0
+         if(trim(label).eq.'Ru') mass=101.07d0
+         if(trim(label).eq.'Rh') mass=102.90550d0
+         if(trim(label).eq.'Pd') mass=106.42d0
+         if(trim(label).eq.'Ag') mass=107.8682d0
+         if(trim(label).eq.'Cd') mass=112.414d0
+         if(trim(label).eq.'In') mass=114.818d0
+         if(trim(label).eq.'Sn') mass=118.710d0
+         if(trim(label).eq.'Sb') mass=121.760d0
+         if(trim(label).eq.'Te') mass=127.60d0
+         if(trim(label).eq.'I') mass=126.90447d0
+         if(trim(label).eq.'Xe') mass=131.293d0
+         if(trim(label).eq.'Cs') mass=132.90545196d0
+         if(trim(label).eq.'Ba') mass=137.327d0
+         if(trim(label).eq.'La') mass=138.90547d0
+         if(trim(label).eq.'Ce') mass=140.116d0
+         if(trim(label).eq.'Pr') mass=140.90766d0
+         if(trim(label).eq.'Nd') mass=144.242d0
+         if(trim(label).eq.'Pm') mass=145.0d0
+         if(trim(label).eq.'Sm') mass=150.36d0
+         if(trim(label).eq.'Eu') mass=151.964d0
+         if(trim(label).eq.'Gd') mass=157.25d0
+         if(trim(label).eq.'Tb') mass=158.92535d0
+         if(trim(label).eq.'Dy') mass=162.500d0
+         if(trim(label).eq.'Ho') mass=164.93033d0
+         if(trim(label).eq.'Er') mass=167.259d0
+         if(trim(label).eq.'Tm') mass=168.93422d0
+         if(trim(label).eq.'Yb') mass=173.054d0
+         if(trim(label).eq.'Lu') mass=174.9668d0
+         if(trim(label).eq.'Hf') mass=178.49d0
+         if(trim(label).eq.'Ta') mass=180.94788d0
+         if(trim(label).eq.'W') mass=183.84d0
+         if(trim(label).eq.'Re') mass=186.207d0
+         if(trim(label).eq.'Os') mass=190.23d0
+         if(trim(label).eq.'Ir') mass=192.217d0
+         if(trim(label).eq.'Pt') mass=195.084d0
+         if(trim(label).eq.'Au') mass=196.966569d0
+         if(trim(label).eq.'Hg') mass=200.592d0
+         if(trim(label).eq.'Tl') mass=204.382d0
+         if(trim(label).eq.'Pb') mass=207.2d0
+         if(trim(label).eq.'Bi') mass=208.98040d0
+         if(trim(label).eq.'Po') mass=209.0d0
+         if(trim(label).eq.'Rn') mass=222.0d0
+         if(trim(label).eq.'Fr') mass=223.0d0
+         if(trim(label).eq.'Ra') mass=226.0d0
+         if(trim(label).eq.'Th') mass=232.0d0
+         if(trim(label).eq.'Pa') mass=231.03588d0
+         if(trim(label).eq.'U') mass=238.02891d0
+
+        return
+        end subroutine get_mass
 
         end module atoms_class
