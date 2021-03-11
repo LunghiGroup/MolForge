@@ -1016,10 +1016,9 @@
          call MPI_COMM_SIZE(mpi_comm_world,mpi_nproc,err)
          call MPI_COMM_RANK(mpi_comm_world,mpi_id,err)
 
-
          if(mpi_id.eq.0)then
 
-         open(unit=10,file=restart_file)
+         open(unit=11,file=restart_file)
 
          write(11,*) this%nkinds,this%nats
 
