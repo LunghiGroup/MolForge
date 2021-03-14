@@ -7,6 +7,7 @@
           double precision                    :: step
           integer                             :: nsteps
           integer                             :: nelem
+          integer                             :: type_smear=1 ! 0=Lorentzian 1=Gaussian
           contains
           procedure                           :: alloc_dist
           procedure                           :: delete_dist

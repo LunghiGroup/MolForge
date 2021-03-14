@@ -52,6 +52,8 @@
  
           endif
 
+          if(trim(word).eq.'-lammps') lammps_file_gen=.true.
+
          enddo
 
          open(9,file=trim(unit_cell))

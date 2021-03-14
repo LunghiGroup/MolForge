@@ -23,20 +23,20 @@
  mpif90 -g -O3 -c def_atoms.f90   
  mpif90 -g -O3 -c def_proj_disp.f90      
 
+ mpif90 -g -O3 -c def_pulses.f90     
  mpif90 -g -O3 -c def_exponential.f90
  mpif90 -g -O3 -c def_spinham.f90     
  mpif90 -g -O3 -c def_phonons.f90  
  mpif90 -g -O3 -c def_spinphonon.f90  
  mpif90 -g -O3 -c def_spins_dist_rs.f90  
  mpif90 -fmax-errors=10 -g -O3 -c def_hilbert_dist.f90  
+ mpif90 -g -O3 -c def_spinham_map.f90  
 
  mpif90 -g -O3 -c def_function.f90
  mpif90 -g -O3 -c def_grad.f90
  mpif90 -g -O3 -c def_swarm.f90
  mpif90 -g -O3 -c def_ff_training.f90
 
- mpif90 -g -O3 -c def_spinham_map.f90  
- mpif90 -g -O3 -c def_pulses.f90     
 
  cp *f90 last_update/
 
