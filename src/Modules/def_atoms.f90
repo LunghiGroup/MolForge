@@ -308,6 +308,9 @@
         integer                       :: k,m,x
         class(*), pointer             :: arrow
 
+
+         write(*,*) 'aaa' 
+
          call this%dist_ij()
 
          N=this%ntot*this%nats

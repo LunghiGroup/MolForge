@@ -9,7 +9,6 @@
          integer          :: mpi_phonons_world
 
         contains
-               
  
          subroutine mpi_dist_nprocess(ntot,nloc,nstart,proc_grid,mpi_comm_loc)
          implicit none
