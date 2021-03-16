@@ -16,7 +16,6 @@
           procedure                           :: get_val
          end type dist1D
 
-
         contains
 
           subroutine alloc_dist(this)

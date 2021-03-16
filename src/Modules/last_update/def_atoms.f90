@@ -337,6 +337,8 @@
            if( this%label(this%kind(v2)).eq.'H' ) diff=diff+0.5d0
            if( this%label(this%kind(v1)).eq.'Dy' ) diff=diff-0.7d0
            if( this%label(this%kind(v2)).eq.'Dy' ) diff=diff-0.7d0
+           if( this%label(this%kind(v1)).eq.'Tb' ) diff=diff-0.7d0
+           if( this%label(this%kind(v2)).eq.'Tb' ) diff=diff-0.7d0
            if(this%dist(v1,celli,v2,cellj).lt.2.1d0-diff)then
             CN%AI(i+1)=CN%AI(i+1)+1
             NearNeigh(i)=NearNeigh(i)+1
