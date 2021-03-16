@@ -23,13 +23,14 @@ ${MOLFORGE}/Tools/abc2cell/abc2cell.x ${name}.abc ${name}.cell
 ####################################
 
 rm -f ${name}.xyz
-###obabel -icif $cifname -oxyz > ${name}.xyz
 atomsk $cifname ${name}.xyz
 
 ${MOLFORGE}/Tools/FindMols/find_mols.x -xyz ${name}.xyz -cell ${name}.cell -reorder_mols -remap_mols > ${name}_remap.xyz
 
 obabel -ixyz ${name}_remap.xyz -omol2 > ${name}.mol2
-obabel -imol2 ${name}.mol2 -oxyz -h > ${name}_remap_hydro.xyz
+obabel -imol2 ${name}.mol2 -oxyz -h > ${name}_hydro.xyz
+
+${MOLFORGE}/Tools/FindMols/find_mols.x -xyz ${name}_hydro.xyz -cell ${name}.cell -reorder_mols -remap_mols > ${name}_hydro_remap.xyz
 
 
 
