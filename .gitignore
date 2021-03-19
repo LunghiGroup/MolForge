@@ -5,4 +5,4 @@
 *.f90.*
 # Ignore reg-tests files and tools
 reg-tests/
-tools/
+Documents/
