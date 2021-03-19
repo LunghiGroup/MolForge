@@ -21,7 +21,7 @@
  mpif90 -g -O3 -c def_forcefields.f90
  mpif90 -g -O3 -c def_lattice.f90        
  mpif90 -g -O3 -c def_atoms.f90   
- mpif90 -g -O3 -c def_proj_disp.f90      
+ mpif90 -g -O2 -fcheck=all -c def_proj_disp.f90      
 
  mpif90 -g -O3 -c def_pulses.f90     
  mpif90 -g -O3 -c def_exponential.f90
