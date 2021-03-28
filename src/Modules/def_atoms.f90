@@ -335,8 +335,10 @@
            diff=0.0d0
            if( this%label(this%kind(v1)).eq.'H' ) diff=diff+0.5d0
            if( this%label(this%kind(v2)).eq.'H' ) diff=diff+0.5d0
-           if( this%label(this%kind(v1)).eq.'Co' ) diff=diff-0.5d0
-           if( this%label(this%kind(v2)).eq.'Co' ) diff=diff-0.5d0
+           if( this%label(this%kind(v1)).eq.'Co' ) diff=diff-0.7d0
+           if( this%label(this%kind(v2)).eq.'Co' ) diff=diff-0.7d0
+           if( this%label(this%kind(v1)).eq.'V' ) diff=diff-0.7d0
+           if( this%label(this%kind(v2)).eq.'V' ) diff=diff-0.7d0
            if( this%label(this%kind(v1)).eq.'Tb' ) diff=diff-0.7d0
            if( this%label(this%kind(v2)).eq.'Tb' ) diff=diff-0.7d0
            if( this%label(this%kind(v1)).eq.'Dy' ) diff=diff-0.7d0
