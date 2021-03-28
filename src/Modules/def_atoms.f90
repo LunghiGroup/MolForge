@@ -111,9 +111,11 @@
         double precision, optional       :: r0
         integer, optional                :: Jmax
         double precision, allocatable    :: neighbours(:,:)
-        character(len=10)                :: kind_desc
+        character(len=*)                 :: kind_desc
         type(bispectrum)                 :: bis
         type(cartesian)                  :: cart
+
+         call this%dist_ij()
 
          if(trim(kind_desc).eq.'CART')then
           allocate(this%at_desc(1))
