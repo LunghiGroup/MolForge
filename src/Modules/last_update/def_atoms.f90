@@ -77,6 +77,8 @@
         double precision, optional       :: cutoff
         type(list)                       :: listid
         
+         call this%dist_ij()
+
          if(allocated(this%neigh))then
           do i=1,size(this%neigh)
            if(allocated(this%neigh(i)%v)) deallocate(this%neigh(i)%v)
@@ -114,8 +116,6 @@
         character(len=*)                 :: kind_desc
         type(bispectrum)                 :: bis
         type(cartesian)                  :: cart
-
-         call this%dist_ij()
 
          if(trim(kind_desc).eq.'CART')then
           allocate(this%at_desc(1))
