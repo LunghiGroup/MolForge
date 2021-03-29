@@ -300,7 +300,7 @@
         integer                       :: i,j,celli,cellj,v1,v2,v,N,jj,l
         logical, allocatable          :: check(:)
         integer, allocatable          :: mapp(:),blc(:),NearNeigh(:),new_kind(:)
-        double precision              :: diff,a(3),b(3),c(3),c2(3)
+        double precision              :: rad,bond_thr,a(3),b(3),c(3),c2(3)
         double precision, allocatable :: new_geo(:,:)
         type(csr_mat_int)             :: CN
         type(list)                    :: AI,AJ,Aval
@@ -334,60 +334,11 @@
            j=(cellj-1)*this%nats+v2
 
            if(j.eq.i)cycle
-           diff=0.0d0
-           if( this%label(this%kind(v1)).eq.'H' ) diff=diff+0.5d0
-           if( this%label(this%kind(v2)).eq.'H' ) diff=diff+0.5d0
-           if( this%label(this%kind(v1)).eq.'Sc' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Sc' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Ti' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Ti' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'V' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'V' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Cr' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Cr' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Mn' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Mn' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Fe' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Fe' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Co' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Co' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Ni' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Ni' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Cu' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Cu' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Zn' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Zn' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'La' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'La' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Ce' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Ce' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Pr' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Pr' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Nd' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Nd' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Pm' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Pm' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Sm' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Sm' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Eu' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Eu' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Gd' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Gd' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Tb' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Tb' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Dy' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Dy' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Ho' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Ho' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Er' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Er' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Tm' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Tm' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Yb' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Yb' ) diff=diff-0.7d0
-           if( this%label(this%kind(v1)).eq.'Lu' ) diff=diff-0.7d0
-           if( this%label(this%kind(v2)).eq.'Lu' ) diff=diff-0.7d0
-           if(this%dist(v1,celli,v2,cellj).lt.2.1d0-diff)then
+           call get_cov_radius(this%label(this%kind(v1)),rad)
+           bond_thr=rad
+           call get_cov_radius(this%label(this%kind(v2)),rad)
+           bond_thr=bond_thr+rad
+           if(this%dist(v1,celli,v2,cellj).lt.bond_thr+0.30d0)then
             CN%AI(i+1)=CN%AI(i+1)+1
             NearNeigh(i)=NearNeigh(i)+1
             call AJ%add_node(j)
@@ -1290,5 +1241,110 @@
 
         return
         end subroutine get_mass
+
+        subroutine get_cov_radius(label,radius)
+        implicit none
+        character(len=2)      :: label
+        double precision      :: radius
+
+         if(trim(label).eq.'H') radius=0.31d0
+         if(trim(label).eq.'He') radius=0.28d0
+         if(trim(label).eq.'Li') radius=1.28d0
+         if(trim(label).eq.'Be') radius=0.96d0
+         if(trim(label).eq.'B') radius=0.84d0
+         if(trim(label).eq.'C') radius=0.76d0
+         if(trim(label).eq.'N') radius=0.71d0
+         if(trim(label).eq.'O') radius=0.66d0
+         if(trim(label).eq.'F') radius=0.57d0
+         if(trim(label).eq.'Ne') radius=0.58d0
+         if(trim(label).eq.'Na') radius=1.66d0
+         if(trim(label).eq.'Mg') radius=1.41d0
+         if(trim(label).eq.'Al') radius=1.21d0
+         if(trim(label).eq.'Si') radius=1.11d0
+         if(trim(label).eq.'P') radius=1.07d0
+         if(trim(label).eq.'S') radius=1.05d0
+         if(trim(label).eq.'Cl') radius=1.02d0
+         if(trim(label).eq.'Ar') radius=1.06d0
+         if(trim(label).eq.'K') radius=2.03d0
+         if(trim(label).eq.'Ca') radius=1.76d0
+         if(trim(label).eq.'Sc') radius=1.70d0
+         if(trim(label).eq.'Ti') radius=1.60d0
+         if(trim(label).eq.'V') radius=1.53d0
+         if(trim(label).eq.'Cr') radius=1.39d0
+         if(trim(label).eq.'Mn') radius=1.61d0
+         if(trim(label).eq.'Fe') radius=1.52d0
+         if(trim(label).eq.'Co') radius=1.50d0
+         if(trim(label).eq.'Ni') radius=1.24d0
+         if(trim(label).eq.'Cu') radius=1.32d0
+         if(trim(label).eq.'Zn') radius=1.22d0
+         if(trim(label).eq.'Ga') radius=1.22d0
+         if(trim(label).eq.'Ge') radius=1.20d0
+         if(trim(label).eq.'As') radius=1.19d0
+         if(trim(label).eq.'Se') radius=1.20d0
+         if(trim(label).eq.'Br') radius=1.20d0
+         if(trim(label).eq.'Kr') radius=1.16d0
+         if(trim(label).eq.'Rb') radius=2.20d0
+         if(trim(label).eq.'Sr') radius=1.95d0
+         if(trim(label).eq.'Y') radius=1.90d0
+         if(trim(label).eq.'Zr') radius=1.75d0
+         if(trim(label).eq.'Nb') radius=1.64d0
+         if(trim(label).eq.'Mo') radius=1.54d0
+         if(trim(label).eq.'Tc') radius=1.47d0
+         if(trim(label).eq.'Ru') radius=1.46d0
+         if(trim(label).eq.'Rh') radius=1.42d0
+         if(trim(label).eq.'Pd') radius=1.39d0
+         if(trim(label).eq.'Ag') radius=1.45d0
+         if(trim(label).eq.'Cd') radius=1.44d0
+         if(trim(label).eq.'In') radius=1.42d0
+         if(trim(label).eq.'Sn') radius=1.39d0
+         if(trim(label).eq.'Sb') radius=1.39d0
+         if(trim(label).eq.'Te') radius=1.38d0
+         if(trim(label).eq.'I') radius=1.39d0
+         if(trim(label).eq.'Xe') radius=1.40d0
+         if(trim(label).eq.'Cs') radius=2.44d0
+         if(trim(label).eq.'Ba') radius=2.15d0
+         if(trim(label).eq.'La') radius=2.07d0
+         if(trim(label).eq.'Ce') radius=2.04d0
+         if(trim(label).eq.'Pr') radius=2.03d0
+         if(trim(label).eq.'Nd') radius=2.01d0
+         if(trim(label).eq.'Pm') radius=1.99d0
+         if(trim(label).eq.'Sm') radius=1.98d0
+         if(trim(label).eq.'Eu') radius=1.98d0
+         if(trim(label).eq.'Gd') radius=1.96d0
+         if(trim(label).eq.'Tb') radius=1.94d0
+         if(trim(label).eq.'Dy') radius=1.92d0
+         if(trim(label).eq.'Ho') radius=1.92d0
+         if(trim(label).eq.'Er') radius=1.89d0
+         if(trim(label).eq.'Tm') radius=1.90d0
+         if(trim(label).eq.'Yb') radius=1.87d0
+         if(trim(label).eq.'Lu') radius=1.87d0
+         if(trim(label).eq.'Hf') radius=1.75d0
+         if(trim(label).eq.'Ta') radius=1.70d0
+         if(trim(label).eq.'W') radius=1.62d0
+         if(trim(label).eq.'Re') radius=1.51d0
+         if(trim(label).eq.'Os') radius=1.44d0
+         if(trim(label).eq.'Ir') radius=1.41d0
+         if(trim(label).eq.'Pt') radius=1.36d0
+         if(trim(label).eq.'Au') radius=1.36d0
+         if(trim(label).eq.'Hg') radius=1.32d0
+         if(trim(label).eq.'Tl') radius=1.45d0
+         if(trim(label).eq.'Pb') radius=1.46d0
+         if(trim(label).eq.'Bi') radius=1.48d0
+         if(trim(label).eq.'Po') radius=1.40d0
+         if(trim(label).eq.'At') radius=1.50d0
+         if(trim(label).eq.'Rn') radius=1.50d0
+         if(trim(label).eq.'Fr') radius=2.60d0
+         if(trim(label).eq.'Ra') radius=2.21d0
+         if(trim(label).eq.'Ac') radius=2.15d0
+         if(trim(label).eq.'Th') radius=2.06d0
+         if(trim(label).eq.'Pa') radius=2.00d0
+         if(trim(label).eq.'U') radius=1.96d0
+         if(trim(label).eq.'Np') radius=1.90d0
+         if(trim(label).eq.'Pu') radius=1.87d0
+         if(trim(label).eq.'Am') radius=1.80d0
+         if(trim(label).eq.'Cm') radius=1.69d0
+         
+        return
+        end subroutine get_cov_radius
 
         end module atoms_class
