@@ -496,15 +496,17 @@
 
           allocate(new_geo(this%nats,3))
           allocate(new_kind(this%nats))
+
           if(allocated(this%molid))deallocate(this%molid)
-          allocate(this%molid(this%nats))
+          allocate(this%molid(size(blc)))
+          this%molid=blc
 
           v=1
           do j=1,size(blc)-1
            do i=1+blc(j),blc(j+1)
             new_geo(v,:)=this%x(mapp(i),:)
             new_kind(v)=this%kind(mapp(i))
-            this%molid(v)=j
+ !           this%molid(v)=j
             v=v+1
            enddo
           enddo
