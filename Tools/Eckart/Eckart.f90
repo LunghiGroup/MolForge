@@ -1,4 +1,5 @@
         program eckart
+        use atoms_class
         use proj_disp_class
         implicit none
         integer                         :: i,j,l,s,v,nats,nframes
@@ -44,10 +45,7 @@
 
           do i=1,nats
            read(13,*) label(i),geo0(i,:)          
-          ! set masses
-           if(trim(label(i)).eq.'C') mass(i)=12.0
-           if(trim(label(i)).eq.'H') mass(i)=1.0
-           if(trim(label(i)).eq.'Se') mass(i)=79.9
+           call get_mass(label(i),mass(i))
           enddo
           
           call mol%def_mol(geo0,mass)

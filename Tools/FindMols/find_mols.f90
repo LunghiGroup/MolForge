@@ -130,27 +130,16 @@
            allocate(sys%mass(sys%nkinds))
            sys%mass=0.0d0
            do i=1,sys%nkinds
-            if(trim(sys%label(i)).eq.'C') sys%mass(i)=12.010700225830078
-            if(trim(sys%label(i)).eq.'Co') sys%mass(i)=58.9331950000000
-            if(trim(sys%label(i)).eq.'P') sys%mass(i)=30.97376200000000
-            if(trim(sys%label(i)).eq.'F') sys%mass(i)=18.98840300000000
-            if(trim(sys%label(i)).eq.'Dy') sys%mass(i)=162.5000000000000
-            if(trim(sys%label(i)).eq.'H') sys%mass(i)=1.0078999996185303
-            if(trim(sys%label(i)).eq.'V') sys%mass(i)=50.941501617431641
-            if(trim(sys%label(i)).eq.'S') sys%mass(i)=32.064998626708984
-            if(trim(sys%label(i)).eq.'P') sys%mass(i)=30.973760000000000
-            if(trim(sys%label(i)).eq.'Se') sys%mass(i)=78.96000000000000
-            if(trim(sys%label(i)).eq.'N') sys%mass(i)=14.006699562072754
-            if(trim(sys%label(i)).eq.'O') sys%mass(i)=15.999899864196777
+            call get_mass(sys%label(i),sys%mass(i))
            enddo
 
            if(centre_atom) call sys%wrap_geo(centre_atom_id)
            if(remap_mols .or. reorder_mols)  call sys%find_mols(reorder_mols,remap_mols)
 
-           write(*,*) sys%nats
+           write(*,*) count(sys%good_ids)
            write(*,*) sys%molid
            do i=1,sys%nats
-            write(*,"(a2,2x,3(f10.6,2x))") sys%label(sys%kind(i)),sys%x(i,:)
+            if(sys%good_ids(i)) write(*,"(a2,2x,3(f10.6,2x))") sys%label(sys%kind(i)),sys%x(i,:)
            enddo
 
           endif
