@@ -136,10 +136,10 @@
            if(centre_atom) call sys%wrap_geo(centre_atom_id)
            if(remap_mols .or. reorder_mols)  call sys%find_mols(reorder_mols,remap_mols)
 
-           write(*,*) count(sys%good_ids)
+           write(*,*) sys%nats
            write(*,*) sys%molid
            do i=1,sys%nats
-            if(sys%good_ids(i)) write(*,"(a2,2x,3(f10.6,2x))") sys%label(sys%kind(i)),sys%x(i,:)
+             write(*,"(a2,2x,3(f10.6,2x))") sys%label(sys%kind(i)),sys%x(i,:)
            enddo
 
           endif
