@@ -8,15 +8,18 @@
          character(len=100)            :: filename,skip
          double precision, allocatable :: MAT(:,:)
          end subroutine read_orca_mat
-         subroutine projH(lmax,Nj,Ener,Jz,O)
+         subroutine projH(lmax,Nj,Ener,Jz,O,alpha,beta,gamma)
          use stevens_class
+         use spinham_class 
          implicit none
          integer                        :: lmax,Odim,Nj
-         integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf
+         integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf,ll
          double precision, allocatable  :: Ener(:)
-         double precision               :: jj,q1,q2
+         double precision               :: jj,q1,q2,avg_ener
          double complex, allocatable    :: Jz(:,:),B(:),A(:,:),O(:),work(:)
          double complex                 :: mat_elem
+         type(OSItensor), allocatable   :: Os(:)
+         double precision, optional     :: alpha,beta,gamma
          end subroutine projH
          subroutine diagH(Hdim,lmax,O)
          use lapack_diag_simm
@@ -29,18 +32,55 @@
          end subroutine diagH
         end interface
         double precision, allocatable :: SOCR(:,:),SOCI(:,:),EIG(:),Mat(:,:),Mj(:),EIG2(:),coeff(:,:) 
-        double precision              :: norm,phi
+        double precision              :: norm,phi,alpha,beta,gamma
         double complex, allocatable   :: SOC(:,:),Lz(:,:),Sz(:,:),Jz(:,:),O(:),Sx(:,:),Lx(:,:),Jx(:,:),Jx2(:,:)
-        character(len=100)            :: filename
+        character(len=100)            :: filename,word
         integer                       :: i,j,k,N,Nj,k1,k2,lmax
+        logical                       :: rotate_CF=.false.
 
         double precision, allocatable :: D(:),E(:)
         double complex, allocatable   :: Tau(:),work(:)
         integer                       :: info,lwork
 
-         N=126
-         Nj=16
-         lmax=14
+         if( iargc().eq.0)then
+          write(*,*) 'CF Usage:'               
+          write(*,*) '-JMult   : J Multiplicity of the ground state multiplet'
+          write(*,*) '-CISIZE  : Size of CI basis set'               
+          write(*,*) '-lmax    : Max Order of CF operators'               
+          write(*,*) '-rot     : ZYZ Euler angoles (rad) for CF rotation'               
+          stop
+         endif
+
+         do i=1,iargc()
+
+          call getarg(i,word)
+          
+          select case (trim(word))
+
+             case ('-JMult')
+                 call getarg(i+1,word)
+                 read(word,*) Nj
+
+             case ('-CISIZE')
+                 call getarg(i+1,word)
+                 read(word,*) N
+
+             case ('-lmax')
+                 call getarg(i+1,word)
+                 read(word,*) lmax
+
+             case ('-rot')
+                 call getarg(i+1,word)
+                 read(word,*) alpha
+                 call getarg(i+2,word)
+                 read(word,*) beta
+                 call getarg(i+3,word)
+                 read(word,*) gamma
+                 rotate_CF=.true.
+
+          end select
+
+         enddo
 
          allocate(SOC(N,N))
          allocate(EIG(N))
@@ -192,7 +232,12 @@
 !          Jz(i,16)=cmplx(coeff(4,1),coeff(4,2),8)
 !         enddo
 
-         call projH(lmax,Nj,EIG,Jz,O)
+         if(rotate_CF)then
+          call projH(lmax,Nj,EIG,Jz,O,alpha,beta,gamma)
+         else
+          call projH(lmax,Nj,EIG,Jz,O)
+         endif
+
          call diagH(Nj,lmax,O)
 
         return
@@ -265,33 +310,34 @@
           
          call new_diag(Hdim,Jz,Jzeig)
 
-         write(*,*) '#################################################'
-         write(*,*) '#################################################'
-         write(*,*) 'Jz eigenstates in the H eigenstates basis'
-         write(*,*) '#################################################'
-         write(*,*) '#################################################'
+!         write(*,*) '#################################################'
+!         write(*,*) '#################################################'
+!         write(*,*) 'Jz eigenstates in the H eigenstates basis'
+!         write(*,*) '#################################################'
+!         write(*,*) '#################################################'
 
-         do i=1,Hdim
-          write(*,*) '#######',i,Jzeig(i)
-          do j=1,Hdim
-           write(*,*) j,dble(Jz(j,i)),aimag(Jz(j,i)),dble(Jz(j,i)*conjg(Jz(j,i)))
-          enddo
-         enddo
+!         do i=1,Hdim
+!          write(*,*) '#######',i,Jzeig(i)
+!          do j=1,Hdim
+!           write(*,*) j,dble(Jz(j,i)),aimag(Jz(j,i)),dble(Jz(j,i)*conjg(Jz(j,i)))
+!          enddo
+!         enddo
          
         return
         end subroutine diagH
 
-        subroutine projH(lmax,Nj,Ener,Jz,O)
+        subroutine projH(lmax,Nj,Ener,Jz,O,alpha,beta,gamma)
         use stevens_class
         use spinham_class 
         implicit none
         integer                        :: lmax,Odim,Nj
         integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf,ll
         double precision, allocatable  :: Ener(:)
-        double precision               :: jj,q1,q2,avg_ener,alpha,beta,gamma
+        double precision               :: jj,q1,q2,avg_ener
         double complex, allocatable    :: Jz(:,:),B(:),A(:,:),O(:),work(:)
         double complex                 :: mat_elem
         type(OSItensor), allocatable   :: Os(:)
+        double precision, optional     :: alpha,beta,gamma
 
          Odim=0
          do i=2,lmax,2
@@ -360,72 +406,52 @@
           enddo
          enddo
 
-         allocate(Os(lmax/2))
-         alpha=0.0d0
-         beta=0.0d0
-         gamma=0.0d0
+         if(present(alpha))then
 
+          allocate(Os(lmax/2))
 
-         ! Eulers from O2->D of Dy_NEV_RIJX_X4_mlb.out ! This work 
-         alpha=-0.33189603869873563        
-         beta=1.5458066914980775       
-         gamma=-1.6467467630685610
+          write(*,*) '#################################################'
+          write(*,*) '#################################################'
+          write(*,*) 'Rotated Crystal Field Parameters:'
+          write(*,*) '#################################################'
+          write(*,*) '#################################################'
 
-         ! Inverse Eulers from gg of Dy_NEV_RIJX_X4_mlb.out ! This does not work
-         gamma=0.35182069521786968        
-         beta=-1.5438722669095704        
-         alpha=-1.3851648663175002
-
-         ! Eulers from gg of Dy_NEV_RIJX_X4_mlb.out ! This work 
-         alpha=-0.35182069521786968        
-         beta=1.5438722669095704        
-         gamma=1.3851648663175002
-
-         ! Eulers from gg of Dy_NEV_RIJK_mlb.out ! This work 
-         alpha=-0.32993455234750912     
-         beta=1.5452772190818402       
-         gamma=0.88437557128663258
-
-         write(*,*) '#################################################'
-         write(*,*) '#################################################'
-         write(*,*) 'Rotated Crystal Field Parameters:'
-         write(*,*) '#################################################'
-         write(*,*) '#################################################'
-
-         s=1
-         ll=1
-         do l=2,lmax,2
-          Os(ll)%k=l
-          allocate(Os(ll)%B(2*l+1))
-          allocate(Os(ll)%q(2*l+1))
-          v=1
-          do j=-l,l
-           Os(ll)%B(v)=B(s)
-           Os(ll)%q(v)=j
-           s=s+1
-           v=v+1
+          s=1
+          ll=1
+          do l=2,lmax,2
+           Os(ll)%k=l
+           allocate(Os(ll)%B(2*l+1))
+           allocate(Os(ll)%q(2*l+1))
+           v=1
+           do j=-l,l
+            Os(ll)%B(v)=B(s)
+            Os(ll)%q(v)=j
+            s=s+1
+            v=v+1
+           enddo
+           call Os(ll)%rot(alpha,beta,gamma)
+           v=1
+           do j=-l,l
+            write(*,*) Os(ll)%k,Os(ll)%q(v),dble(Os(ll)%B(v))
+            v=v+1
+           enddo
+           ll=ll+1
           enddo
-          call Os(ll)%rot(alpha,beta,gamma)
-          v=1
-          do j=-l,l
-           write(*,*) Os(ll)%k,Os(ll)%q(v),dble(Os(ll)%B(v))
-           v=v+1
-          enddo
-          ll=ll+1
-         enddo
 
-         s=1
-         ll=1
-         do l=2,lmax,2
-          v=1
-          do j=-l,l
-           O(s)=Os(ll)%B(v)
-           s=s+1
-           v=v+1
+          s=1
+          ll=1
+          do l=2,lmax,2
+           v=1
+           do j=-l,l
+            O(s)=Os(ll)%B(v)
+            s=s+1
+            v=v+1
+           enddo
+           ll=ll+1
           enddo
-          ll=ll+1
-         enddo
- 
+
+         endif
+
         return
         end subroutine projH
 

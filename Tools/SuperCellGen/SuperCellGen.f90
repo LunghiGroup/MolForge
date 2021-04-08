@@ -21,7 +21,7 @@
           stop
          endif
 
-         do l=1,100
+         do l=1,iargc()
           call getarg(l,word)
 
           if(trim(word).eq.'-unit')then               
