@@ -21,18 +21,18 @@
          type(OSItensor), allocatable   :: Os(:)
          double precision, optional     :: alpha,beta,gamma
          end subroutine projH
-         subroutine diagH(Hdim,lmax,O)
+         subroutine diagH(Hdim,lmax,O,JMax)
          use lapack_diag_simm
          use stevens_class
          integer                        :: lmax,Hdim,i,j,k,l,q,s
-         double precision               :: j1,j2,jj
+         double precision               :: j1,j2,JMax
          double precision, allocatable  :: Ener(:)
          double complex, allocatable    :: Hmat(:,:),O(:)
          double complex                 :: val_tmp,val
          end subroutine diagH
         end interface
         double precision, allocatable :: SOCR(:,:),SOCI(:,:),EIG(:),Mat(:,:),Mj(:),EIG2(:),coeff(:,:) 
-        double precision              :: norm,phi,alpha,beta,gamma
+        double precision              :: norm,phi,alpha,beta,gamma,JMax
         double complex, allocatable   :: SOC(:,:),Lz(:,:),Sz(:,:),Jz(:,:),O(:),Sx(:,:),Lx(:,:),Jx(:,:),Jx2(:,:)
         character(len=100)            :: filename,word
         integer                       :: i,j,k,N,Nj,k1,k2,lmax
@@ -60,6 +60,7 @@
              case ('-JMult')
                  call getarg(i+1,word)
                  read(word,*) Nj
+                 JMax=(Nj-1)/2.0d0
 
              case ('-CISIZE')
                  call getarg(i+1,word)
@@ -238,27 +239,26 @@
           call projH(lmax,Nj,EIG,Jz,O)
          endif
 
-         call diagH(Nj,lmax,O)
+         call diagH(Nj,lmax,O,JMax)
 
         return
         end program CrystalField
 
-        subroutine diagH(Hdim,lmax,O)
+        subroutine diagH(Hdim,lmax,O,Jmax)
         use lapack_diag_simm
         use stevens_class
         integer                        :: lmax,Hdim,i,j,k,l,q,s
-        double precision               :: j1,j2,jj
+        double precision               :: j1,j2,JMax
         double precision, allocatable  :: Ener(:),Jzeig(:)
         double complex, allocatable    :: Hmat(:,:),O(:),Jz(:,:)
         double complex                 :: val_tmp,val
 
          allocate(Hmat(Hdim,Hdim))         
          allocate(Ener(Hdim))         
-         jj=7.5d0
 
-         j1=-7.5d0
+         j1=-JMax
          do i=1,Hdim
-          j2=-7.5d0
+          j2=-JMax
           do j=1,Hdim
 
            val=(0.0d0,0.0d0)
@@ -266,7 +266,7 @@
            do l=2,lmax,2
             do q=-l,l
              val_tmp=(0.0d0,0.0d0)
-             call stevens_mat_elem(l,q,jj,j1,jj,j2,val_tmp)
+             call stevens_mat_elem(l,q,JMax,j1,Jmax,j2,val_tmp)
              val=val+val_tmp*O(s)
              s=s+1
             enddo
@@ -303,7 +303,7 @@
          do i=1,Hdim
           do j=1,Hdim
            do l=1,Hdim            
-            Jz(i,j)=Jz(i,j)+conjg(Hmat(l,i))*Hmat(l,j)*(-7.5d0+(l-1))
+            Jz(i,j)=Jz(i,j)+conjg(Hmat(l,i))*Hmat(l,j)*(-JMax+(l-1))
            enddo
           enddo
          enddo
