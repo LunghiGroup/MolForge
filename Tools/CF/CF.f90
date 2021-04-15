@@ -15,7 +15,7 @@
          integer                        :: lmax,Odim,Nj
          integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf,ll
          double precision, allocatable  :: Ener(:)
-         double precision               :: jj,q1,q2,avg_ener
+         double precision               :: JMax,q1,q2,avg_ener
          double complex, allocatable    :: Jz(:,:),B(:),A(:,:),O(:),work(:)
          double complex                 :: mat_elem
          type(OSItensor), allocatable   :: Os(:)
@@ -36,7 +36,7 @@
         double complex, allocatable   :: SOC(:,:),Lz(:,:),Sz(:,:),Jz(:,:),O(:),Sx(:,:),Lx(:,:),Jx(:,:),Jx2(:,:)
         character(len=100)            :: filename,word
         integer                       :: i,j,k,N,Nj,k1,k2,lmax
-        logical                       :: rotate_CF=.false.
+        logical                       :: rotate_CF=.false.,spin_only=.false.
 
         double precision, allocatable :: D(:),E(:)
         double complex, allocatable   :: Tau(:),work(:)
@@ -44,10 +44,11 @@
 
          if( iargc().eq.0)then
           write(*,*) 'CF Usage:'               
-          write(*,*) '-JMult   : J Multiplicity of the ground state multiplet'
-          write(*,*) '-CISIZE  : Size of CI basis set'               
-          write(*,*) '-lmax    : Max Order of CF operators'               
-          write(*,*) '-rot     : ZYZ Euler angoles (rad) for CF rotation'               
+          write(*,*) '-JMult     : J Multiplicity of the ground state multiplet'
+          write(*,*) '-CISIZE    : Size of CI basis set'               
+          write(*,*) '-lmax      : Max Order of CF operators'               
+          write(*,*) '-rot       : ZYZ Euler angoles (rad) for CF rotation'               
+          write(*,*) '-spin_only : Assume <L>=0'               
           stop
          endif
 
@@ -78,6 +79,9 @@
                  call getarg(i+3,word)
                  read(word,*) gamma
                  rotate_CF=.true.
+
+             case ('-spin_only')
+                 spin_only=.true.
 
           end select
 
@@ -145,8 +149,12 @@
             do k2=1,N
                
              Jz(i,j)=Jz(i,j)&
-                            +Sz(k1,k2)*conjg(SOC(k1,i))*SOC(k2,j) &
+                            +Sz(k1,k2)*conjg(SOC(k1,i))*SOC(k2,j) !&
+
+             if(.not. spin_only)then
+             Jz(i,j)=Jz(i,j)&
                             +Lz(k1,k2)*conjg(SOC(k1,i))*SOC(k2,j)
+             endif
 
             enddo
            enddo
@@ -159,8 +167,13 @@
             do k2=1,N
                
              Jx(i,j)=Jx(i,j)&
-                            +Sx(k1,k2)*conjg(SOC(k1,i))*SOC(k2,j) &
+                            +Sx(k1,k2)*conjg(SOC(k1,i))*SOC(k2,j) !&
+!                            +Lx(k1,k2)*conjg(SOC(k1,i))*SOC(k2,j)
+
+             if(.not. spin_only)then
+              Jx(i,j)=Jx(i,j)&
                             +Lx(k1,k2)*conjg(SOC(k1,i))*SOC(k2,j)
+             endif
 
             enddo
            enddo
@@ -266,7 +279,7 @@
            do l=2,lmax,2
             do q=-l,l
              val_tmp=(0.0d0,0.0d0)
-             call stevens_mat_elem(l,q,JMax,j1,Jmax,j2,val_tmp)
+             call stevens_mat_elem(l,q,JMax,j1,JMax,j2,val_tmp)
              val=val+val_tmp*O(s)
              s=s+1
             enddo
@@ -294,21 +307,21 @@
           enddo
          enddo
 
-         allocate(Jz(Hdim,Hdim))
-         allocate(Jzeig(Hdim))
+!         allocate(Jz(Hdim,Hdim))
+!         allocate(Jzeig(Hdim))
 
-         Jz=(0.0d0,0.0d0)
-         Jzeig=0.0d0
+!         Jz=(0.0d0,0.0d0)
+!         Jzeig=0.0d0
 
-         do i=1,Hdim
-          do j=1,Hdim
-           do l=1,Hdim            
-            Jz(i,j)=Jz(i,j)+conjg(Hmat(l,i))*Hmat(l,j)*(-JMax+(l-1))
-           enddo
-          enddo
-         enddo
+!         do i=1,Hdim
+!          do j=1,Hdim
+!           do l=1,Hdim            
+!            Jz(i,j)=Jz(i,j)+conjg(Hmat(l,i))*Hmat(l,j)*(-JMax+(l-1))
+!           enddo
+!          enddo
+!         enddo
           
-         call new_diag(Hdim,Jz,Jzeig)
+!         call new_diag(Hdim,Jz,Jzeig)
 
 !         write(*,*) '#################################################'
 !         write(*,*) '#################################################'
@@ -333,11 +346,13 @@
         integer                        :: lmax,Odim,Nj
         integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf,ll
         double precision, allocatable  :: Ener(:)
-        double precision               :: jj,q1,q2,avg_ener
+        double precision               :: JMax,q1,q2,avg_ener
         double complex, allocatable    :: Jz(:,:),B(:),A(:,:),O(:),work(:)
         double complex                 :: mat_elem
         type(OSItensor), allocatable   :: Os(:)
         double precision, optional     :: alpha,beta,gamma
+
+         JMax=(Nj-1)/2.0d0
 
          Odim=0
          do i=2,lmax,2
@@ -368,11 +383,10 @@
 
            q1=i1-((Nj-1)/2.0d0)-1
            q2=i2-((Nj-1)/2.0d0)-1
-           jj=7.5d0
            s=1
            do l=2,lmax,2
             do j=-l,l
-             call stevens_mat_elem(l,j,jj,q1,jj,q2,mat_elem)
+             call stevens_mat_elem(l,j,JMax,q1,JMax,q2,mat_elem)
              A(k,s)=mat_elem
              s=s+1
             enddo
