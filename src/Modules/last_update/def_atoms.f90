@@ -18,6 +18,7 @@
          integer                         :: nkinds
          integer, pointer                :: kind(:)         
          integer, allocatable            :: molid(:)
+         logical, allocatable            :: good_ids(:)
          double precision, allocatable   :: x(:,:)         
          double precision, allocatable   :: v(:,:)         
          double precision, allocatable   :: mass(:)
@@ -44,6 +45,7 @@
          procedure        :: atoms_bcast
          procedure        :: dist_ij
          procedure        :: find_mols
+         procedure        :: remove_overlap
          procedure        :: wrap_geo
          procedure        :: cart2frac
          procedure        :: frac2cart
@@ -52,6 +54,49 @@
         end type atoms_group
 
         contains
+
+        subroutine remove_overlap(this)
+        use lists_class
+        implicit none
+        class(atoms_group)               :: this
+        double precision, allocatable    :: new_geo(:,:)
+        double precision                 :: rad,bond_thr
+        character(len=10), allocatable   :: new_labels(:)
+        integer                          :: i,j
+
+         call this%dist_ij()                   
+         if(.not. allocated(this%good_ids)) allocate(this%good_ids(this%nats))
+         this%good_ids=.true.  
+
+         do i=1,this%nats
+          if(.not. this%good_ids(i)) cycle
+          do j=i+1,this%nats
+           if(.not. this%good_ids(j)) cycle
+
+           call get_cov_radius(this%label(this%kind(i)),rad)
+           bond_thr=rad
+           call get_cov_radius(this%label(this%kind(j)),rad)
+           bond_thr=bond_thr+rad
+           if(this%dist(i,1,j,1).lt.bond_thr-0.30d0)then
+            this%good_ids(j)=.false.
+           endif
+
+          enddo
+         enddo
+           
+!         allocate(new_geo(count(good_ids),3))
+!         allocate(new_labels(count(good_ids)))
+        
+!         do i=1,this%nats
+!          if(good_ids(i))then
+!           write(*,*) this%label(this%kind(i)),this%x(i,:) 
+!           new_geo(i,:)=this%x(i,:) 
+!           new_labels(i)=this%label(this%kind(i)) 
+!          endif
+!         enddo
+
+        return
+        end subroutine remove_overlap
 
         subroutine delete_atoms_group(this)
         implicit none
@@ -65,6 +110,8 @@
          if(allocated(this%charge)) deallocate(this%charge)
          if(allocated(this%dist)) deallocate(this%dist)
          if(allocated(this%label)) deallocate(this%label)
+
+          ! add removal of descriptors, neighbours, and FF
 
         return
         end subroutine delete_atoms_group
@@ -496,15 +543,17 @@
 
           allocate(new_geo(this%nats,3))
           allocate(new_kind(this%nats))
+
           if(allocated(this%molid))deallocate(this%molid)
-          allocate(this%molid(this%nats))
+          allocate(this%molid(size(blc)))
+          this%molid=blc
 
           v=1
           do j=1,size(blc)-1
            do i=1+blc(j),blc(j+1)
             new_geo(v,:)=this%x(mapp(i),:)
             new_kind(v)=this%kind(mapp(i))
-            this%molid(v)=j
+ !           this%molid(v)=j
             v=v+1
            enddo
           enddo
