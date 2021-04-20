@@ -45,6 +45,7 @@
          logical                            :: make_Rmat=.false.
          logical                            :: make_R2mat=.false.
          logical                            :: make_SA=.false.
+         logical                            :: make_PT2=.false.
          logical                            :: sparse=.true.
          integer, allocatable               :: print_si(:)
          integer                            :: s2print=0         
@@ -61,6 +62,7 @@
          procedure   ::  make_rho0 => make_rho0_H
          procedure   ::  make_U => make_propagator_H
          procedure   ::  make_R => make_R_H
+         procedure   ::  make_R2 => make_R2_H
          procedure   ::  make_RL => make_RL_H
          procedure   ::  make_R01L => make_R01L_H
          procedure   ::  make_R02L => make_R02L_H
@@ -241,7 +243,7 @@
            if (phondy%list(ph)%freq(bn).gt.max_ener) cycle
            if (this%dos2pm%get_val(phondy%list(ph)%freq(bn)).lt.1.0d-6) cycle
 
-           call phondy%calc_linewidth_sp(sys,ph,bn)
+!           call phondy%calc_linewidth_sp(sys,ph,bn)
            write(*,*) ph,bn,phondy%list(ph)%width(bn,1)
 
           enddo
@@ -250,7 +252,7 @@
         return
         end subroutine get_ph_lt
 
-        subroutine make_R02L_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R0)
+        subroutine make_R02L_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R0,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -271,6 +273,7 @@
         type(dist_cmplx_mat)         :: R0,R0inv
         double precision             :: Gf,DEner,step_min,coeff(3),DEner2
         double precision             :: val,norm,max_ener,avg_sph,val2
+        double precision             :: euler(3)
         complex(8)                   :: valc,nodiag_sum,diag_sum,kcons,valc2
         complex(8), allocatable      :: Vmat(:,:)
         integer                      :: ph,bn,ii,jj,size_block,i1,ii_1,i,jj_1
@@ -282,6 +285,7 @@
         integer                      :: size_block_1,size_block_2,i2,l1
         integer                      :: nloc,nstart,phx
         integer, allocatable         :: proc_grid(:)
+        logical                      :: check_SA
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
@@ -314,7 +318,16 @@
           if(.not.read_fc3)then
            if(.not.allocated(phondy%list(ph)%width))then
             allocate(phondy%list(ph)%width(size(phondy%list(ph)%freq),1))
-            phondy%list(ph)%width=smear
+            if(phondy%effective_lt)then
+              phondy%list(ph)%width=temp(1)*0.5d0
+!             do i=1,size(phondy%list(ph)%freq)
+!              phondy%list(ph)%width(i,1)=smear*&
+!                (1+exp(phondy%list(ph)%freq(i)/(kboltz*temp(1)*2.0d0)))/&
+!                (exp(phondy%list(ph)%freq(i)/(kboltz*temp(1)*2.0d0))-1)
+!             enddo
+            else
+             phondy%list(ph)%width=smear
+            endif
            endif
           endif
 
@@ -451,25 +464,25 @@
                          -phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
               Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*&
                  bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                 delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                 delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
               DEner=this%Ener(kd)%v(id)-this%Ener(kb)%v(ib)  &
                          +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
                      bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                     delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
               DEner=this%Ener(kd)%v(id)-this%Ener(kb)%v(ib)  &
                          -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
               Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
                     (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                     delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
               DEner=this%Ener(kd)%v(id)-this%Ener(kb)%v(ib)  &
                          +phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
                     (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                     delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
               R0%mat(ii,jj)=R0%mat(ii,jj)+Vmat(la,l2a)*conjg(Vmat(lb,l2b))*Gf*kcons
  
@@ -479,25 +492,25 @@
                          -phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
               Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*&
                  bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                 delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                 delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
               DEner=this%Ener(kc)%v(ic)-this%Ener(ka)%v(ia)  &
                          +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
                      bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                     delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
               DEner=this%Ener(kc)%v(ic)-this%Ener(ka)%v(ia)  &
                          -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
               Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
                     (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                     delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
               DEner=this%Ener(kc)%v(ic)-this%Ener(ka)%v(ia)  &
                          +phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
                     (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                     delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
               R0%mat(ii,jj)=R0%mat(ii,jj)+Vmat(la,l2a)*conjg(Vmat(lb,l2b))*Gf*kcons
 
@@ -520,25 +533,25 @@
                            -phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
                 Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*&
                    bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                   delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                   delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)  &
                            +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
                 Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
                        bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                       delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)  &
                            -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
                 Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
                       (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                      delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)  &
                            +phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
                 Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
                       (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                       delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
                 R0%mat(ii,jj)=R0%mat(ii,jj)-Vmat(la,vv)*conjg(Vmat(l2a,vv))*Gf*kcons
 
@@ -565,25 +578,25 @@
                            -phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
                 Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*&
                    bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                   delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                   delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)  &
                            +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
                 Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
                        bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                       delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)  &
                            -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
                 Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
                       (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                      delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)  &
                            +phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
                 Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
                       (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                       delta(DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
                 R0%mat(ii,jj)=R0%mat(ii,jj)-Vmat(l2b,vv)*conjg(Vmat(lb,vv))*Gf*kcons
 
@@ -676,6 +689,15 @@
             endif
            enddo
 
+!!!!!!!!!!!!!!!!!!!!!!!
+
+!           check_SA=.true.
+!           if(la.eq.l2a .and. lb.eq.l2b) check_SA=.false.
+!           if(la.eq.lb .and. l2a.eq.l2b) check_SA=.false.
+!           if(check_SA) R0%mat(ii,jj)=(0.0d0,0.0d0)           
+
+!!!!!!!!!!!!!!!!!!!!!!!
+
            DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)+  &
                  this%Ener(kd)%v(id)-this%Ener(kb)%v(ib)
 
@@ -716,7 +738,7 @@
         return
         end subroutine make_R02L_H
 
-        subroutine make_R01L_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R0)
+        subroutine make_R01L_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R0,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -736,12 +758,13 @@
         type(dist_cmplx_mat)         :: AA,BB,CC
         type(dist_cmplx_mat)         :: R0,R0inv
         double precision             :: Gf,DEner,step_min,coeff(3)
-        double precision             :: val,norm,max_ener,avg_sph,val2
+        double precision             :: val,norm,max_ener,avg_sph,val2,alpha,beta,gamma
         complex(8)                   :: valc,nodiag_sum,diag_sum,kcons,valc2,kcons2
         complex(8), allocatable      :: Vmat(:,:)
+        double precision             :: euler(3)
         integer                      :: ph,bn,ii,jj,size_block,i1,ii_1,i,jj_1
         integer                      :: l,l2,la,lb,l2a,l2b,spin_id,spin_id2
-        integer                      :: k,ia,ib,ka,kb,ic,kc,id,kd,vv
+        integer                      :: k,ia,ib,ka,kb,ic,kc,id,kd,vv,term
         integer                      :: nphonons,v,nze
         integer                      :: t1,t2,rate,indxl2g,px,py,pz,phx,nloc,nstart
         integer                      :: mult_fact,s,t,j,phondy_memory_usage
@@ -761,7 +784,7 @@
          nphonons=0
          avg_sph=0.0d0
 
-!         call get_sph_dists(this,sys,phondy,max_ener)
+         call get_sph_dists(this,sys,phondy,max_ener)
 
          ! make lists of phonons to be included and distribute them on
          ! processes        
@@ -783,6 +806,7 @@
 
           do bn=1,size(phondy%list(ph)%freq)
 
+
       ! check spectrum overlap
 
            if (ph.eq.1 .and. bn.le.3) cycle
@@ -796,16 +820,29 @@
 
       ! Build SPH per phonon
 
-           call this%SPH%cart2brill(this%rcell,sys,phondy,ph,bn)
-
            do spin_id=1,this%nspins_pr
            do spin_id2=spin_id,this%nspins
+        
+           call this%SPH%cart2brill(this%rcell,sys,phondy,ph,bn)
+
+         ! DyCp NEV_FIC_RIJK_mllb
+!           gamma=0.33007747868274917        
+!           beta=-1.5453443590433216        
+!           alpha=-1.8207758543913428
+
+         ! Dyacac inverse euler of gmolcas
+!            gamma=-2.2139203072213745
+!            beta=-1.3102504949441061
+!            alpha=2.0059623380955780
+           
+            if (any( abs(euler).gt.1.0d-4 )) call this%SPH%rot(euler)
 
       ! Make Vij per spin    
 
             AA%mat=(0.0d0,0.0d0)
 
             call make_SH_rep(this,this%SPH,spin_id,spin_id2)
+
             do l=1,size(this%Hnodes,1)
 
              ii=this%Hnodes(l,1)
@@ -878,6 +915,7 @@
                 exit
                endif
               enddo
+
  
               if(this%ntot.gt.1)then
 
@@ -902,18 +940,24 @@
               endif
 
               Gf=0.0d0
-              DEner=this%Ener(kd)%v(id)-this%Ener(kb)%v(ib)-phondy%list(ph)%Freq(bn)
-              Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(DEner,phondy%list(ph)%width(bn,1))
-              DEner=this%Ener(kd)%v(id)-this%Ener(kb)%v(ib)+phondy%list(ph)%Freq(bn)
-              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(DEner,phondy%list(ph)%width(bn,1))
+              if(this%Ener(kd)%v(id).gt.this%Ener(kb)%v(ib))then
+               DEner=this%Ener(kd)%v(id)-this%Ener(kb)%v(ib)-phondy%list(ph)%Freq(bn)
+               Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              else
+               DEner=this%Ener(kd)%v(id)-this%Ener(kb)%v(ib)+phondy%list(ph)%Freq(bn)
+               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              endif
 !              R0%mat(ii,jj)=R0%mat(ii,jj)+Vmat(la,l2a)*Vmat(l2b,lb)*Gf*kcons*conjg(kcons)
               R0%mat(ii,jj)=R0%mat(ii,jj)+Vmat(la,l2a)*conjg(Vmat(lb,l2b))*Gf*kcons
  
               Gf=0.0d0
-              DEner=this%Ener(kc)%v(ic)-this%Ener(ka)%v(ia)-phondy%list(ph)%Freq(bn)
-              Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(DEner,phondy%list(ph)%width(bn,1))
-              DEner=this%Ener(kc)%v(ic)-this%Ener(ka)%v(ia)+phondy%list(ph)%Freq(bn)
-              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(DEner,phondy%list(ph)%width(bn,1))
+              if(this%Ener(kc)%v(ic).gt.this%Ener(ka)%v(ia))then
+               DEner=this%Ener(kc)%v(ic)-this%Ener(ka)%v(ia)-phondy%list(ph)%Freq(bn)
+               Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              else
+               DEner=this%Ener(kc)%v(ic)-this%Ener(ka)%v(ia)+phondy%list(ph)%Freq(bn)
+               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              endif
 !              R0%mat(ii,jj)=R0%mat(ii,jj)+Vmat(la,l2a)*Vmat(l2b,lb)*Gf*kcons*conjg(kcons)
               R0%mat(ii,jj)=R0%mat(ii,jj)+Vmat(la,l2a)*conjg(Vmat(lb,l2b))*Gf*kcons
 
@@ -941,17 +985,22 @@
                  kcons=(1.0d0,0.0d0)
  
                 endif
+
                 do jj_1=1,(this%kblc(ii_1+1)-this%kblc(ii_1))
                  vv=vv+1 
                  Gf=0.0d0
-                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)-phondy%list(ph)%Freq(bn)
-                 Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(DEner,phondy%list(ph)%width(bn,1))
-                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)+phondy%list(ph)%Freq(bn)
-                 Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(DEner,phondy%list(ph)%width(bn,1))
+                 if(this%Ener(ii_1)%v(jj_1).gt.this%Ener(kc)%v(ic))then
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)-phondy%list(ph)%Freq(bn)
+                  Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 else
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)+phondy%list(ph)%Freq(bn)
+                  Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 endif
 !                 R0%mat(ii,jj)=R0%mat(ii,jj)-Vmat(la,vv)*Vmat(vv,l2a)*Gf*kcons*conjg(kcons)
                  R0%mat(ii,jj)=R0%mat(ii,jj)-Vmat(la,vv)*conjg(Vmat(l2a,vv))*Gf*kcons
                 enddo
                enddo
+
               endif
 
               if(l2a.eq.la)then
@@ -981,16 +1030,19 @@
                 do jj_1=1,(this%kblc(ii_1+1)-this%kblc(ii_1))
                  vv=vv+1 
                  Gf=0.0d0
-                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)-phondy%list(ph)%Freq(bn)
-                 Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(DEner,phondy%list(ph)%width(bn,1))
-                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)+phondy%list(ph)%Freq(bn)
-                 Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(DEner,phondy%list(ph)%width(bn,1))
+                 if(this%Ener(ii_1)%v(jj_1).gt.this%Ener(kd)%v(id))then
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)-phondy%list(ph)%Freq(bn)
+                  Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 else
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)+phondy%list(ph)%Freq(bn)
+                  Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 endif
 !                 R0%mat(ii,jj)=R0%mat(ii,jj)-Vmat(l2b,vv)*Vmat(vv,lb)*Gf*kcons*conjg(kcons)
                  R0%mat(ii,jj)=R0%mat(ii,jj)-Vmat(l2b,vv)*conjg(Vmat(lb,vv))*Gf*kcons
                 enddo
                enddo
               endif
-             
+
              enddo  !! jj
             enddo !! ii
 
@@ -1068,22 +1120,32 @@
            DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)+  &
                  this%Ener(kd)%v(id)-this%Ener(kb)%v(ib)
 
+!          Enforce diagonal secular approximation
+
+!           if ( ((ka.eq.kc .and. ia.eq.ic) .and. (kd.eq.kb .and. id.eq.ib)) &
+!                .or. ((ka.eq.kb .and. ia.eq.ib) .and. (kd.eq.kc .and. id.eq.ic)) ) then
+        
            if( abs(DEner).lt.1.0e-6 )then              
 
             R0%mat(ii,jj)=pi*pi*R0%mat(ii,jj)*step_min*mult_fact/hplank
 
+!           if ( .not. ( ((ka.eq.kc .and. ia.eq.ic) .and. (kd.eq.kb .and. id.eq.ib)) &
+!                .or. ((ka.eq.kb .and. ia.eq.ib) .and. (kd.eq.kc .and. id.eq.ic)) ) ) then
+!             if( dble(R0%mat(ii,jj)*conjg(R0%mat(ii,jj))) .gt. 1.0e-12 ) then
+!              write(*,*) ia,ib,ic,id,R0%mat(ii,jj)
+!             endif
+!            endif
+
            else
 
-            R0%mat(ii,jj)=R0%mat(ii,jj)*hplank*2.0d0*acos(-1.0d0)*cmplx(0.0d0,-1.0d0,8)*  &
-                          (exp(2.0d0*acos(-1.0d0)*cmplx(0.0d0,1.0d0,8)*DEner*step_min*mult_fact/hplank)-1) &
-                          /DEner
-
-            R0%mat(ii,jj)=pi*pi*R0%mat(ii,jj)/hplank
+            R0%mat(ii,jj)=(0.0d0,0.0d0)
 
            endif
         
           enddo
          enddo
+
+         ! Taking the Transpose conjugate of R0
 
          do l2=1,this%Ldim
           do l=l2+1,this%Ldim
@@ -1096,6 +1158,16 @@
 
          call AA%dealloc()
 
+         if(mpi_id.eq.0) open(15,file='RL.dat')
+         do l=1,this%Ldim
+          do l2=1,this%Ldim         
+           call pzelget('A',' ',valc,R0%mat,l2,l,R0%desc)
+           if(mpi_id.eq.0) write(15,*) l2,l,dble(valc),aimag(valc)
+          enddo
+          if(mpi_id.eq.0) write(15,*)
+         enddo
+         if(mpi_id.eq.0) close(15)
+
          if(mpi_id.eq.0)then
           call system_clock(t2)
           write(*,*) '          ... Done in ',real(t2-t1)/real(rate),'s'
@@ -1105,7 +1177,7 @@
         return
         end subroutine make_R01L_H
 
-        subroutine make_RL_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage)
+        subroutine make_RL_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -1119,22 +1191,24 @@
         use atoms_class
         use phonons_class
         implicit none
-        class(spins_hilbert)         :: this
-        class(brillouin)             :: phondy
-        class(atoms_group)           :: sys
-        type(dist_cmplx_mat)         :: AA,BB,CC
-        type(dist_cmplx_mat)         :: R0,R0inv,R02
-        double precision             :: Gf,DEner,step_min,coeff(3)
-        double precision             :: val,norm,max_ener,avg_sph,val2
-        complex(8)                   :: valc,nodiag_sum,diag_sum,kcons,valc2
-        complex(8), allocatable      :: Vmat(:,:)
-        integer                      :: ph,bn,ii,jj,size_block,i1,ii_1,i,jj_1
-        integer                      :: l,l2,la,lb,l2a,l2b,spin_id,spin_id2
-        integer                      :: k,ia,ib,ka,kb,ic,kc,id,kd,vv
-        integer                      :: nphonons,v,nze
-        integer                      :: t1,t2,rate,indxl2g,px,py,pz
-        integer                      :: mult_fact,s,t,j,phondy_memory_usage
-        integer                      :: size_block_1,size_block_2,i2,l1
+        class(spins_hilbert)          :: this
+        class(brillouin)              :: phondy
+        class(atoms_group)            :: sys
+        type(dist_cmplx_mat)          :: AA,BB,CC
+        type(dist_cmplx_mat)          :: R0,R0inv,R02
+        double precision              :: Gf,DEner,step_min,coeff(3)
+        double precision              :: val,norm,max_ener,avg_sph,val2
+        double precision, allocatable :: rates(:)
+        double precision              :: euler(3)
+        complex(8)                    :: valc,nodiag_sum,diag_sum,kcons,valc2
+        complex(8), allocatable       :: Vmat(:,:)
+        integer                       :: ph,bn,ii,jj,size_block,i1,ii_1,i,jj_1
+        integer                       :: l,l2,la,lb,l2a,l2b,spin_id,spin_id2
+        integer                       :: k,ia,ib,ka,kb,ic,kc,id,kd,vv
+        integer                       :: nphonons,v,nze
+        integer                       :: t1,t2,rate,indxl2g,px,py,pz
+        integer                       :: mult_fact,s,t,j,phondy_memory_usage
+        integer                       :: size_block_1,size_block_2,i2,l1
 
          this%make_Heig=.true.
          if(.not.this%make_Heig)then          
@@ -1152,9 +1226,9 @@
          call R0%set(this%Ldim,this%Ldim,NB,MB)
          R0%mat=(0.0d0,0.0d0)
 
-         if(this%make_Rmat) call this%make_R01L(sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R0)
+         if(this%make_Rmat) call this%make_R01L(sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R0,euler)
          if(this%make_R2mat)then
-          call this%make_R02L(sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R02)
+          call this%make_R02L(sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R02,euler)
           R0%mat=R0%mat+R02%mat
           call R02%dealloc()
          endif       
@@ -1181,9 +1255,13 @@
 
          if(mpi_id.eq.0) then
           write(*,*) 'R Matrix Eigenvalues:'
+          allocate(rates(this%Ldim))
+          rates=abs(dble(this%Rval))
+          call  order_array(rates)
           do l=1,this%Ldim
-           write(*,*) l,this%Rval(l) 
+           write(*,*) l,rates(l)
           enddo
+          deallocate(rates)
          endif
 
       ! Build Pop Propagator R= R exp(Rval) R^{\cross}
@@ -1217,7 +1295,7 @@
         return
         end subroutine make_RL_H
 
-        subroutine make_R_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage)
+        subroutine make_R_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -1230,21 +1308,24 @@
         use atoms_class
         use phonons_class
         implicit none
-        class(spins_hilbert)         :: this
-        class(brillouin)             :: phondy
-        class(atoms_group)           :: sys
-        type(dist_cmplx_mat)         :: AA,BB,CC
-        type(dist_dbl_mat)           :: R0,R0inv
-        double precision             :: Gf,DEner,step_min,coeff(3),smoother(3)
-        double precision             :: val,norm,max_ener,avg_sph
-        complex(8),allocatable       :: Vii(:)        
-        complex(8)                   :: valc,nodiag_sum,diag_sum,kcons,AAAA(4,4)
-        integer                      :: ph,bn,ii,jj,l,l2,size_block,i1,ii_1,i       
-        integer                      :: k,ia,ib,ka,kb,nphonons,v,spin_id,spin_id2
-        integer                      :: t1,t2,rate,indxl2g,px,py,pz,cf
-        integer                      :: mult_fact,s,t,j,phondy_memory_usage
-        integer                      :: size_block_1,size_block_2,i2,l1
-        double precision             :: alpha,beta,gamma
+        class(spins_hilbert)          :: this
+        class(brillouin)              :: phondy
+        class(atoms_group)            :: sys
+        type(dist_cmplx_mat)          :: AA,BB,CC
+        type(dist_dbl_mat)            :: R0,R0inv
+        double precision              :: Gf,DEner,step_min,coeff(3)
+        double precision              :: alpha,beta,gamma
+        double precision              :: val,norm,max_ener,avg_sph,Gp,Gm
+        complex(8),allocatable        :: Vii(:)
+        double precision, allocatable :: rates(:)
+        double precision              :: euler(3)
+        complex(8)                    :: valc,nodiag_sum,diag_sum,kcons,AAAA(4,4)
+        integer                       :: ph,bn,ii,jj,l,l2,size_block,i1,ii_1,i,vv
+        integer                       :: k,ia,ib,ka,kb,nphonons,v,spin_id,spin_id2
+        integer                       :: t1,t2,rate,indxl2g,px,py,pz,nloc,nstart
+        integer                       :: mult_fact,s,t,j,phondy_memory_usage,term
+        integer                       :: size_block_1,size_block_2,i2,l1,nze,phx
+        integer, allocatable          :: proc_grid(:)
 
          this%make_Heig=.true.
          if(.not.this%make_Heig)then          
@@ -1273,13 +1354,11 @@
          nphonons=0
          avg_sph=0.0d0
 
-         call get_sph_dists(this,sys,phondy,max_ener)
+         if(allocated(proc_grid)) deallocate(proc_grid)
+         call mpi_dist_nprocess(size(phondy%list,1),nloc,nstart,proc_grid,mpi_phonons_world)
 
-      ! Smooth SPH k->0
-
-!         call this%smooth_sph(phondy,smoother)
-
-         do ph=1,phondy%ntot
+         ph=nstart
+         do phx=1,nloc
          
       ! Check for Ph lifetime
 
@@ -1306,28 +1385,35 @@
 
       ! Build SPH per phonon
 
-
-!          do cf=1,5
-
            call this%SPH%cart2brill(this%rcell,sys,phondy,ph,bn)
 
-!           alpha=0.0d0*acos(-1.0d0)/180.0d0
-!           beta=0.0d0*acos(-1.0d0)/180.0d0
-!           gamma=0.0d0*acos(-1.0d0)/180.0d0
-!           call this%SPH%O(1)%rot(alpha,beta,gamma)
+         ! Eulers from gg of Dy_NEV_RIJX_X4_mlb.out ! This work 
+!         alpha=-0.35182069521786968
+!         beta=1.5438722669095704
+!         gamma=1.3851648663175002
+
+         ! Eulers from gg of Dy_NEV_RIJK_mlb.out ! This work 
+!         alpha=-0.32993455234750912        
+!         beta=1.5452772190818402       
+!         gamma=0.88437557128663258
+
+         ! Dyacac inverse euler of gmolcas
+!           gamma=-2.2139203072213745
+!           beta=-1.3102504949441061
+!           alpha=2.0059623380955780
+
+!           do v=1,size(this%SPH%O)
+!            call this%SPH%O(v)%rot(alpha,beta,gamma)
+!           enddo
+
+          if (any( abs(euler).gt.1.0d-4 )) call this%SPH%rot(euler)
 
           do spin_id=1,this%nspins_pr
           do spin_id2=spin_id,this%nspins
 
       ! Make Vij
-            
-!           if(cf.ne.1) this%SPH%O(1)%B(1)=(0.0d0,0.0d0)
-!           if(cf.ne.2) this%SPH%O(1)%B(2)=(0.0d0,0.0d0)
-!           if(cf.ne.3) this%SPH%O(1)%B(3)=(0.0d0,0.0d0)
-!           if(cf.ne.4) this%SPH%O(1)%B(4)=(0.0d0,0.0d0)
-!           if(cf.ne.5) this%SPH%O(1)%B(5)=(0.0d0,0.0d0)
-          
-           AA%mat=(0.0d0,0.0d0)          
+
+           AA%mat=(0.0d0,0.0d0)
 
            call make_SH_rep(this,this%SPH,spin_id,spin_id2)
 
@@ -1415,28 +1501,25 @@
               endif
              enddo
 
-
-             Gf=0.0d0
+             Gf=0.0d0 
+             Gm=0.0d0
+             Gp=0.0d0
              if(this%Ener(ka)%v(ia).gt.this%Ener(kb)%v(ib))then
               DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph)%Freq(bn)
-              Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(DEner,phondy%list(ph)%width(bn,1))
+              Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              Gm=Gf
              else
               DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph)%Freq(bn)
-              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(DEner,phondy%list(ph)%width(bn,1))
+              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              Gp=Gf
              endif
 
-!             Gf=0.0d0 
-!             DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph)%Freq(bn)
-!             Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(DEner,phondy%list(ph)%width(bn,1))
-!             DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph)%Freq(bn)
-!             Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(DEner,phondy%list(ph)%width(bn,1))
-
-!             if( abs(Gf).gt.1e-12 .and. ii.eq.3 .and. jj.eq.1 ) then
-!              write(*,*) ii,jj,phondy%list(ph)%freq(bn),&
-!                dble(AA%mat(ii,jj)*conjg(AA%mat(ii,jj))),Gf,dble(this%SPH%O(1)%B(2)),dble(this%SPH%O(1)%B(4))
-!             endif
+!             write(*,*) ii,jj,Gf,Gm,Gp,ph,bn,phondy%list(ph)%freq(bn)
 
              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(AA%mat(ii,jj)*conjg(AA%mat(ii,jj)))*Gf
+
+!             write(*,*) ph,bn,phondy%list(ph)%freq(bn),ii,jj,&
+!                      dble(AA%mat(ii,jj)*conjg(AA%mat(ii,jj))),dble(AA%mat(ii,jj)),aimag(AA%mat(ii,jj))
 
             enddo
            enddo
@@ -1450,28 +1533,49 @@
               l2=indxl2g(jj,MB,mycol,0,npcol)
 
               DEner=phondy%list(ph)%Freq(bn)
-              Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(DEner,phondy%list(ph)%width(bn,1))
+              Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
 
               DEner=phondy%list(ph)%Freq(bn)
-              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*delta(DEner,phondy%list(ph)%width(bn,1))
+              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
 
               this%T2%mat(ii,jj)=this%T2%mat(ii,jj)+(2*Vii(l)*Vii(l2)-Vii(l)*Vii(l)-Vii(l2)*Vii(l2))*Gf
 
             enddo
            enddo
 
+!          enddo ! term
           enddo ! spin_id2
           enddo ! spin_id
-!          enddo ! cf
           enddo ! bn
 
-!          if(allocated(phondy%list(ph)%hess)) deallocate(phondy%list(ph)%hess)
-!          if(allocated(phondy%list(ph)%width)) deallocate(phondy%list(ph)%width)
+          if(allocated(phondy%list(ph)%hess)) deallocate(phondy%list(ph)%hess)
+          if(allocated(phondy%list(ph)%width)) deallocate(phondy%list(ph)%width)
 
+         ph=ph+1
          enddo ! ph
+
+         do ii=1,size(R0%mat,1)
+          do jj=1,size(R0%mat,2)
+           valc=(0.0d0,0.0d0)
+           call mpi_allreduce(R0%mat(ii,jj),valc,1,&
+              mpi_double_complex,mpi_sum,mpi_phonons_world,err)
+           R0%mat(ii,jj)=valc
+          enddo
+         enddo
+
+         do ii=1,size(this%T2%mat,1)
+          do jj=1,size(this%T2%mat,2)
+           valc=(0.0d0,0.0d0)
+           call mpi_allreduce(this%T2%mat(ii,jj),valc,1,&
+              mpi_double_complex,mpi_sum,mpi_phonons_world,err)
+           this%T2%mat(ii,jj)=valc
+          enddo
+         enddo
          
+         call mpi_allreduce(nphonons,nze,1,&
+              mpi_integer,mpi_sum,mpi_phonons_world,err)
+                  
          if(mpi_id.eq.0) write(*,*) 'Phonons included: ',nphonons
-         if(mpi_id.eq.0) write(*,*) 'Average SPH: ',avg_sph
 
          R0%mat=2.0d0*pi*pi*R0%mat/hplank
          this%T2%mat=pi*pi*this%T2%mat/hplank   
@@ -1564,6 +1668,16 @@
 
          if(mpi_id.eq.0) write(*,*) 'R Matrix Eigenvalues:'
 
+         if(mpi_id.eq.0)then
+          allocate(rates(this%Hdim))
+          rates=abs(dble(this%Rval))
+          call  order_array(rates)
+          do l=1,this%Hdim
+           write(*,*) l,rates(l) 
+          enddo
+          deallocate(rates)
+         endif
+
          nodiag_sum=(0.0d0,0.0d0)
          diag_sum=(0.0d0,0.0d0)
 
@@ -1574,7 +1688,7 @@
 
            if(l.eq.l2)  diag_sum=diag_sum+CC%mat(ii,jj)
            if(l.ne.l2)  nodiag_sum=nodiag_sum+CC%mat(ii,jj)
-           if(l.eq.l2 .and. mpi_id.eq.0 )  write(*,*) l,this%Rval(l) 
+!           if(l.eq.l2 .and. mpi_id.eq.0 )  write(*,*) l,this%Rval(l) 
 
           enddo
          enddo
@@ -1618,6 +1732,562 @@
 
         return
         end subroutine make_R_H
+
+        subroutine make_R2_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,euler)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        use scalapack_diag_simm
+        use scalapack_diag_asimm
+        use scalapack_inv
+        use lapack_diag_asimm
+        use lapack_inverse
+        use units_parms 
+        use atoms_class
+        use phonons_class
+        implicit none
+        class(spins_hilbert)          :: this
+        class(brillouin)              :: phondy
+        class(atoms_group)            :: sys
+        type(dist_cmplx_mat)          :: AA,BB,CC,AA2
+        type(dist_dbl_mat)            :: R0,R0inv
+        double precision              :: Gf,DEner,DEner2,step_min,coeff(3)
+        double precision              :: val,norm,max_ener,avg_sph,Gpp,Gmm,Gpm,Gmp
+        double precision, allocatable :: rates(:)
+        double precision              :: euler(3)
+        complex(8),allocatable        :: Vii(:)        
+        complex(8)                    :: valc,nodiag_sum,diag_sum,kcons,AAAA(4,4)
+        complex(8)                    :: R0p,R0m,R0mtmp,R0ptmp
+        integer                       :: ph,bn,ii,jj,l,l2,size_block,i1,ii_1,i       
+        integer                       :: k,ia,ib,ka,kb,nphonons,v,spin_id,spin_id2
+        integer                       :: l3,l4,kk1,kk2,bn2,ph2,phx,ic,id,kc,kd
+        integer                       :: t1,t2,rate,indxl2g,px,py,pz,nloc,nstart
+        integer                       :: mult_fact,s,t,j,phondy_memory_usage
+        integer                       :: size_block_1,size_block_2,i2,l1,nze
+        integer, allocatable          :: proc_grid(:)
+        double precision              :: alpha,beta,gamma
+
+         if(.not.this%make_Heig)then          
+          write(*,*) 'Warning, open system symulation in the Sz basis', &
+                     'is not implemented yet'
+          return
+         endif
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)
+          write(*,*) '   Building R matrix...',temp(1),' K'
+          flush(6)
+         endif
+
+         call R0%set(this%Hdim,this%Hdim,NB,MB)
+         R0%mat=0.0d0
+
+         call this%T2%set(this%Hdim,this%Hdim,NB,MB)
+         this%T2%mat=(0.0d0,0.0d0)
+
+         allocate(this%T1(this%Hdim))
+         allocate(Vii(this%Hdim))
+
+         call AA%set(this%Hdim,this%Hdim,NB,MB)          
+         call AA2%set(this%Hdim,this%Hdim,NB,MB)          
+
+         nphonons=0
+
+         if(allocated(proc_grid)) deallocate(proc_grid)
+         call mpi_dist_nprocess(size(phondy%list,1),nloc,nstart,proc_grid,mpi_phonons_world)
+
+         ph=nstart
+         do phx=1,nloc
+
+          if(.not.read_fc3)then
+           if(.not.allocated(phondy%list(ph)%width))then
+            allocate(phondy%list(ph)%width(size(phondy%list(ph)%freq),1))
+             phondy%list(ph)%width=smear
+           endif
+          endif
+
+         do ph2=1,phondy%ntot
+         
+      ! Check for Ph lifetime
+
+          if(.not.read_fc3)then
+           if(.not.allocated(phondy%list(ph2)%width))then
+            allocate(phondy%list(ph2)%width(size(phondy%list(ph2)%freq),1))
+            phondy%list(ph2)%width=smear
+           endif
+          endif
+
+          do bn=1,size(phondy%list(ph)%freq)
+          do bn2=1,size(phondy%list(ph2)%freq)
+
+!           if( ((ph2-1)*size(phondy%list(ph2)%freq)+bn2) .lt. &
+!               ((ph-1)*size(phondy%list(ph)%freq)+bn) ) cycle
+
+      ! check spectrum overlap
+
+           if (ph.eq.1 .and. bn.le.3) cycle
+           if (ph2.eq.1 .and. bn2.le.3) cycle
+           if (phondy%list(ph)%freq(bn).lt.0.0d0) cycle
+           if (phondy%list(ph2)%freq(bn2).lt.0.0d0) cycle
+           if (phondy%list(ph)%freq(bn).gt.max_ener) cycle
+           if (phondy%list(ph2)%freq(bn2).gt.max_ener) cycle
+
+!           DEner=abs(phondy%list(ph)%freq(bn)-phondy%list(ph2)%freq(bn2))
+!           DEner2=abs(phondy%list(ph)%freq(bn)+phondy%list(ph2)%freq(bn2))
+!           if (this%dos2pm%get_val(abs(DEner)).lt.1.0d-6 .and. &
+!               this%dos2pm%get_val(abs(DEner2)).lt.1.0d-6 ) cycle
+
+           nphonons=nphonons+1
+
+           if(.not.allocated(phondy%list(ph)%hess) ) call phondy%list(ph)%diagD(sys)
+           if(.not.allocated(phondy%list(ph2)%hess) ) call phondy%list(ph2)%diagD(sys)
+
+      ! Build SPH per phonon
+
+           do spin_id=1,this%nspins_pr
+           do spin_id2=spin_id,this%nspins
+
+            call this%SPH%cart2brill(this%rcell,sys,phondy,ph,bn)
+
+         ! DyCp NEV_FIC_RIJK_mllb
+!           gamma=0.33007747868274917        
+!           beta=-1.5453443590433216        
+!           alpha=-1.8207758543913428
+
+         ! Dyacac euler of g
+!           gamma=-2.2139203072213745
+!           beta=-1.3102504949441061
+!           alpha=2.0059623380955780
+
+!           do v=1,size(this%SPH%O)
+!            call this%SPH%O(v)%rot(alpha,beta,gamma)
+!           enddo
+
+           if (any( abs(euler).gt.1.0e-4 )) call this%SPH%rot(euler)
+
+      ! Make Vij
+
+            AA%mat=(0.0d0,0.0d0)
+
+            call make_SH_rep(this,this%SPH,spin_id,spin_id2)
+
+            do l=1,size(this%Hnodes,1)
+
+             ii=this%Hnodes(l,1)
+             jj=this%Hnodes(l,2)
+            
+             AA%mat(ii,jj)=this%get_Hij_2(this%Hnodes(l,1:4))
+
+            enddo ! l
+
+      ! Rotate Vij
+
+            if(this%ntot.gt.1)then
+             write(*,*) 'kpoints and Raman not implemented'
+             stop
+            endif           
+
+            if(this%make_Heig)then
+            call this%to_eigenbasis(AA)
+            endif
+                      
+            do l=1,this%Hdim
+             call pzelget('A',' ',Vii(l),AA%mat,l,l,AA%desc)
+            enddo
+
+       ! make Vij for second phonon 
+
+            call this%SPH%cart2brill(this%rcell,sys,phondy,ph2,bn2)
+
+         ! DyCp NEV_FIC_RIJK_mllb
+!           gamma=0.33007747868274917        
+!           beta=-1.5453443590433216        
+!           alpha=-1.8207758543913428
+
+         ! Dyacac euler of g
+
+!           gamma=-2.2139203072213745
+!           beta=-1.3102504949441061
+!           alpha=2.0059623380955780
+
+!            do v=1,size(this%SPH%O)
+!             call this%SPH%O(v)%rot(alpha,beta,gamma)
+!            enddo
+
+            if (any( abs(euler).gt.1.0e-4 )) call this%SPH%rot(euler)
+
+      ! Make Vij
+
+            AA2%mat=(0.0d0,0.0d0)
+
+            call make_SH_rep(this,this%SPH,spin_id,spin_id2)
+
+            do l=1,size(this%Hnodes,1)
+
+             ii=this%Hnodes(l,1)
+             jj=this%Hnodes(l,2)
+            
+             AA2%mat(ii,jj)=this%get_Hij_2(this%Hnodes(l,1:4))
+
+            enddo ! l
+
+      ! Rotate Vij
+
+            if(this%ntot.gt.1)then
+             write(*,*) 'kpoints and Raman not implemented'
+             stop
+            endif           
+
+            if(this%make_Heig)then
+            call this%to_eigenbasis(AA2)
+            endif
+                      
+            do l=1,this%Hdim
+             call pzelget('A',' ',Vii(l),AA%mat,l,l,AA%desc)
+            enddo
+ 
+       ! Make Rij
+
+            do ii=1,size(R0%mat,1)
+             do jj=1,size(R0%mat,2)
+
+              l=indxl2g(ii,NB,myrow,0,nprow)
+              l2=indxl2g(jj,MB,mycol,0,npcol)
+
+              do ii_1=1,this%ntot
+               if(l.le.this%kblc(ii_1+1))then
+                ka=ii_1
+                ia=l-this%kblc(ii_1)
+                exit
+               endif
+              enddo
+
+              do ii_1=1,this%ntot
+               if(l2.le.this%kblc(ii_1+1))then
+                kb=ii_1
+                ib=l2-this%kblc(ii_1)
+                exit
+               endif
+              enddo
+
+              R0p=(0.0d0,0.0d0)
+              R0m=(0.0d0,0.0d0)
+ 
+              do kk1=1,size(R0%mat,1)
+               do kk2=1,size(R0%mat,2)
+
+                l3=indxl2g(kk1,NB,myrow,0,nprow) 
+                l4=indxl2g(kk2,MB,mycol,0,npcol)
+
+                if(l3.eq.l4)then
+
+                 do ii_1=1,this%ntot
+                  if(l3.le.this%kblc(ii_1+1))then
+                   kc=ii_1
+                   ic=l3-this%kblc(ii_1)
+                   exit
+                  endif
+                 enddo
+
+                 do ii_1=1,this%ntot
+                  if(l4.le.this%kblc(ii_1+1))then
+                   kd=ii_1
+                   id=l4-this%kblc(ii_1)
+                   exit
+                  endif
+                 enddo
+              
+!               if(ib.eq.1 .and. ia.eq.2 .and. ic.le.8 ) cycle
+!               if(ib.eq.2 .and. ia.eq.1 .and. ic.le.8 ) cycle
+
+!                 R0mtmp=(0.0d0,0.0d0)
+!                 R0ptmp=(0.0d0,0.0d0)
+
+                 if(this%ener(kc)%v(ic).gt.this%Ener(kb)%v(ib))then  
+                  R0m=R0m+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph2)%freq(bn2)&
+                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
+!                  R0mtmp=AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+!                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph2)%freq(bn2)&
+!                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
+                 else
+                  R0p=R0p+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2)&
+                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
+!                  R0ptmp=AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+!                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2)&
+!                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
+                 endif
+
+                endif
+               
+!               if(ib.eq.1 .and. ia.eq.2 .or. ib.eq.2 .and. ia.eq.1) &
+!                write(*,*) ia,ib,ic,R0ptmp,R0mtmp,phondy%list(ph2)%freq(bn2)
+
+               enddo ! kk1
+              enddo ! kk2
+              
+              Gf=0.0d0 
+              Gmp=0.0d0
+              Gpp=0.0d0
+
+              if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib) .and. &
+                 phondy%list(ph2)%freq(bn2).gt.phondy%list(ph)%freq(bn)  )then  
+                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
+                  Gf=bose(temp(1),phondy%list(ph2)%Freq(bn2))*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
+                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                  Gmp=Gf
+              endif
+
+              if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib) .and. &
+                 phondy%list(ph2)%freq(bn2).lt.phondy%list(ph)%freq(bn)  )then  
+                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
+                  Gf=Gf+bose(temp(1),phondy%list(ph2)%Freq(bn2))*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
+                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                  Gmp=Gf
+              endif
+
+              if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib))then
+                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
+                  Gf=Gf+bose(temp(1),phondy%list(ph2)%Freq(bn2))*bose(temp(1),phondy%list(ph)%Freq(bn))*&
+                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                  Gpp=Gf-Gmp
+              endif
+
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0m*conjg(R0m))*Gf
+        
+!              if(Gf.gt.1.0d-8)then
+!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!              endif
+
+              Gf=0.0d0
+              Gpm=0.0d0
+              Gmm=0.0d0
+ 
+              if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib))then
+                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
+                  Gf=(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
+                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                  Gmm=Gf
+              endif
+
+              if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib) .and. &
+                 phondy%list(ph2)%freq(bn2).gt.phondy%list(ph)%freq(bn)  )then  
+                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
+                  Gf=Gf+(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*bose(temp(1),phondy%list(ph)%Freq(bn))*&
+                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                  Gpm=Gf-Gmm
+              endif
+
+              if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib) .and. &
+                 phondy%list(ph2)%freq(bn2).lt.phondy%list(ph)%freq(bn)  )then  
+                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
+                  Gf=Gf+(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*bose(temp(1),phondy%list(ph)%Freq(bn))*&
+                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                  Gpm=Gf-Gmm
+              endif
+ 
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0p*conjg(R0p))*Gf
+
+!              if(Gf.gt.1.0d-8)then
+!               write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!              endif
+
+             enddo ! jj
+            enddo ! ii
+
+        ! make T2 To be implemented
+                
+          enddo ! spin_id2
+          enddo ! spin_id
+
+          enddo ! bn2
+          enddo ! bn
+
+          if(ph2.ne.ph)then
+           if(allocated(phondy%list(ph2)%hess)) deallocate(phondy%list(ph2)%hess)
+           if(allocated(phondy%list(ph2)%width)) deallocate(phondy%list(ph2)%width)
+          endif
+
+         enddo ! ph2
+
+         if(allocated(phondy%list(ph)%hess)) deallocate(phondy%list(ph)%hess)
+         if(allocated(phondy%list(ph)%width)) deallocate(phondy%list(ph)%width)
+
+         ph=ph+1
+         enddo ! ph
+
+         do ii=1,size(R0%mat,1)
+          do jj=1,size(R0%mat,2)
+           valc=(0.0d0,0.0d0)
+           call mpi_allreduce(R0%mat(ii,jj),valc,1,&
+              mpi_double_complex,mpi_sum,mpi_phonons_world,err)
+           R0%mat(ii,jj)=valc
+          enddo
+         enddo
+         
+         call mpi_allreduce(nphonons,nze,1,&
+              mpi_integer,mpi_sum,mpi_phonons_world,err)
+
+         nphonons=nze
+         
+         if(mpi_id.eq.0) write(*,*) 'Raman Phonons included: ',nphonons
+         
+         R0%mat=pi*pi*R0%mat/hplank
+         this%T2%mat=pi*pi*this%T2%mat/hplank/2.0d0
+
+         do l=1,this%Hdim
+          norm=0.0d0
+          do l2=1,this%Hdim         
+           if(l.ne.l2)then  
+            call pdelget('A',' ',val,R0%mat,l2,l,R0%desc)
+            norm=norm-val
+           endif
+          enddo
+          this%T1(l)=norm
+          call pdelset(R0%mat,l,l,R0%desc,norm)
+         enddo
+
+         if(mpi_id.eq.0) open(15,file='R.dat')
+         do l=1,this%Hdim
+          do l2=1,this%Hdim         
+           call pdelget('A',' ',val,R0%mat,l2,l,R0%desc)
+           if(mpi_id.eq.0) write(15,*) l2,l,dble(val)
+          enddo
+          if(mpi_id.eq.0) write(15,*)
+         enddo
+         if(mpi_id.eq.0) close(15)
+
+         if(mpi_id.eq.0)then
+          write(*,*) '           T1 (ps)'
+          do i=1,this%Hdim
+           write(*,*) i,-1.0d0/this%T1(i)
+          enddo
+         endif
+
+      ! Compute correlation propagator
+       
+         do ii=1,size(this%T2%mat,1)
+          do jj=1,size(this%T2%mat,2)
+
+           l=indxl2g(ii,NB,myrow,0,nprow)
+           l2=indxl2g(jj,MB,mycol,0,npcol)
+
+           this%T2%mat(ii,jj)=this%T2%mat(ii,jj)+ &
+                                   0.50d0*(this%T1(l)+this%T1(l2))
+
+           this%T2%mat(ii,jj)=exp(step_min*mult_fact*this%T2%mat(ii,jj))
+
+          enddo
+         enddo
+
+      ! Diag Rij ! check routine
+
+         AA%mat=(0.0d0,0.0d0)
+         allocate(this%Rval(this%Hdim))
+
+         call BB%set(this%Hdim,this%Hdim,NB,MB)
+         BB%mat=(0.0d0,0.0d0)
+          
+         !!!!! Scalapack version
+
+         call pddiag2(this%Hdim,R0,this%Rval,AA,BB)
+         BB%mat=AA%mat
+         call pzgeinv(this%Hdim,BB)
+
+         if(mpi_id.eq.0) open(15,file='Reig.dat')
+         do l=1,this%Hdim
+          do l2=1,this%Hdim         
+           call pzelget('A',' ',valc,AA%mat,l2,l,AA%desc)
+           if(mpi_id.eq.0) write(15,*) l2,l,dble(valc),aimag(valc)
+          enddo
+          if(mpi_id.eq.0) write(15,*)
+         enddo
+         if(mpi_id.eq.0) close(15)
+
+
+         !!!!! Lapack version
+
+!         AA%mat=cmplx(R0%mat,0.0d0,8)
+!         call new_diag2(this%Hdim,AA%mat,this%Rval)
+!         BB%mat=AA%mat
+!         call mat_inv(BB%mat,this%Hdim) 
+
+         !!!!!
+
+         call CC%set(this%Hdim,this%Hdim,NB,MB)
+         CC%mat=(0.0d0,0.0d0)
+
+         call pzgemm('N','N',this%Hdim,this%Hdim,this%Hdim,&
+                     (1.0d0,0.0d0),BB%mat,1,1,BB%desc,AA%mat,&
+                     1,1,AA%desc,(0.0d0,0.0d0),CC%mat,1,1,CC%desc)
+
+         if(mpi_id.eq.0) write(*,*) 'R Matrix Eigenvalues:'
+
+         nodiag_sum=(0.0d0,0.0d0)
+         diag_sum=(0.0d0,0.0d0)
+
+         if(mpi_id.eq.0)then
+          allocate(rates(this%Hdim))
+          rates=abs(dble(this%Rval))
+          call  order_array(rates)
+          do l=1,this%Hdim
+           write(*,*) l,rates(l) 
+          enddo
+          deallocate(rates)
+         endif
+
+         do jj=1,size(CC%mat,2)
+          do ii=1,size(CC%mat,1)
+           l=indxl2g(ii,NB,myrow,0,nprow)
+           l2=indxl2g(jj,MB,mycol,0,npcol)
+
+           if(l.eq.l2)  diag_sum=diag_sum+CC%mat(ii,jj)
+           if(l.ne.l2)  nodiag_sum=nodiag_sum+CC%mat(ii,jj)
+
+          enddo
+         enddo
+
+         call mpi_allreduce(diag_sum,diag_sum,1,&
+              mpi_double_precision,MPI_SUM,mpi_blacs_world,err)    
+         call mpi_allreduce(nodiag_sum,nodiag_sum,1,&
+              mpi_double_precision,MPI_SUM,mpi_blacs_world,err)    
+
+         if(mpi_id.eq.0) then
+          write(*,*) 'Diagonal Right-Left Overlap:',diag_sum/this%Hdim
+          write(*,*) 'Out of Diagonal Right-Left Overlap:',nodiag_sum
+         endif
+
+      ! Build Pop Propagator R= R exp(Rval) R^{\cross}
+
+         this%Rval=exp(step_min*mult_fact*this%Rval)
+
+         call this%R%set(this%Hdim,this%Hdim,NB,MB)
+         this%R%mat=(0.0d0,0.0d0)
+
+         do ii=1,size(AA%mat,1)
+          do jj=1,size(AA%mat,2)
+           l=indxl2g(jj,MB,mycol,0,npcol)
+           AA%mat(ii,jj)=AA%mat(ii,jj)*this%Rval(l)
+          enddo
+         enddo
+
+         call pzgemm('N','N',this%Hdim,this%Hdim,this%Hdim,&
+                     (1.0d0,0.0d0),AA%mat,1,1,AA%desc,BB%mat,&
+                     1,1,BB%desc,(0.0d0,0.0d0),this%R%mat,1,1,this%R%desc)
+
+         call AA%dealloc()
+         call AA2%dealloc()
+         call BB%dealloc()
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return
+        end subroutine make_R2_H
 
         subroutine propagate_H(this,start_step,time,nsteps,step,dump_freq)
         use mpi
@@ -2276,8 +2946,18 @@
 
           case ('NO_ENTANGLE')
 
+!           this%beta0=0.0d0
+!           allocate(rho_i(4,4))
            do v=1,this%nspins                       
             call make_rho0_i(this%spin(this%kind(v)),rho_i,this%alpha0(v),this%beta0(v),this%gamma0(v))
+!             if(v.eq.2)then
+!              rho_i=(0.0d0,0.0d0)
+!              rho_i(1,1)=(1.0d0,0.0d0)
+!             else
+!              rho_i=(0.0d0,0.0d0)
+!              rho_i(1,1)=(0.5d0,0.0d0)
+!              rho_i(2,2)=(0.5d0,0.0d0)
+!             endif
              do ii=1,size(this%rho%mat,1)
               do jj=1,size(this%rho%mat,2)
                i=indxl2g(ii,NB,myrow,0,nprow)
@@ -2463,6 +3143,7 @@
         use mpi_utils
         use blacs_utils
         use scalapack_diag_simm
+        use lapack_diag_simm
         implicit none
         class(spins_hilbert)            :: this
         integer                         :: i,j,info,nze,k,k1,i1,ii,jj
@@ -2503,6 +3184,15 @@
                       this%H0(k)%desc,this%H(k)%desc)
          enddo
 
+
+        ! diagonalizing hamiltonian with lapack
+
+!         do k=1,this%ntot
+!          size_block=this%kblc(k+1)-this%kblc(k)
+!          this%H(k)%mat=this%H0(k)%mat
+!          call new_diag(size_block,this%H(k)%mat,this%Ener(k)%v)
+!         enddo
+
          call this%dump_Heig()
 
         ! find the largest/minimum eigenvalue
@@ -2517,8 +3207,8 @@
          do k=1,this%ntot         
           this%Ener(k)%v=this%Ener(k)%v-min_eigen        
          enddo
-         min_eigen=0.0d0
 
+         min_eigen=0.0d0
          max_eigen=0.0d0
          do k=1,this%ntot
           if(max_eigen.lt.this%Ener(k)%v(size(this%Ener(k)%v)))then
@@ -2540,7 +3230,7 @@
          enddo
 
          if(this%make_Rmat .or. this%make_R2mat)then
-          this%dos2pm%sigma=1.d0
+          this%dos2pm%sigma=5.d0
           this%dos2pm%step=0.1d0
           this%dos2pm%nsteps=nint(max_eigen/this%dos2pm%step)+10*nint(this%dos2pm%sigma/this%dos2pm%step)
           call this%dos2pm%alloc_dist()
@@ -5084,7 +5774,7 @@
 
 
          do i=1,size(pulse)
-
+       
           call Sn%set(this%Hdim,this%Hdim,NB,MB)
           Sn%mat=(0.0d0,0.0d0)
 

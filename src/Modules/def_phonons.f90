@@ -7,6 +7,7 @@
          logical                        :: boundary_scattering=.false.
          double precision, allocatable  :: temp(:)
          integer                        :: ntemps
+         integer                        :: type_smear=1 ! 1=Gaussian 0=Lorentzian
          double precision               :: smear
          double precision               :: Length
 
@@ -36,6 +37,7 @@
          type(kpoint), allocatable      :: list(:) 
          type(kpoint), allocatable      :: path(:) 
          integer, allocatable           :: kinv(:)
+         logical                        :: effective_lt=.false.
          integer                        :: nx
          integer                        :: ny
          integer                        :: nz
@@ -43,8 +45,6 @@
          integer                        :: nloc
          integer                        :: k_start
          integer, allocatable           :: mpi_conn(:)
-         double precision, allocatable  :: krta(:,:,:)
-         double precision, allocatable  :: kscf(:,:,:)
          type(dist1D)                   :: dos1p
          type(dist1D)                   :: dos2p
          type(dist1D), allocatable      :: pdos1p(:)
@@ -56,12 +56,7 @@
          procedure        :: calc_bands
          procedure        :: get_cart_disp
          procedure        :: calc_vel
-         procedure        :: calc_linewidth
-         procedure        :: calc_linewidth_sp
-         procedure        :: calc_krta         
-         procedure        :: calc_kscf
          procedure        :: remap_hess
-         procedure        :: get_V3
          procedure        :: mpi_dist_kpoints
          procedure        :: calc_dos1p
          procedure        :: calc_dos2p
@@ -86,6 +81,7 @@
          if(.not.allocated(temp)) allocate(temp(ntemps))
          call mpi_bcast(temp,ntemps,mpi_double_precision,0,mpi_comm_world,err)
          call mpi_bcast(smear,1,mpi_double_precision,0,mpi_comm_world,err)
+         call mpi_bcast(type_smear,1,mpi_integer,0,mpi_comm_world,err)
          call MPI_BCAST(read_fc3,1,mpi_logical,0,mpi_comm_world,err)
          call MPI_BCAST(boundary_scattering,1,mpi_logical,0,mpi_comm_world,err)
          call MPI_BCAST(do_brillouin_path,1,mpi_logical,0,mpi_comm_world,err)
@@ -155,7 +151,7 @@
 
            do v=-3*l,3*l
             if((v+k).gt.0 .and. (v+k).lt.this%dos1p%nsteps)then
-             this%dos1p%dist(k+v)=this%dos1p%dist(k+v)+delta(DBLE(v),DBLE(l))
+             this%dos1p%dist(k+v)=this%dos1p%dist(k+v)+deltaG(DBLE(v),DBLE(l))
             endif
            enddo
 
@@ -223,7 +219,7 @@
 
            do v=-3*l,3*l
             if((v+k).gt.0 .and. (v+k).lt.this%dos2p%nsteps)then
-            this%dos2p%dist(k+v)=this%dos2p%dist(k+v)+delta(DBLE(v),DBLE(l))*&
+            this%dos2p%dist(k+v)=this%dos2p%dist(k+v)+deltaG(DBLE(v),DBLE(l))*&
                 ((bose(20.0d0,this%list(j1)%freq(i1))*&
                  (bose(20.0d0,this%list(j2)%freq(i2))+1.0d0))+&
                  (bose(20.0d0,this%list(j2)%freq(i2))*&
@@ -441,7 +437,16 @@
 !          enddo
          enddo
 
-         call this%smooth_bands()        
+!         if(mpi_id.eq.0)then 
+!          do i=1,this%ntot
+!           write(*,*) '      ',i,this%list(i)%k(:)
+!           do j=1,sys%nats*3
+!            write(*,*) '          ',j,this%list(i)%freq(j)
+!           enddo
+!          enddo
+!         endif
+
+!         call this%smooth_bands()        
          this%list(1)%freq(1:3)=0.0d0           
 
         return
@@ -583,8 +588,7 @@
           kp=kp+1
          enddo
 
-
-         ! broadcast calculated bands 
+         ! broadcast calculated velocities
 
          do i=1,this%ntot
           do v=1,3
@@ -602,7 +606,6 @@
           enddo
          endif
 
-
         return
         end subroutine calc_vel
 
@@ -615,6 +618,7 @@
          call MPI_COMM_SIZE(mpi_comm_world,mpi_nproc,err)
          call MPI_COMM_RANK(mpi_comm_world,mpi_id,err)       
 
+         call MPI_BCAST(this%effective_lt,1,mpi_logical,0,mpi_comm_world,err) 
          call MPI_BCAST(this%nx,1,mpi_integer,0,mpi_comm_world,err) 
          call MPI_BCAST(this%ny,1,mpi_integer,0,mpi_comm_world,err) 
          call MPI_BCAST(this%nz,1,mpi_integer,0,mpi_comm_world,err) 
@@ -683,7 +687,6 @@
            enddo
           enddo
          enddo    
-
 
          allocate(this%kinv(this%ntot))
          this%kinv(:)=0
@@ -857,7 +860,6 @@
          do i=1,N               
 
           if(ener(i).gt.0.0d0)then
-           ener(i)=sqrt(ener(i)/1822.89)    
 !!!! 1822.89 turn the amu units of mass in a.u. (electron mass). Ener(i) alla fine è a.u.
 !           do t=1,N  
 !!!! the eigenvectors are transformed in cartesian displacements (angstrom) associated with the unit-less normal mode
@@ -866,7 +868,8 @@
 !!!! 0.5291 turn bohr in Ang
 !           enddo
 
-          ener(i)=ener(i)*219474.6313702
+           ener(i)=sqrt(ener(i)/1822.89)    
+           ener(i)=ener(i)*219474.6313702
 
 !!!! 1/(c[a.u.]*bohr2cm*2pi) gives ener as frequency in cm-1
 !!!! o in modo equivalente
@@ -874,843 +877,13 @@
 
           else
                 
-!           ener(i)=0.0d0
-!           hess(:,i)=0.0d0
+           ener(i)=-sqrt(abs(ener(i))/1822.89)    
+           ener(i)=ener(i)*219474.6313702
 
           endif
          enddo
        
         return
         end subroutine diaghess
-
-        function get_V3(this,sys,q1,q2,q3,j1,j2,j3) result(V3)
-        use lattice_class 
-        use atoms_class
-        implicit none
-        class(brillouin)      :: this
-        type(atoms_group)     :: sys
-        complex(8)            :: V3
-        double precision      :: A,B,pi,mass1,mass2,mass3,coeff
-        integer               :: i1,i2,i3,j1,j2,j3,s2,s3,q1,q2,q3,i
-
-         V3=(0.0d0,0.0d0)
-         pi=acos(-1.0d0)
-
-         do i=1,sys%fcs3%nfcs
-
-          i1=sys%fcs3%nat(i,1)
-          i2=sys%fcs3%nat(i,2)
-          i3=sys%fcs3%nat(i,3)
-          s2=sys%fcs3%cell(i,1)
-          s3=sys%fcs3%cell(i,2)
-
-          mass1=sys%mass(sys%kind((2+i1)/3))
-          mass2=sys%mass(sys%kind((2+i2)/3))
-          mass3=sys%mass(sys%kind((2+i3)/3))
-
-          A=DOT_PRODUCT(sys%rcell(s2,:),this%list(q2)%k(:))
-          B=DOT_PRODUCT(sys%rcell(s3,:),this%list(q3)%k(:))
-
-          coeff=0.5291772/dsqrt(mass1*1822.89*this%list(q1)%freq(j1)/219474.6313702)
-          coeff=coeff*0.5291772/dsqrt(mass2*1822.89*this%list(q2)%freq(j2)/219474.6313702)
-          coeff=coeff*0.5291772/dsqrt(mass3*1822.89*this%list(q3)%freq(j3)/219474.6313702)
-
-          V3=V3+coeff*sys%fcs3%val(i) &
-               *this%list(q1)%hess(i1,j1)*this%list(q2)%hess(i2,j2)*this%list(q3)%hess(i3,j3)  &
-               *exp(CMPLX(0.0d0,2*pi*(A+B),8))
-
-         enddo
-
-         V3=V3*219474.6313702/(0.5291772)**3
-
-        return
-        end function get_V3
-
-        subroutine calc_linewidth_scf(this,sys,Dvet,Fvet) 
-        use mpi
-        use mpi_utils
-        use lattice_class
-        use atoms_class
-        use units_parms
-        implicit none
-        class(brillouin)       :: this
-        type(atoms_group)      :: sys
-        integer                :: kp,kp1,kp2,kp3,i,i1,i2,l,j,v,s,jj
-        double precision       :: ener0,V3sq,bose_fact,q2(3),width_sum
-        double precision       :: Lamb1,Lamb2
-        double precision, allocatable :: Dvet(:,:,:,:),Fvet(:,:,:,:)
-        complex(8)             :: V3
-        logical                :: plus,minus
-           
-         call MPI_COMM_SIZE(mpi_comm_world,mpi_nproc,err)
-         call MPI_COMM_RANK(mpi_comm_world,mpi_id,err)       
-
-
-         Dvet=0.0d0
-
-        ! Calculation of V3 coefficients          
-          
-          kp=this%k_start
-          do v=1,this%nloc
-           do kp1=1,this%ntot
-            do kp2=1,this%ntot
-
-             plus=.false.
-             minus=.false.
-                
-             q2(1)=this%list(kp1)%k(1)+this%list(kp2)%k(1)+this%list(kp)%k(1)
-             q2(2)=this%list(kp1)%k(2)+this%list(kp2)%k(2)+this%list(kp)%k(2)
-             q2(3)=this%list(kp1)%k(3)+this%list(kp2)%k(3)+this%list(kp)%k(3)
-
-             if (abs(q2(1)-nint(q2(1))).lt.1.0D-6 .and.  &
-                 abs(q2(2)-nint(q2(2))).lt.1.0D-6 .and.  &
-                 abs(q2(3)-nint(q2(3))).lt.1.0D-6 ) then
-                plus=.true.
-                minus=.true.
-             else
-                cycle
-             endif
-
-!             q2(1)=-this%list(kp1)%k(1)-this%list(kp2)%k(1)+this%list(kp)%k(1)
-!             q2(2)=-this%list(kp1)%k(2)-this%list(kp2)%k(2)+this%list(kp)%k(2)
-!             q2(3)=-this%list(kp1)%k(3)-this%list(kp2)%k(3)+this%list(kp)%k(3)
-
-!             if (abs(q2(1)-nint(q2(1))).lt.1.0D-6 .and.  &
-!                 abs(q2(2)-nint(q2(2))).lt.1.0D-6 .and.  &
-!                 abs(q2(3)-nint(q2(3))).lt.1.0D-6 ) plus=.true.
-
-!             q2(1)=this%list(kp1)%k(1)-this%list(kp2)%k(1)+this%list(kp)%k(1)
-!             q2(2)=this%list(kp1)%k(2)-this%list(kp2)%k(2)+this%list(kp)%k(2)
-!             q2(3)=this%list(kp1)%k(3)-this%list(kp2)%k(3)+this%list(kp)%k(3)
-
-!             if (abs(q2(1)-nint(q2(1))).lt.1.0D-6 .and.  &
-!                 abs(q2(2)-nint(q2(2))).lt.1.0D-6 .and.  &
-!                 abs(q2(3)-nint(q2(3))).lt.1.0D-6 ) minus=.true.
-               
-!              if( plus .or. minus) then
-
-              do  i=1,3*sys%nats
-              if (this%list(kp)%freq(i).lt.1.0d-6) cycle
-              if (kp.eq.1 .and. i.le.3) cycle
-               do  i1=1,3*sys%nats
-               if (this%list(kp1)%freq(i1).lt.1.0d-6) cycle
-               if (kp1.eq.1 .and. i1.le.3) cycle
-                do  i2=1,3*sys%nats
-                if (this%list(kp2)%freq(i2).lt.1.0d-6) cycle
-                if (kp2.eq.1 .and. i2.le.3) cycle
-
-
-                 Lamb1=this%list(kp1)%freq(i1)/this%list(kp)%freq(i)
-                 Lamb2=this%list(kp2)%freq(i2)/this%list(kp)%freq(i)
-
-                 ener0=-this%list(kp2)%freq(i2)-this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                 if(abs(ener0).lt.smear*3)then
-                   V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-                   V3sq=CONJG(V3)*V3
-                   do l=1,ntemps
-                    bose_fact=bose(temp(l),this%list(kp2)%freq(i2))+bose(temp(l),this%list(kp1)%freq(i1))+1
-                    do s=1,3
-                     Dvet(kp,i,s,l)=Dvet(kp,i,s,l)+V3sq*bose_fact*delta(ener0,smear)* & 
-                        (Lamb2*Fvet(kp2,i2,s,l)+Lamb1*Fvet(kp1,i1,s,l))
-                     enddo
-                   enddo
-                 endif
-
-                 ener0=this%list(kp2)%freq(i2)+this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                 if(abs(ener0).lt.smear*3)then
-                  V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-                  V3sq=CONJG(V3)*V3
-                  do l=1,ntemps
-                   bose_fact=bose(temp(l),this%list(kp2)%freq(i2))+bose(temp(l),this%list(kp1)%freq(i1))+1
-                   do s=1,3
-                    Dvet(kp,i,s,l)=Dvet(kp,i,s,l)+V3sq*bose_fact*delta(ener0,smear)* & 
-                        (Lamb2*Fvet(kp2,i2,s,l)+Lamb1*Fvet(kp1,i1,s,l))
-                   enddo
-                  enddo
-                 endif
-
-                 ener0=this%list(kp2)%freq(i2)-this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                 if(abs(ener0).lt.smear*3)then 
-                  V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-                  V3sq=CONJG(V3)*V3
-                  do l=1,ntemps
-                   bose_fact=bose(temp(l),this%list(kp2)%freq(i2))-bose(temp(l),this%list(kp1)%freq(i1))
-                   do s=1,3
-                    Dvet(kp,i,s,l)=Dvet(kp,i,s,l)+V3sq*bose_fact*delta(ener0,smear)* & 
-                        (-Lamb2*Fvet(kp2,i2,s,l)+Lamb1*Fvet(kp1,i1,s,l))
-                   enddo
-                  enddo
-                 endif
-
-                 ener0=-this%list(kp2)%freq(i2)+this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                 if(abs(ener0).lt.smear*3)then 
-                  V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-                  V3sq=CONJG(V3)*V3
-                  do l=1,ntemps
-                   bose_fact=-bose(temp(l),this%list(kp2)%freq(i2))+bose(temp(l),this%list(kp1)%freq(i1))
-                   do s=1,3
-                    Dvet(kp,i,s,l)=Dvet(kp,i,s,l)+V3sq*bose_fact*delta(ener0,smear)* & 
-                        (Lamb2*Fvet(kp2,i2,s,l)-Lamb1*Fvet(kp1,i1,s,l))
-                   enddo
-                  enddo
-                 endif
-
-                enddo   ! i2 bands                
-               enddo   ! i1 bands
-              enddo   ! i bands
-
-!             endif ! q2 condition
-
-            enddo ! kp2
-           enddo ! kp1
-           kp=kp+1
-          enddo ! kp
-
-
-        !  reduction function to cumulate results from all nodes
-        !
-
-         do i=1,this%ntot
-          do j=1,ntemps
-           do jj=1,size(this%list(i)%width,1)
-            do s=1,3
-             width_sum=0.0d0
-             call mpi_allreduce(Dvet(i,jj,s,j),width_sum,1, &
-                  mpi_double_precision,MPI_SUM,mpi_comm_world,err)    
-             Dvet(i,jj,s,j)=width_sum
-            enddo
-           enddo
-          enddo
-         enddo
-
-         Dvet=Dvet*2*pi*pi/(16*this%ntot*hplank)
-        !  final units are energy (cm-1)
-
-
-        return
-        end subroutine calc_linewidth_scf
-
-        subroutine calc_kscf(this,sys)
-        use mpi
-        use mpi_utils
-        use lattice_class
-        use atoms_class
-        use units_parms
-        implicit none
-        class(brillouin)       :: this
-        type(atoms_group)      :: sys
-        integer                :: i,k,j,s,t,l,kp
-        integer                :: iter,max_iter
-        double precision       :: bose_fact,mixing
-        double precision, allocatable :: kold(:,:,:),Dvet(:,:,:,:),Fvet(:,:,:,:)
-
-         call MPI_COMM_SIZE(mpi_comm_world,mpi_nproc,err)
-         call MPI_COMM_RANK(mpi_comm_world,mpi_id,err)
-
-
-         allocate(this%kscf(3,3,ntemps))
-         this%kscf=0.0d0
-         do i=1,this%ntot
-          allocate(this%list(i)%kscf(sys%nats*3,3,3,ntemps))
-          this%list(i)%kscf=0.0d0
-         enddo
-
-         allocate(kold(3,3,ntemps))
-         allocate(Dvet(this%ntot,sys%nats*3,3,ntemps))
-         allocate(Fvet(this%ntot,sys%nats*3,3,ntemps))
-         kold=this%krta
-         Fvet=0.0d0
-         Dvet=0.0d0
-
-         max_iter=1000
-         mixing=1.0d0
-
-         ! definire condizione iniziale equivalente a RTA
-
-         do kp=1,this%ntot
-          do i=1,3*sys%nats
-           do l=1,ntemps
-            do s=1,3
-             Fvet(kp,i,s,l)=(hplank/(2*pi*this%list(kp)%width(i,l)))*this%list(kp)%vel(i,s)
-            enddo
-           enddo
-          enddo
-         enddo
-
-
-         ! calculate kscf by iters on Fvet
-
-         do iter=1,max_iter
-
-          call calc_linewidth_scf(this,sys,Dvet,Fvet) 
-
-          kp=this%k_start
-          do k=1,this%nloc
-           this%list(k)%kscf=0.0d0
-           do i=1,3*sys%nats
-            if (kp.eq.1 .and. i.le.3) cycle
-             do l=1,ntemps
-             if ( abs(this%list(kp)%width(i,l)) .lt. 1.0E-20) cycle   !!!
-              do s=1,3
-               Fvet(kp,i,s,l)=(1.0d0-mixing)*Fvet(kp,i,s,l)+   &
-                mixing*((hplank/(2*pi*this%list(kp)%width(i,l)))*(this%list(kp)%vel(i,s)+Dvet(kp,i,s,l)))
-              enddo
-              bose_fact=bose(temp(l),this%list(kp)%freq(i))
-              do s=1,3
-               do t=1,3
-                this%list(kp)%kscf(i,s,t,l)=this%list(kp)%kscf(i,s,t,l)+ &
-                Fvet(kp,i,t,l)*this%list(kp)%vel(i,s)*                   &
-                bose_fact*(bose_fact+1.0d0)*this%list(kp)%freq(i)**2
-               enddo ! t
-              enddo ! s
-             enddo ! l
-            enddo ! i
-            do l=1,ntemps
-             this%list(kp)%kscf(:,:,:,l)=0.1986d0*this%list(kp)%kscf(:,:,:,l)/    &
-                                      (sys%vol*this%ntot*kboltz*(hplank**2)*(temp(l)**2))
-            enddo
-           kp=kp+1
-          enddo ! k=kp
-
-
-        !  broadcast single k contributions, compute on master node the
-        !  total and broadcast back
-
-          do i=1,this%ntot
-           do k=1,3*sys%nats
-            do s=1,3          
-             do t=1,3          
-              call mpi_bcast(this%list(i)%kscf(k,s,t,:),ntemps,mpi_double_precision,this%mpi_conn(i),mpi_comm_world,err)
-             enddo
-            enddo
-           enddo
-          enddo
- 
-         if(mpi_id.eq.0)then    
-
-           this%kscf=0.0d0
-
-           do i=1,this%ntot
-            do k=1,3*sys%nats
-             do s=1,3         
-              do t=1,3    
-               do l=1,ntemps
-                this%kscf(s,t,l)=this%kscf(s,t,l)+this%list(i)%kscf(k,s,t,l)
-               enddo
-              enddo
-             enddo
-            enddo
-           enddo
-
-          endif
-
-          do s=1,3
-           do t=1,3
-            call mpi_bcast(this%kscf(s,t,:),ntemps,mpi_double_precision,0,mpi_comm_world,err)
-           enddo
-          enddo
-          
-!!!!! condizione di convergenza e exit do
-
-          if( maxval(abs(kold-this%kscf)).lt.1.0D-4) exit
-
-          if(mpi_id.eq.0)then 
-
-           write(*,*)   '   Iter=',iter,' Conv_thr=',maxval(abs(kold-this%kscf))
-           write(*,*)   '   Total Full-BTE Thermal Conductivity:'
-
-           do k=1,ntemps
-            write(*,*) '            ',temp(k),this%kscf(:,:,k)
-           enddo
-
-          endif
-          
-          kold=this%kscf
-
-         enddo
-
-
-        !  print results
-
-         if(mpi_id.eq.0)then 
-
-          write(*,*)   '   Final Full-BTE Thermal Conductivity:'
-          do k=1,ntemps
-           write(*,*) '            ',temp(k),this%kscf(:,:,k)
-          enddo
-
-          open(11,file='thermal_cond_Full_BTE.dat')
-          do l=1,ntemps
-           write(11,*) temp(l),this%kscf(:,:,l)
-          enddo
-          close(11)
-
-         endif
-
-
-        !  deallocate stuff
-
-         deallocate(kold)
-         deallocate(Fvet)
-         deallocate(Dvet)
-
-        return
-        end subroutine calc_kscf
-
-        subroutine calc_krta(this,sys)
-        use mpi
-        use mpi_utils
-        use lattice_class
-        use atoms_class
-        use units_parms
-        implicit none
-        class(brillouin)       :: this
-        type(atoms_group)      :: sys
-        integer                :: i,k,j,s,t,l,kp
-        double precision       :: bose_fact
-
-         call MPI_COMM_SIZE(mpi_comm_world,mpi_nproc,err)
-         call MPI_COMM_RANK(mpi_comm_world,mpi_id,err)
-
-         allocate(this%krta(3,3,ntemps))
-         this%krta=0.0d0
-         do i=1,this%ntot
-          allocate(this%list(i)%krta(sys%nats*3,3,3,ntemps))
-          this%list(i)%krta=0.0d0
-         enddo
-
-         kp=this%k_start
-         do k=1,this%nloc
-          do i=1,3*sys%nats
-           if (kp.eq.1 .and. i.le.3) cycle
-            do l=1,ntemps
-            if ( abs(this%list(kp)%width(i,l)) .lt. 1.0E-6) cycle
-             bose_fact=bose(temp(l),this%list(kp)%freq(i))
-             do s=1,3
-              do t=1,3
-               this%list(kp)%krta(i,s,t,l)=this%list(kp)%krta(i,s,t,l)+ &
-              (hplank/(2*pi*this%list(kp)%width(i,l)))*                 &
-               this%list(kp)%vel(i,s)*this%list(kp)%vel(i,t)*           &
-               bose_fact*(bose_fact+1.0d0)*this%list(kp)%freq(i)**2
-              enddo
-             enddo
-            enddo
-           enddo
-           do l=1,ntemps
-            this%list(kp)%krta(:,:,:,l)=0.1986d0*this%list(kp)%krta(:,:,:,l)/    &
-                                     (sys%vol*this%ntot*kboltz*(hplank**2)*(temp(l)**2))
-          enddo
-          kp=kp+1
-         enddo
-
-
-        !  broadcast single k contributions, compute on master node the
-        !  total and broadcast back
-
-         do i=1,this%ntot
-          do k=1,3*sys%nats
-           do s=1,3          
-            do t=1,3          
-             call mpi_bcast(this%list(i)%krta(k,s,t,:),ntemps,mpi_double_precision,this%mpi_conn(i),mpi_comm_world,err)
-            enddo
-           enddo
-          enddo
-         enddo
-
-         if(mpi_id.eq.0)then
-          do i=1,this%ntot
-           do k=1,3*sys%nats
-            do s=1,3         
-             do t=1,3    
-              do l=1,ntemps
-               this%krta(s,t,l)=this%krta(s,t,l)+this%list(i)%krta(k,s,t,l)
-              enddo
-             enddo
-            enddo
-           enddo
-          enddo
-         endif
-
-         do s=1,3
-          do t=1,3
-           call mpi_bcast(this%krta(s,t,:),ntemps,mpi_double_precision,0,mpi_comm_world,err)
-          enddo
-         enddo
-                     
-
-        !  print results
-
-         if(mpi_id.eq.0)then 
-
-!          write(*,*)   '   Partial RTA Thermal Conductivities:'
-!          do i=1,this%ntot
-!            write(*,*) '      ',i,this%list(i)%k(:)
-!           do k=1,ntemps
-!            write(*,*) '             ',temp(k),(this%list(i)%krta(j,:,:,k),j=1,3*sys%nats)
-!           enddo
-!          enddo
-!          write(*,*) 
-!          write(*,*) 
-
-          write(*,*)   '   Total RTA Thermal Conductivity:'
-          do k=1,ntemps
-           write(*,*) '            ',temp(k),this%krta(:,:,k)
-          enddo
-
-          open(11,file='thermal_cond_RTA.dat')
-          do l=1,ntemps
-           write(11,*) temp(l),this%krta(:,:,l)
-          enddo
-          close(11)
-
-         endif
-
-        return
-        end subroutine calc_krta
-
-        subroutine calc_linewidth_sp(this,sys,kp,i)                
-        use mpi
-        use mpi_utils
-        use lists_class
-        use lattice_class
-        use atoms_class
-        use units_parms
-        implicit none
-        class(brillouin)       :: this
-        type(atoms_group)      :: sys
-        type(list)             :: list1,list2
-        integer                :: nplet_loc,nplet_start,jj,nscatter
-        integer                :: nplets,nplets_loc,nk,nstart,nloc
-        integer                :: kp,kp1,kp2,kp3,i,i1,i2,l,j,v
-        double precision       :: ener0,V3sq,bose_fact,q2(3),width_sum
-        double precision       :: vel_tmp,coeff
-        complex(8)             :: V3
-        integer, allocatable   :: proc_grid(:),klist(:,:)
-        integer, pointer       :: bho
-           
-         call MPI_COMM_SIZE(MPI_COMM_WORLD,mpi_nproc,err)
-         call MPI_COMM_RANK(MPI_COMM_WORLD,mpi_id,err)
-
-        ! Calculation of V3 coefficients
- 
-        ! allocate width accordint to sys and ntemps
-
-          if(.not. allocated(this%list(kp)%width))then
-           allocate(this%list(kp)%width(sys%nats*3,ntemps))
-          endif
-          this%list(kp)%width(i,:)=0.0d0
-          if(.not. allocated(this%list(kp)%hess))then
-           call this%list(kp)%diagD(sys)
-          endif
-
-           call list1%init() 
-           call list2%init()
-
-           do kp1=1,this%ntot
-            do kp2=kp1,this%ntot
-                    
-             q2(1)=this%list(kp1)%k(1)+this%list(kp2)%k(1)+this%list(kp)%k(1)
-             q2(2)=this%list(kp1)%k(2)+this%list(kp2)%k(2)+this%list(kp)%k(2)
-             q2(3)=this%list(kp1)%k(3)+this%list(kp2)%k(3)+this%list(kp)%k(3)
-
-             if (abs(q2(1)-nint(q2(1))).lt.1.0D-6 .and.  &
-                 abs(q2(2)-nint(q2(2))).lt.1.0D-6 .and.  &
-                 abs(q2(3)-nint(q2(3))).lt.1.0D-6 ) then 
-             else
-              cycle
-             endif
-
-             call list1%add_node(kp1)
-             call list2%add_node(kp2)
-             
-            enddo
-           enddo      
-           
-           if(allocated(klist)) deallocate(klist)
-           allocate(klist(list1%nelem,2))
-
-           call list1%reboot()
-           call list2%reboot()
-
-           do v=1,list1%nelem           
-            call list1%rd_val(klist(v,1))
-            call list2%rd_val(klist(v,2))
-            call list1%skip()
-            call list2%skip()
-           enddo
-
-           call list1%delete()
-           call list2%delete()
-
-           if(allocated(proc_grid)) deallocate(proc_grid)
-           call mpi_dist_nprocess(size(klist,1),nloc,nstart,proc_grid,mpi_comm_world)
-           
-           nk=nstart
-           do v=1,nloc
-             
-             kp1=klist(nk,1)
-             kp2=klist(nk,2)
-                   
-             if(kp1.eq.kp2) coeff=1.0d0
-             if(kp1.ne.kp2) coeff=2.0d0
-
-             if(kp1.ne.kp) call this%list(kp1)%diagD(sys) 
-             if(kp2.ne.kp .and. kp2.ne.kp1) call this%list(kp2)%diagD(sys) 
-                          
-              do  i1=1,3*sys%nats
-              if (this%list(kp1)%freq(i1).lt.1.0d-6) cycle
-              if (kp1.eq.1 .and. i1.le.3) cycle
-               do  i2=1,3*sys%nats
-               if (this%list(kp2)%freq(i2).lt.1.0d-6) cycle
-               if (kp2.eq.1 .and. i2.le.3) cycle
-
-                ener0=-this%list(kp2)%freq(i2)-this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                if(abs(ener0).lt.smear*2)then
-!                  V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-!                  V3sq=CONJG(V3)*V3
-                 V3sq=1.0d0
-                  do l=1,ntemps
-                   bose_fact=bose(temp(l),this%list(kp2)%freq(i2))+bose(temp(l),this%list(kp1)%freq(i1))+1.0d0
-                   this%list(kp)%width(i,l)=this%list(kp)%width(i,l)+V3sq*bose_fact*delta(ener0,smear)*coeff
-                  enddo
-                endif
-
-                ener0=this%list(kp2)%freq(i2)+this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                if(abs(ener0).lt.smear*2)then
-!                 V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-!                 V3sq=CONJG(V3)*V3
-                 V3sq=1.0d0
-                 do l=1,ntemps
-                  bose_fact=bose(temp(l),this%list(kp2)%freq(i2))+bose(temp(l),this%list(kp1)%freq(i1))+1.0d0
-                  this%list(kp)%width(i,l)=this%list(kp)%width(i,l)-V3sq*bose_fact*delta(ener0,smear)*coeff
-                 enddo
-                endif
-
-                ener0=this%list(kp2)%freq(i2)-this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                if(abs(ener0).lt.smear*2)then
-                 if(this%list(kp2)%freq(i2).gt.5*temp(size(temp)))cycle
-                 if(this%list(kp1)%freq(i1).gt.5*temp(size(temp)))cycle
-!                 V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-!                 V3sq=CONJG(V3)*V3
-                 V3sq=1.0d0
-                 do l=1,ntemps
-                  bose_fact=bose(temp(l),this%list(kp2)%freq(i2))-bose(temp(l),this%list(kp1)%freq(i1))
-                  this%list(kp)%width(i,l)=this%list(kp)%width(i,l)+V3sq*bose_fact*delta(ener0,smear)*coeff
-                 enddo
-                endif
-
-                ener0=-this%list(kp2)%freq(i2)+this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                if(abs(ener0).lt.smear*2)then
-                 if(this%list(kp2)%freq(i2).gt.5*temp(size(temp)))cycle
-                 if(this%list(kp1)%freq(i1).gt.5*temp(size(temp)))cycle
-!                 V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-!                 V3sq=CONJG(V3)*V3
-                 V3sq=1.0d0
-                 do l=1,ntemps
-                  bose_fact=-bose(temp(l),this%list(kp2)%freq(i2))+bose(temp(l),this%list(kp1)%freq(i1))
-                  this%list(kp)%width(i,l)=this%list(kp)%width(i,l)+V3sq*bose_fact*delta(ener0,smear)*coeff
-                 enddo
-                endif
-
-               enddo   ! i2 bands         
-              enddo   ! i1 bands
-             
-             if(allocated(this%list(kp1)%hess)) deallocate(this%list(kp1)%hess)
-             if(allocated(this%list(kp2)%hess)) deallocate(this%list(kp2)%hess)
-
-           nk=nk+1
-          enddo ! kp1
-
-          if(allocated(this%list(kp)%hess)) deallocate(this%list(kp)%hess)
-
-          do j=1,ntemps
-           width_sum=0.0d0
-           call mpi_allreduce(this%list(kp)%width(i,j),width_sum,1,&
-                mpi_double_precision,MPI_SUM,MPI_COMM_WORLD,err)    
-           this%list(kp)%width(i,j)=width_sum
-          enddo
-
-          this%list(kp)%width(i,:)=pi/(16*this%ntot)*this%list(kp)%width(i,:)
-        !  final units are energy (cm-1)
-
-        return
-        end subroutine calc_linewidth_sp
-
-
-        subroutine calc_linewidth(this,sys)                
-        use mpi
-        use mpi_utils
-        use lists_class
-        use lattice_class
-        use atoms_class
-        use units_parms
-        implicit none
-        class(brillouin)       :: this
-        type(atoms_group)      :: sys
-        integer                :: nplet_loc,nplet_start,jj
-        integer                :: nplets,nplets_loc
-        integer                :: kp,kp1,kp2,kp3,i,i1,i2,l,j,v
-        double precision       :: ener0,V3sq,bose_fact,q2(3),width_sum
-        double precision       :: vel_tmp
-        complex(8)             :: V3
-        integer, allocatable   :: proc_grid(:)
-        integer, pointer       :: bho
-        logical                :: plus,minus
-           
-         call MPI_COMM_SIZE(mpi_comm_world,mpi_nproc,err)
-         call MPI_COMM_RANK(mpi_comm_world,mpi_id,err)       
-
-         if(.not.allocated(sys%fcs3))then
-          if(mpi_id.eq.0) write(*,*) 'FC3 not allocated'
-          return
-         endif
-
-        ! allocate width accordint to sys and ntemps
-
-         do i=1,this%ntot
-          allocate(this%list(i)%width(sys%nats*3,ntemps))
-          this%list(i)%width=0.0d0
-         enddo
-
-        ! Calculation of V3 coefficients          
-          
-          kp=this%k_start
-          do v=1,this%nloc
-           do kp1=1,this%ntot
-            do kp2=1,this%ntot
-
-             q2(1)=this%list(kp1)%k(1)+this%list(kp2)%k(1)+this%list(kp)%k(1)
-             q2(2)=this%list(kp1)%k(2)+this%list(kp2)%k(2)+this%list(kp)%k(2)
-             q2(3)=this%list(kp1)%k(3)+this%list(kp2)%k(3)+this%list(kp)%k(3)
-
-             if (abs(q2(1)-nint(q2(1))).lt.1.0D-6 .and.  &
-                 abs(q2(2)-nint(q2(2))).lt.1.0D-6 .and.  &
-                 abs(q2(3)-nint(q2(3))).lt.1.0D-6 ) then 
-             else
-              cycle
-             endif
-                                          
-              do  i=1,3*sys%nats
-              if (this%list(kp)%freq(i).lt.1.0d-6) cycle
-              if (kp.eq.1 .and. i.le.3) cycle
-               do  i1=1,3*sys%nats
-               if (this%list(kp1)%freq(i1).lt.1.0d-6) cycle
-               if (kp1.eq.1 .and. i1.le.3) cycle
-                do  i2=1,3*sys%nats
-                if (this%list(kp2)%freq(i2).lt.1.0d-6) cycle
-                if (kp2.eq.1 .and. i2.le.3) cycle
-
-                 ener0=-this%list(kp2)%freq(i2)-this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                 if(abs(ener0).lt.smear*3)then
-                   V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-                   V3sq=CONJG(V3)*V3
-                   do l=1,ntemps
-                    bose_fact=bose(temp(l),this%list(kp2)%freq(i2))+bose(temp(l),this%list(kp1)%freq(i1))+1.0d0
-                    this%list(kp)%width(i,l)=this%list(kp)%width(i,l)+V3sq*bose_fact*delta(ener0,smear)
-                   enddo
-                 endif
-
-                 ener0=this%list(kp2)%freq(i2)+this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                 if(abs(ener0).lt.smear*3)then
-                  V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-                  V3sq=CONJG(V3)*V3
-                  do l=1,ntemps
-                   bose_fact=bose(temp(l),this%list(kp2)%freq(i2))+bose(temp(l),this%list(kp1)%freq(i1))+1.0d0
-                   this%list(kp)%width(i,l)=this%list(kp)%width(i,l)-V3sq*bose_fact*delta(ener0,smear)
-                  enddo
-                 endif
-
-                 ener0=this%list(kp2)%freq(i2)-this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                 if(abs(ener0).lt.smear*3)then
-                  V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-                  V3sq=CONJG(V3)*V3
-                  do l=1,ntemps
-                   bose_fact=bose(temp(l),this%list(kp2)%freq(i2))-bose(temp(l),this%list(kp1)%freq(i1))
-                   this%list(kp)%width(i,l)=this%list(kp)%width(i,l)+V3sq*bose_fact*delta(ener0,smear)
-                  enddo
-                 endif
-
-                 ener0=-this%list(kp2)%freq(i2)+this%list(kp1)%freq(i1)+this%list(kp)%freq(i)
-                 if(abs(ener0).lt.smear*3)then
-                  V3=this%get_V3(sys,kp,kp1,kp2,i,i1,i2)
-                  V3sq=CONJG(V3)*V3
-                  do l=1,ntemps
-                   bose_fact=-bose(temp(l),this%list(kp2)%freq(i2))+bose(temp(l),this%list(kp1)%freq(i1))
-                   this%list(kp)%width(i,l)=this%list(kp)%width(i,l)+V3sq*bose_fact*delta(ener0,smear)
-                  enddo
-                 endif
-
-                enddo   ! i2 bands                
-               enddo   ! i1 bands
-              enddo   ! i bands
-
-            enddo ! kp2
-           enddo ! kp1
-           kp=kp+1
-          enddo ! kp
-
-
-        !  reduction function to cumulate results from all nodes
-        !
-
-         do i=1,this%ntot
-          do j=1,ntemps
-           do jj=1,size(this%list(i)%width,1)
-            width_sum=0.0d0
-            call mpi_allreduce(this%list(i)%width(jj,j),width_sum,1,&
-                 mpi_double_precision,MPI_SUM,mpi_comm_world,err)    
-            this%list(i)%width(jj,j)=width_sum
-           enddo
-          enddo
-         enddo
-
-         do j=1,this%ntot
-          do jj=1,(sys%nats*3)
-           this%list(j)%width(jj,:)=pi/(16*this%ntot)*this%list(j)%width(jj,:)
-        !  final units are energy (cm-1)
-          enddo
-         enddo
-
-         if(boundary_scattering)then
-          do j=1,this%ntot
-           do jj=1,(sys%nats*3)
-            if (this%list(j)%freq(jj).lt.1.0d-6) cycle
-            vel_tmp=sqrt(this%list(j)%vel(jj,1)**2+this%list(j)%vel(jj,2)**2)
-            do i=1,ntemps
-             this%list(j)%width(jj,i)=this%list(j)%width(jj,i)+(2.0d0*pi*vel_tmp/Length)
-            enddo
-!         !  final units are energy (cm-1)
-           enddo
-          enddo
-         endif
-
-        ! print results
-
-         if(mpi_id.eq.0)then 
-           write(*,*) '   Phonons Line-width:'
-          do i=1,this%ntot
-            write(*,*) '      ',i,this%list(i)%k(:)
-           do j=1,size(this%list(i)%width,2)
-            write(*,*) '          ',temp(j),this%list(i)%width(:,j)
-           enddo
-          enddo
-         endif
-
-         if(mpi_id.eq.0)then
-          open(11,file='tau.dat')
-          write(11,*) 'Temperature ','Bands '
-          do kp=1,this%ntot
-            write(11,*) '#### k:',this%list(kp)%k(:)
-           do l=1,ntemps
-            write(11,*) temp(l),hplank/2.0d0/pi/this%list(kp)%width(:,l)
-           enddo
-          enddo
-          close(11)
-         endif
-        
-        ! deallocate stuff
-
-        return
-        end subroutine calc_linewidth
 
         end module phonons_class

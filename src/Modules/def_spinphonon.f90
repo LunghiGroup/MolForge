@@ -63,6 +63,7 @@
          contains
          procedure     :: cart2brill => cart2brill_DSI
          procedure     :: cart2brill2 => cart2brill2_DSI
+         procedure     :: do_tinv => do_tinv_DSI
         end type DSIthermos
 
         type, extends(sph_thermos) :: Gthermos
@@ -425,6 +426,8 @@
         integer                                  :: i,l,t,s,v,ncoeff
         double precision                         :: coeff
                          
+        if(this%norder.eq.1)then
+
          do s=1,this%k*2+1
           do l=0,2
            coeff=0.0d0
@@ -443,37 +446,134 @@
           enddo
          enddo
 
+        else
+         write(*,*) '2nd Order Translational Invariance for Stevens',&
+                      ' Operators not yet Implemented'
+        endif
+
         return
         end subroutine do_tinv_O
 
         subroutine do_tinv_D2S(this)
         implicit none
         class(D2Sthermos)                        :: this
-        integer                                  :: i,l,t,s,v,ncoeff
+        integer                                  :: i,l,t,s,v,ncoeff,vv
         double precision                         :: coeff
                          
-         do s=1,3
-          do t=1,3
-           do l=0,2
-            coeff=0.0d0
-            ncoeff=0
-            do i=1,size(this%Dcart)
-             v=mod(this%map_s2a(i,1)+2,3)
-             if(v.ne.l) cycle
-             coeff=coeff+this%Dcart(i)%D(s,t)
-             ncoeff=ncoeff+1
-            enddo
-            do i=1,size(this%Dcart)
-             v=mod(this%map_s2a(i,1)+2,3)
-             if(v.ne.l) cycle
-             this%Dcart(i)%D(s,t)=this%Dcart(i)%D(s,t)-coeff/dble(ncoeff)
+         if(this%norder.eq.1)then
+
+          do s=1,3
+           do t=1,3
+            do l=0,2
+             coeff=0.0d0
+             ncoeff=0
+             do i=1,size(this%Dcart)
+              v=mod(this%map_s2a(i,1)+2,3)
+              if(v.ne.l) cycle
+              coeff=coeff+this%Dcart(i)%D(s,t)
+              ncoeff=ncoeff+1
+             enddo
+             do i=1,size(this%Dcart)
+              v=mod(this%map_s2a(i,1)+2,3)
+              if(v.ne.l) cycle
+              this%Dcart(i)%D(s,t)=this%Dcart(i)%D(s,t)-coeff/dble(ncoeff)
+             enddo
             enddo
            enddo
           enddo
-         enddo
+
+         endif
+
+         if(this%norder.eq.2)then
+
+          do s=1,3
+           do t=1,3
+            do l=0,2
+             coeff=0.0d0
+             ncoeff=0
+             do i=1,size(this%Dcart)
+              v=mod(this%map_s2a(i,1)+2,3)
+              vv=mod(this%map_s2a(i,3)+2,3)
+              if(v.ne.l .or. vv.ne.l) cycle
+              coeff=coeff+this%Dcart(i)%D(s,t)
+              ncoeff=ncoeff+1
+             enddo
+!             write(*,*) l+1,coeff/dble(ncoeff)
+             do i=1,size(this%Dcart)
+              v=mod(this%map_s2a(i,1)+2,3)
+              vv=mod(this%map_s2a(i,3)+2,3)
+              if(v.ne.l .or. vv.ne.l) cycle
+              this%Dcart(i)%D(s,t)=this%Dcart(i)%D(s,t)-coeff/dble(ncoeff)
+             enddo
+            enddo
+           enddo
+          enddo
+
+         endif
 
         return
         end subroutine do_tinv_D2S
+
+        subroutine do_tinv_DSI(this)
+        implicit none
+        class(DSIthermos)                        :: this
+        integer                                  :: i,l,t,s,v,ncoeff,vv
+        double precision                         :: coeff
+          
+         
+         if(this%norder.eq.1)then
+
+          do s=1,3
+           do t=1,3
+            do l=0,2
+             coeff=0.0d0
+             ncoeff=0
+             do i=1,size(this%Dcart)
+              v=mod(this%map_s2a(i,1)+2,3)
+              if(v.ne.l) cycle
+              coeff=coeff+this%Dcart(i)%D(s,t)
+              ncoeff=ncoeff+1
+             enddo
+             do i=1,size(this%Dcart)
+              v=mod(this%map_s2a(i,1)+2,3)
+              if(v.ne.l) cycle
+              this%Dcart(i)%D(s,t)=this%Dcart(i)%D(s,t)-coeff/dble(ncoeff)
+             enddo
+            enddo
+           enddo
+          enddo
+          return
+         endif
+       
+         if(this%norder.eq.2)then
+
+          do s=1,3
+           do t=1,3
+            do l=0,2
+             coeff=0.0d0
+             ncoeff=0
+             do i=1,size(this%Dcart)
+              v=mod(this%map_s2a(i,1)+2,3)
+              vv=mod(this%map_s2a(i,3)+2,3)
+              if(v.ne.l .or. vv.ne.l) cycle
+              coeff=coeff+this%Dcart(i)%D(s,t)
+              ncoeff=ncoeff+1
+             enddo
+!             write(*,*) l+1,coeff/dble(ncoeff)
+             do i=1,size(this%Dcart)
+              v=mod(this%map_s2a(i,1)+2,3)
+              vv=mod(this%map_s2a(i,3)+2,3)
+              if(v.ne.l .or. vv.ne.l) cycle
+              this%Dcart(i)%D(s,t)=this%Dcart(i)%D(s,t)-coeff/dble(ncoeff)
+             enddo
+            enddo
+           enddo
+          enddo
+
+         endif
+
+        return
+        end subroutine do_tinv_DSI
 
         subroutine do_tinv_G(this)
         implicit none
@@ -519,7 +619,7 @@
               coeff=coeff+this%Gcart(i)%G(s,t)
               ncoeff=ncoeff+1
              enddo
-             write(*,*) l+1,coeff/dble(ncoeff)
+!             write(*,*) l+1,coeff/dble(ncoeff)
              do i=1,size(this%Gcart)
               v=mod(this%map_s2a(i,1)+2,3)
               vv=mod(this%map_s2a(i,3)+2,3)
@@ -766,7 +866,11 @@
             call mpi_bcast(this%DSI_t(i)%Dcart(j)%kind,2,mpi_integer,0,mpi_comm_world,err)
            enddo
           enddo
+          do i=1,size(this%DSI_t)
+           call this%DSI_t(i)%do_tinv()
+          enddo
          endif
+
 
          if(this%nD2S.gt.0)then
           if(.not.allocated(this%D2S)) allocate(this%D2S(this%nD2S))
@@ -818,7 +922,6 @@
            call this%O_t(i)%do_tinv()
           enddo
          endif
-
 
         return
         end subroutine spinphonon_bcast
@@ -880,6 +983,8 @@
           enddo
 
          else
+         
+!          writE(*,*) '####',ki,kj,phondy%liest(ki)%hess(l,kj)
 
           l=1
           do i=1,sys%nats
@@ -1308,7 +1413,7 @@
           v=this%map_s2a(i,2)
           coeff=cmplx(0.0d0,1.0d0,8)*2*acos(-1.0d0)*DOT_PRODUCT(k,rcell(v,:))
           do t=1,2*Otmp%k+1
-           Otmp%B(t)=Otmp%B(t)+this%Ocart(i)%B(t)*hess(l)*exp(coeff)           
+           Otmp%B(t)=Otmp%B(t)+this%Ocart(i)%B(t)*hess(l)*exp(coeff)   
           enddo
          enddo
 

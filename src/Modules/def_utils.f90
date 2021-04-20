@@ -10,6 +10,29 @@
 
          contains
 
+         subroutine order_array(A)
+         implicit none
+         double precision, allocatable    :: A(:),B(:)
+         logical, allocatable             :: flag(:)
+         integer                          :: i
+
+          allocate(flag(size(A)))
+          allocate(B(size(A)))
+
+          flag=.true.
+          B=0.0d0
+
+          do i=1,size(A)          
+           B(i)=minval(A,flag)
+           flag(minloc(A,flag))=.false.
+          enddo       
+
+          A=B
+          deallocate(B)
+
+         return
+         end subroutine order_array
+
          function bose(T,ener) result(stat)
          implicit none
          double precision :: T,ener,stat
@@ -29,7 +52,7 @@
          return
          end function deltaL
 
-         function delta(ener,N) result(val)
+         function deltaG(ener,N) result(val)
          implicit none
          double precision :: ener,N,val
 
@@ -37,6 +60,17 @@
           val=N*sqrt(pi)
           val=1.0d0/val
           val=val*dexp(-(ener**2/N**2))
+
+         return
+         end function deltaG
+
+         function delta(Dtype,ener,N) result(val)
+         implicit none
+         double precision :: ener,N,val
+         integer          :: Dtype
+          
+          if(Dtype.eq.1) val=deltaG(ener,N)
+          if(Dtype.eq.0) val=deltaL(ener,N)
 
          return
          end function delta

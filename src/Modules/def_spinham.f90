@@ -45,6 +45,7 @@
          procedure            :: get_norm => get_D_norm
          procedure            :: cart2stev
          procedure            :: stev2cart
+         procedure            :: rot => rot_cart_tensor
         end type cart_tensor
 
         type, extends(cart_tensor) :: DSItensor
@@ -112,10 +113,24 @@
          double precision             :: dipolar_thr=10.0D6
          logical                      :: make_dipolar=.false.
          contains
-         procedure      :: spinham_bcast
+         procedure                    :: spinham_bcast
+         procedure                    :: rot => rotate_sh
         end type SpinHamiltonian
 
         contains
+
+        subroutine rotate_sh(this,euler)
+        implicit none
+        class(SpinHamiltonian)  :: this
+        double precision        :: euler(3)
+        integer                 :: v
+
+         do v=1,this%nO
+          call this%O(v)%rot(euler(1),euler(2),euler(3))
+         enddo        
+
+        return
+        end subroutine rotate_sh
 
         subroutine spinham_bcast(this)
         use mpi
@@ -586,6 +601,34 @@
         !!!!!
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+        subroutine rot_cart_tensor(this,alpha,beta,gamma)
+        implicit none
+        class(cart_tensor)                     :: this
+        double complex                         :: rotD(3,3)
+        double precision                       :: rotmat(3,3),alpha,beta,gamma
+
+         rotD=(0.0d0,0.0d0)
+         
+         rotmat(1,1)=cos(alpha)*cos(beta)*cos(gamma)-sin(alpha)*sin(gamma) 
+         rotmat(2,1)=cos(alpha)*sin(gamma)+cos(beta)*cos(gamma)*sin(alpha)
+         rotmat(3,1)=-cos(gamma)*sin(beta)
+
+         rotmat(1,2)=-cos(gamma)*sin(alpha)-cos(alpha)*cos(beta)*sin(gamma)
+         rotmat(2,2)=cos(alpha)*cos(gamma)-cos(beta)*sin(gamma)*sin(alpha)
+         rotmat(3,2)=sin(beta)*sin(gamma)
+
+         rotmat(1,3)=cos(alpha)*sin(beta)
+         rotmat(2,3)=sin(alpha)*sin(beta)
+         rotmat(3,3)=cos(beta)
+
+         rotD=matmul(rotmat,this%D)
+         rotD=matmul(transpose(rotmat),rotD)
+
+         this%D=rotD
+
+        return
+        end subroutine rot_cart_tensor
+
         subroutine rot_O(O,alpha,beta,gamma)
         use stevens_class
         use rotations_class
@@ -597,7 +640,7 @@
         double precision                     :: alpha,beta,gamma
 
          call Rot_Wig(DBLE(O%k),alpha,beta,gamma,rot)
-     
+
          newO%k=O%k
          allocate(newO%q(2*newO%k+1))
          allocate(newO%B(2*newO%k+1))
@@ -626,9 +669,9 @@
         enddo
 
         O%B=newO%B
-        newO%B=(0.0d0,0.0d0)        
+        newO%B=(0.0d0,0.0d0)
         newO%B=matmul(rot,O%B)
-        O%B=(0.0d0,0.0d0)        
+        O%B=(0.0d0,0.0d0)
 
         do l=1,2*O%k+1
          if(O%q(l).eq.0)then
@@ -651,6 +694,68 @@
 
         return
         end subroutine rot_O
+
+!        subroutine rot_O(O,alpha,beta,gamma)
+!        use stevens_class
+!        use rotations_class
+!        implicit none
+!        class(OSItensor)                     :: O
+!        type(OSItensor)                      :: newO
+!        integer                              :: k,l
+!        double complex, allocatable          :: rot(:,:)
+!        double precision                     :: alpha,beta,gamma
+
+!         call Rot_Wig(DBLE(k),alpha,beta,gamma,rot)
+        
+!         newO%k=O%k
+!         allocate(newO%q(2*newO%q))
+!         do l=1,2*O%k+1
+
+!          newO%q(l)=O%q(l)
+
+!          if(newO%q(l).eq.0)then
+!           newO%B(l)=O%B(l)
+!          endif
+
+!          if(newO%q(l).gt.0)then
+!           k=newO%k-newO%q(l)+1
+!           newO%B(l)=O%B(l)-CMPLX(-AIMAG(O%B(k)),DBLE(O%B(k)),8)
+!           newO%B(l)=newO%B(l)*((-1)**(O%q(l)))
+!           newO%B(l)=newO%B(l)/dsqrt(2.0d0)
+!          endif
+
+!          if(newO%q(l).lt.0)then
+!           k=newO%k-newO%q(l)+1
+!           newO%B(l)=O%B(k)+CMPLX(-AIMAG(O%B(l)),DBLE(O%B(l)),8)
+!           newO%B(l)=newO%B(l)/dsqrt(2.0d0)
+!          endif
+
+!        enddo
+
+!        O%q=newO%q
+!        newO%B=(0.0d0,0.0d0)
+        
+!        newO%B=matmul(rot,O%B)
+
+!        do l=1,2*O%k+1
+!         if(O%q(l).eq.0)then
+!          O%B(l)=newO%B(l)
+!         endif
+!         if(O%q(l).gt.0)then
+!          k=newO%k-newO%q(l)+1
+!          O%B(l)=((-1.0d0)**((O%q(l))))*newO%B(l)+newO%B(k)
+!          O%B(l)=O%B(l)*dsqrt(2.0d0)/2.0d0
+!         endif
+!         if(O%q(l).lt.0)then
+!          k=newO%k-newO%q(l)+1
+!          O%B(l)=((-1.0d0)**(ABS(O%q(l))))*newO%B(k)-newO%B(l)
+!          O%B(l)=O%B(l)*dsqrt(2.0d0)/2.0d0
+!          O%B(l)=CMPLX(-AIMAG(O%B(l)),DBLE(O%B(l)),8)
+!         endif
+!        enddo
+
+!        return
+!        end subroutine rot_O
 
         subroutine spher2stev(this,O)
         implicit none

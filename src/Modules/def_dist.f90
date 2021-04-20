@@ -48,7 +48,7 @@
 
            do v=-3*l,3*l
             if((v+k).gt.0 .and. (v+k).lt.this%nsteps)then
-             this%dist(k+v)=this%dist(k+v)+coeff*delta(DBLE(v),DBLE(l))
+             this%dist(k+v)=this%dist(k+v)+coeff*deltaG(DBLE(v),DBLE(l))
             endif
            enddo
            
