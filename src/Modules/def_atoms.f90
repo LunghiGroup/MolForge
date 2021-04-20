@@ -23,6 +23,7 @@
          double precision, allocatable   :: v(:,:)         
          double precision, allocatable   :: mass(:)
          double precision, allocatable   :: charge(:)
+         double precision, allocatable   :: dipole(:,:)
          double precision, allocatable   :: dist(:,:,:,:)
          double precision, allocatable   :: rij(:,:)
          type(vector_int), allocatable   :: neigh(:) 
@@ -38,6 +39,7 @@
          procedure        :: build_descriptors
          procedure        :: build_neighbour_list
          procedure        :: read_restart_file
+         procedure        :: read_dipole_file
          procedure        :: read_structure_file
          procedure        :: read_extended_xyz
          procedure        :: read_xyz
@@ -97,6 +99,38 @@
 
         return
         end subroutine remove_overlap
+
+        subroutine read_dipole_file(this,dipole_file)
+        use mpi
+        use units_parms
+        implicit none
+        class(atoms_group)            :: this
+        character(len=*)              :: dipole_file
+        integer                       :: i,j
+        integer                       :: err,mpi_nproc,mpi_id
+           
+         call MPI_COMM_SIZE(MPI_COMM_WORLD,mpi_nproc,err)
+         call MPI_COMM_RANK(MPI_COMM_WORLD,mpi_id,err)
+
+         if(mpi_id.eq.0)then
+
+          write(*,*) 'Reading Dipole Derivarives:',dipole_file
+          write(*,*)
+          write(*,*)
+
+          open(unit=12,file=dipole_file)
+          allocate(this%dipole(3*this%nats,3))
+
+          do i=1,3*this%nats
+           read(12,*) (this%dipole(i,j),j=1,3)
+          enddo
+
+          close(12)
+
+         endif
+
+        return
+        end subroutine read_dipole_file
 
         subroutine delete_atoms_group(this)
         implicit none

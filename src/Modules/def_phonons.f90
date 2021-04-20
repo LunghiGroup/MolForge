@@ -17,8 +17,7 @@
          double precision, allocatable       :: freq(:)
          double precision, allocatable       :: vel(:,:)
          double precision, allocatable       :: width(:,:)
-         double precision, allocatable       :: krta(:,:,:,:)
-         double precision, allocatable       :: kscf(:,:,:,:)
+         double precision, allocatable       :: ir(:,:)
          complex(8),allocatable              :: hess(:,:)
          double precision, allocatable       :: proj(:,:)
          contains
@@ -53,6 +52,7 @@
          procedure        :: generate_path
          procedure        :: brillouin_bcast
          procedure        :: calc_disps
+         procedure        :: calc_IR
          procedure        :: calc_bands
          procedure        :: get_cart_disp
          procedure        :: calc_vel
@@ -61,6 +61,7 @@
          procedure        :: calc_dos1p
          procedure        :: calc_dos2p
          procedure        :: smooth_bands
+         procedure        :: print_cart_disp
         end type brillouin
 
         type tetrahedron
@@ -885,5 +886,142 @@
        
         return
         end subroutine diaghess
+
+
+        subroutine calc_IR(this,sys)
+        use mpi
+        use atoms_class
+        implicit none
+        class(brillouin)       :: this
+        type(atoms_group)      :: sys
+        integer                :: mpi_nproc,mpi_id,err
+        integer                :: i,k,j,v,l
+        double precision       :: mass1,coeff
+
+         call MPI_COMM_SIZE(MPI_COMM_WORLD,mpi_nproc,err)
+         call MPI_COMM_RANK(MPI_COMM_WORLD,mpi_id,err)
+         
+         if(mpi_id.eq.0)then
+          write(*,*) 'IR Intensities'
+          write(*,*) 'warning! IR Intensities only implemented at Gamma',&
+                     ' point'
+         endif
+
+         j=this%k_start
+
+         do i=1,this%nloc
+
+          allocate(this%list(j)%ir(3*sys%nats,3))
+          this%list(j)%ir=0.0d0
+
+          do k=1,size(this%list(j)%freq)
+
+           if(j.eq.1 .and. k.le.3)cycle
+
+           do v=1,sys%nats*3
+
+            mass1=sys%mass(sys%kind((2+v)/3))
+            coeff=0.5291772/dsqrt(mass1*1822.89*this%list(j)%freq(k)/219474.6313702)           
+
+            this%list(j)%ir(k,1)=this%list(j)%ir(k,1)+&
+                        coeff*this%list(j)%hess(v,k)*sys%dipole(v,1)
+            this%list(j)%ir(k,2)=this%list(j)%ir(k,2)+&
+                        coeff*this%list(j)%hess(v,k)*sys%dipole(v,2)
+            this%list(j)%ir(k,3)=this%list(j)%ir(k,3)+&
+                        coeff*this%list(j)%hess(v,k)*sys%dipole(v,3)
+
+           enddo
+          enddo 
+
+          j=j+1
+         enddo
+        
+
+         ! broadcast calculated bands 
+
+         do i=1,this%ntot
+          if(.not.allocated(this%list(i)%ir))then
+           allocate(this%list(i)%ir(sys%nats*3,3))
+          endif
+          call mpi_bcast(this%list(i)%ir(:,1),size(this%list(i)%freq),mpi_double_precision,this%mpi_conn(i),MPI_COMM_WORLD,err)
+          call mpi_bcast(this%list(i)%ir(:,2),size(this%list(i)%freq),mpi_double_precision,this%mpi_conn(i),MPI_COMM_WORLD,err)
+          call mpi_bcast(this%list(i)%ir(:,3),size(this%list(i)%freq),mpi_double_precision,this%mpi_conn(i),MPI_COMM_WORLD,err)
+         enddo
+
+         if(mpi_id.eq.0)then 
+          do i=1,this%ntot
+            write(*,*) '      ',i,this%list(i)%k(:)
+           do j=1,sys%nats*3
+            write(*,*) '          ',j,this%list(i)%freq(j),this%list(i)%ir(j,:)
+           enddo
+          enddo
+         endif
+        
+        return
+        end subroutine calc_IR
+
+        subroutine print_cart_disp(this,sys,kp,bn,step,nsteps)
+        use mpi
+        use atoms_class
+        use units_parms
+        implicit none
+        class(brillouin)              :: this
+        type(atoms_group)             :: sys
+        integer                       :: kp,bn,j,jj,nsteps,i,s
+        integer                       :: mpi_nproc,mpi_id,err
+        double precision, allocatable :: disp(:,:)
+        double precision              :: step
+
+         call MPI_COMM_SIZE(MPI_COMM_WORLD,mpi_nproc,err)         
+         call MPI_COMM_RANK(MPI_COMM_WORLD,mpi_id,err)
+
+         if(mpi_id.eq.0)then
+
+          allocate(disp(sys%nats,3))
+
+          j=1
+          do jj=1,sys%nats
+           disp(jj,1)=bohr2ang/dsqrt(sys%mass(sys%kind(jj))*1822.89/219474.6313702)*&
+                          dble(this%list(kp)%hess(j,bn))/sqrt(this%list(kp)%freq(bn))
+           disp(jj,2)=bohr2ang/dsqrt(sys%mass(sys%kind(jj))*1822.89/219474.6313702)*&
+                          dble(this%list(kp)%hess(j+1,bn))/sqrt(this%list(kp)%freq(bn))
+           disp(jj,3)=bohr2ang/dsqrt(sys%mass(sys%kind(jj))*1822.89/219474.6313702)*&
+                          dble(this%list(kp)%hess(j+2,bn))/sqrt(this%list(kp)%freq(bn))
+                         
+           j=j+3
+          enddo
+
+          write(*,*) "Writing Cartesian Displacements"
+          open(13,file='Cart_disp.xyz')          
+
+          do j=-nsteps,nsteps
+
+           write(13,*) sys%nats
+           write(13,*) 
+
+           do i=1,sys%nats
+            write(13,*) trim(sys%label(sys%kind(i))),(sys%x(i,s)+j*step*disp(i,s),s=1,3)
+           enddo
+
+          enddo
+
+          do j=nsteps-1,-nsteps,-1
+
+           write(13,*) sys%nats
+           write(13,*) 
+
+           do i=1,sys%nats
+            write(13,*) trim(sys%label(sys%kind(i))),(sys%x(i,s)+j*step*disp(i,s),s=1,3)
+           enddo
+
+          enddo
+
+          close(13)
+
+         endif
+
+        return
+        end subroutine print_cart_disp
+
 
         end module phonons_class
