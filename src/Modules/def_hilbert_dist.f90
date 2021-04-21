@@ -252,7 +252,7 @@
         return
         end subroutine get_ph_lt
 
-        subroutine make_R02L_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R0,euler)
+        subroutine make_R02L_H(this,sys,phondy,step_min,mult_fact,max_ener,R0,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -281,7 +281,7 @@
         integer                      :: k,ia,ib,ka,kb,ic,kc,id,kd,vv
         integer                      :: nphonons,v,nze,bn2,ph2
         integer                      :: t1,t2,rate,indxl2g,px,py,pz
-        integer                      :: mult_fact,s,t,j,phondy_memory_usage
+        integer                      :: mult_fact,s,t,j
         integer                      :: size_block_1,size_block_2,i2,l1
         integer                      :: nloc,nstart,phx
         integer, allocatable         :: proc_grid(:)
@@ -738,7 +738,7 @@
         return
         end subroutine make_R02L_H
 
-        subroutine make_R01L_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R0,euler)
+        subroutine make_R01L_H(this,sys,phondy,step_min,mult_fact,max_ener,R0,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -767,7 +767,7 @@
         integer                      :: k,ia,ib,ka,kb,ic,kc,id,kd,vv,term
         integer                      :: nphonons,v,nze
         integer                      :: t1,t2,rate,indxl2g,px,py,pz,phx,nloc,nstart
-        integer                      :: mult_fact,s,t,j,phondy_memory_usage
+        integer                      :: mult_fact,s,t,j
         integer                      :: size_block_1,size_block_2,i2,l1
         integer, allocatable         :: proc_grid(:)
 
@@ -1177,7 +1177,7 @@
         return
         end subroutine make_R01L_H
 
-        subroutine make_RL_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,euler)
+        subroutine make_RL_H(this,sys,phondy,step_min,mult_fact,max_ener,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -1207,7 +1207,7 @@
         integer                       :: k,ia,ib,ka,kb,ic,kc,id,kd,vv
         integer                       :: nphonons,v,nze
         integer                       :: t1,t2,rate,indxl2g,px,py,pz
-        integer                       :: mult_fact,s,t,j,phondy_memory_usage
+        integer                       :: mult_fact,s,t,j
         integer                       :: size_block_1,size_block_2,i2,l1
 
          this%make_Heig=.true.
@@ -1226,9 +1226,9 @@
          call R0%set(this%Ldim,this%Ldim,NB,MB)
          R0%mat=(0.0d0,0.0d0)
 
-         if(this%make_Rmat) call this%make_R01L(sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R0,euler)
+         if(this%make_Rmat) call this%make_R01L(sys,phondy,step_min,mult_fact,max_ener,R0,euler)
          if(this%make_R2mat)then
-          call this%make_R02L(sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,R02,euler)
+          call this%make_R02L(sys,phondy,step_min,mult_fact,max_ener,R02,euler)
           R0%mat=R0%mat+R02%mat
           call R02%dealloc()
          endif       
@@ -1295,7 +1295,7 @@
         return
         end subroutine make_RL_H
 
-        subroutine make_R_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,euler)
+        subroutine make_R_H(this,sys,phondy,step_min,mult_fact,max_ener,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -1319,11 +1319,11 @@
         complex(8),allocatable        :: Vii(:)
         double precision, allocatable :: rates(:)
         double precision              :: euler(3)
-        complex(8)                    :: valc,nodiag_sum,diag_sum,kcons,AAAA(4,4)
+        complex(8)                    :: valc,nodiag_sum,diag_sum,kcons
         integer                       :: ph,bn,ii,jj,l,l2,size_block,i1,ii_1,i,vv
         integer                       :: k,ia,ib,ka,kb,nphonons,v,spin_id,spin_id2
         integer                       :: t1,t2,rate,indxl2g,px,py,pz,nloc,nstart
-        integer                       :: mult_fact,s,t,j,phondy_memory_usage,term
+        integer                       :: mult_fact,s,t,j,term
         integer                       :: size_block_1,size_block_2,i2,l1,nze,phx
         integer, allocatable          :: proc_grid(:)
 
@@ -1733,7 +1733,7 @@
         return
         end subroutine make_R_H
 
-        subroutine make_R2_H(this,sys,phondy,step_min,mult_fact,max_ener,phondy_memory_usage,euler)
+        subroutine make_R2_H(this,sys,phondy,step_min,mult_fact,max_ener,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -1755,17 +1755,16 @@
         double precision              :: val,norm,max_ener,avg_sph,Gpp,Gmm,Gpm,Gmp
         double precision, allocatable :: rates(:)
         double precision              :: euler(3)
-        complex(8),allocatable        :: Vii(:)        
-        complex(8)                    :: valc,nodiag_sum,diag_sum,kcons,AAAA(4,4)
-        complex(8)                    :: R0p,R0m,R0mtmp,R0ptmp
+        complex(8),allocatable        :: Vii(:),R0mtmp(:),R0ptmp(:)
+        complex(8)                    :: valc,nodiag_sum,diag_sum,kcons
+        complex(8)                    :: R0p,R0m
         integer                       :: ph,bn,ii,jj,l,l2,size_block,i1,ii_1,i       
         integer                       :: k,ia,ib,ka,kb,nphonons,v,spin_id,spin_id2
         integer                       :: l3,l4,kk1,kk2,bn2,ph2,phx,ic,id,kc,kd
         integer                       :: t1,t2,rate,indxl2g,px,py,pz,nloc,nstart
-        integer                       :: mult_fact,s,t,j,phondy_memory_usage
+        integer                       :: mult_fact,s,t,j
         integer                       :: size_block_1,size_block_2,i2,l1,nze
         integer, allocatable          :: proc_grid(:)
-        double precision              :: alpha,beta,gamma
 
          if(.not.this%make_Heig)then          
           write(*,*) 'Warning, open system symulation in the Sz basis', &
@@ -1778,6 +1777,9 @@
           write(*,*) '   Building R matrix...',temp(1),' K'
           flush(6)
          endif
+
+!         allocate(R0mtmp(this%Hdim))
+!         allocate(R0ptmp(this%Hdim))
 
          call R0%set(this%Hdim,this%Hdim,NB,MB)
          R0%mat=0.0d0
@@ -1820,9 +1822,6 @@
           do bn=1,size(phondy%list(ph)%freq)
           do bn2=1,size(phondy%list(ph2)%freq)
 
-!           if( ((ph2-1)*size(phondy%list(ph2)%freq)+bn2) .lt. &
-!               ((ph-1)*size(phondy%list(ph)%freq)+bn) ) cycle
-
       ! check spectrum overlap
 
            if (ph.eq.1 .and. bn.le.3) cycle
@@ -1847,25 +1846,10 @@
            do spin_id=1,this%nspins_pr
            do spin_id2=spin_id,this%nspins
 
-            call this%SPH%cart2brill(this%rcell,sys,phondy,ph,bn)
-
-         ! DyCp NEV_FIC_RIJK_mllb
-!           gamma=0.33007747868274917        
-!           beta=-1.5453443590433216        
-!           alpha=-1.8207758543913428
-
-         ! Dyacac euler of g
-!           gamma=-2.2139203072213745
-!           beta=-1.3102504949441061
-!           alpha=2.0059623380955780
-
-!           do v=1,size(this%SPH%O)
-!            call this%SPH%O(v)%rot(alpha,beta,gamma)
-!           enddo
-
-           if (any( abs(euler).gt.1.0e-4 )) call this%SPH%rot(euler)
-
       ! Make Vij
+
+            call this%SPH%cart2brill(this%rcell,sys,phondy,ph,bn)
+            if (any( abs(euler).gt.1.0e-4 )) call this%SPH%rot(euler)
 
             AA%mat=(0.0d0,0.0d0)
 
@@ -1898,25 +1882,7 @@
        ! make Vij for second phonon 
 
             call this%SPH%cart2brill(this%rcell,sys,phondy,ph2,bn2)
-
-         ! DyCp NEV_FIC_RIJK_mllb
-!           gamma=0.33007747868274917        
-!           beta=-1.5453443590433216        
-!           alpha=-1.8207758543913428
-
-         ! Dyacac euler of g
-
-!           gamma=-2.2139203072213745
-!           beta=-1.3102504949441061
-!           alpha=2.0059623380955780
-
-!            do v=1,size(this%SPH%O)
-!             call this%SPH%O(v)%rot(alpha,beta,gamma)
-!            enddo
-
             if (any( abs(euler).gt.1.0e-4 )) call this%SPH%rot(euler)
-
-      ! Make Vij
 
             AA2%mat=(0.0d0,0.0d0)
 
@@ -1931,7 +1897,7 @@
 
             enddo ! l
 
-      ! Rotate Vij
+      ! Rotate Vij for second phonon
 
             if(this%ntot.gt.1)then
              write(*,*) 'kpoints and Raman not implemented'
@@ -1972,6 +1938,8 @@
 
               R0p=(0.0d0,0.0d0)
               R0m=(0.0d0,0.0d0)
+!              R0mtmp=(0.0d0,0.0d0)
+!              R0ptmp=(0.0d0,0.0d0)
  
               do kk1=1,size(R0%mat,1)
                do kk2=1,size(R0%mat,2)
@@ -1997,46 +1965,40 @@
                   endif
                  enddo
               
-!               if(ib.eq.1 .and. ia.eq.2 .and. ic.le.8 ) cycle
-!               if(ib.eq.2 .and. ia.eq.1 .and. ic.le.8 ) cycle
-
-!                 R0mtmp=(0.0d0,0.0d0)
-!                 R0ptmp=(0.0d0,0.0d0)
 
                  if(this%ener(kc)%v(ic).gt.this%Ener(kb)%v(ib))then  
                   R0m=R0m+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
                    /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph2)%freq(bn2)&
                         +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
-!                  R0mtmp=AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+
+!                  R0mtmp(ic)=AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
 !                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph2)%freq(bn2)&
 !                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
                  else
                   R0p=R0p+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
                    /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2)&
                         +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
-!                  R0ptmp=AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+
+!                  R0ptmp(ic)=AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
 !                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2)&
 !                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
                  endif
 
-                endif
-               
-!               if(ib.eq.1 .and. ia.eq.2 .or. ib.eq.2 .and. ia.eq.1) &
-!                write(*,*) ia,ib,ic,R0ptmp,R0mtmp,phondy%list(ph2)%freq(bn2)
+                endif              
 
                enddo ! kk1
               enddo ! kk2
               
               Gf=0.0d0 
-              Gmp=0.0d0
-              Gpp=0.0d0
+!              Gmp=0.0d0
+!              Gpp=0.0d0
 
               if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib) .and. &
-                 phondy%list(ph2)%freq(bn2).gt.phondy%list(ph)%freq(bn)  )then  
+                 phondy%list(ph2)%freq(bn2).gt.phondy%list(ph)%freq(bn)  )then
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
                   Gf=bose(temp(1),phondy%list(ph2)%Freq(bn2))*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gmp=Gf
+!                  Gmp=Gf
               endif
 
               if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib) .and. &
@@ -2044,31 +2006,42 @@
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
                   Gf=Gf+bose(temp(1),phondy%list(ph2)%Freq(bn2))*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gmp=Gf
+!                  Gmp=Gf
               endif
 
               if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib))then
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
                   Gf=Gf+bose(temp(1),phondy%list(ph2)%Freq(bn2))*bose(temp(1),phondy%list(ph)%Freq(bn))*&
                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gpp=Gf-Gmp
+!                  Gpp=Gf-Gmp
               endif
 
               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0m*conjg(R0m))*Gf
         
 !              if(Gf.gt.1.0d-8)then
+!               if(ii.eq.1 .and. jj.eq.4)then
 !               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!                do kk1=1,this%Hdim
+!                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
+!                enddo
+!               endif
+!               if(ii.eq.4 .and. jj.eq.1)then
+!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!                do kk1=1,this%Hdim
+!                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
+!                enddo
+!               endif
 !              endif
 
               Gf=0.0d0
-              Gpm=0.0d0
-              Gmm=0.0d0
+!              Gpm=0.0d0
+!              Gmm=0.0d0
  
               if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib))then
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
                   Gf=(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gmm=Gf
+!                  Gmm=Gf
               endif
 
               if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib) .and. &
@@ -2076,7 +2049,7 @@
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
                   Gf=Gf+(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*bose(temp(1),phondy%list(ph)%Freq(bn))*&
                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gpm=Gf-Gmm
+!                  Gpm=Gf-Gmm
               endif
 
               if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib) .and. &
@@ -2084,13 +2057,24 @@
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
                   Gf=Gf+(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*bose(temp(1),phondy%list(ph)%Freq(bn))*&
                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gpm=Gf-Gmm
+!                  Gpm=Gf-Gmm
               endif
  
               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0p*conjg(R0p))*Gf
 
-!              if(Gf.gt.1.0d-8)then
-!               write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!              if(Gf.gt.1.0d-12)then
+!               if(ii.eq.1 .and. jj.eq.4)then
+!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!                do kk1=1,this%Hdim
+!                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
+!                enddo
+!               endif
+!               if(ii.eq.4 .and. jj.eq.1)then
+!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!                do kk1=1,this%Hdim
+!                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
+!                enddo
+!               endif
 !              endif
 
              enddo ! jj

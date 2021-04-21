@@ -42,7 +42,6 @@
 
          double precision              :: max_phonon_ener=4000
          double precision              :: euler(3)=0.0d0
-         integer                       :: phondy_memory_usage=1
 
         contains
 
@@ -67,7 +66,7 @@
          else
           spindy%make_Heig=.false.
          endif
-         call mpi_bcast(phondy_memory_usage,1,mpi_integer,0,mpi_comm_world,err) 
+
          call mpi_bcast(tinv,1,mpi_logical,0,mpi_comm_world,err) 
          call mpi_bcast(dump_s,1,mpi_logical,0,mpi_comm_world,err) 
          call mpi_bcast(nex_max,1,mpi_integer,0,mpi_comm_world,err) 
@@ -315,12 +314,12 @@
            if(spindy%make_Rmat .or. spindy%make_R2mat) then
             if(spindy%make_SA) then
              if(spindy%make_PT2)then
-               call spindy%make_R2(lattice,phondy,step_min,step_nmult,max_phonon_ener,phondy_memory_usage,euler)
+               call spindy%make_R2(lattice,phondy,step_min,step_nmult,max_phonon_ener,euler)
               else
-               call spindy%make_R(lattice,phondy,step_min,step_nmult,max_phonon_ener,phondy_memory_usage,euler)
+               call spindy%make_R(lattice,phondy,step_min,step_nmult,max_phonon_ener,euler)
              endif
             else
-             call spindy%make_RL(lattice,phondy,step_min,step_nmult,max_phonon_ener,phondy_memory_usage,euler)
+             call spindy%make_RL(lattice,phondy,step_min,step_nmult,max_phonon_ener,euler)
             endif
            endif
 
