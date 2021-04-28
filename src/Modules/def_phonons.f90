@@ -11,6 +11,7 @@
          double precision               :: smear
          double precision               :: Length
 
+
         type kpoint
          double precision :: k(3)
          double precision :: weight
