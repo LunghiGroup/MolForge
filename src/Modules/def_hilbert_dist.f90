@@ -799,17 +799,16 @@
 
           if(.not.read_fc3)then
            if(.not.allocated(phondy%list(ph)%width))then
-            allocate(phondy%list(ph)%width(size(phondy%list(ph)%freq),1))
+            allocate(phondy%list(ph)%width(size(phondy%list(ph)%freq),1))            
+            phondy%list(ph)%width=smear
             if(phondy%effective_lt)then
              do bn=1,size(phondy%list(ph)%freq)
-              phondy%list(ph)%width(bn,1)=phondy%list(ph)%freq(bn)*&
+              phondy%list(ph)%width(bn,1)=phondy%list(ph)%width(bn,1)+&
+                     phondy%list(ph)%freq(bn)*&
                      exp(phondy%list(ph)%freq(bn)/kboltz/temp(1)/2)/&
                     (exp(phondy%list(ph)%freq(bn)/kboltz/temp(1))-1)
               if(isnan(phondy%list(ph)%width(bn,1))) phondy%list(ph)%width(bn,1)=0.0d0
-              write(*,*) bn,phondy%list(ph)%freq(bn),phondy%list(ph)%width(bn,1)
              enddo
-            else
-             phondy%list(ph)%width=smear
             endif
            endif
           endif
