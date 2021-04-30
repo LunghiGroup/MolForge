@@ -111,7 +111,7 @@
             if((v1+k1).gt.0 .and. (v1+k1).lt.this%nsteps1)then
              do v2=-3*l2,3*l2
               if((v2+k2).gt.0 .and. (v2+k2).lt.this%nsteps2)then
-               this%dist(k1+v1,k2+v2)=this%dist(k1+v1,k2+v2)+coeff*delta(DBLE(v1),DBLE(l1))*delta(DBLE(v2),DBLE(l2))
+               this%dist(k1+v1,k2+v2)=this%dist(k1+v1,k2+v2)+coeff*deltaG(DBLE(v1),DBLE(l1))*deltaG(DBLE(v2),DBLE(l2))
               endif
              enddo
             endif
