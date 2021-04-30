@@ -2,7 +2,7 @@
         use dist_class
         implicit none
         integer                       :: i,nsteps
-        character(len=20)             :: option,filein,fileout
+        character(len=200)            :: option,filein,fileout
         type(dist1d)                  :: distfunc
         double precision              :: min_val,max_val,val,coeff
         logical                       :: donorm=.false.
@@ -59,6 +59,7 @@
         enddo
 
         distfunc%nsteps=nint((max_val-min_val)/distfunc%step)+1
+        distfunc%shift=min_val
         call distfunc%alloc_dist()
 
         do
@@ -77,7 +78,7 @@
         if(donorm) call distfunc%norm_dist()
 
         do i=1,distfunc%nsteps
-         write(12,*) (i-1)*distfunc%step,distfunc%dist(i)
+         write(12,*) (i-1)*distfunc%step+distfunc%shift,distfunc%dist(i)
         enddo
         close(12)
 
