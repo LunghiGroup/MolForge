@@ -4,7 +4,6 @@
 
          type descriptor 
           double precision, allocatable :: desc(:)
-          double precision              :: rot(3,3)
           integer                       :: size_desc
          end type descriptor
 

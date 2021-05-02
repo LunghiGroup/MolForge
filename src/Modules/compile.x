@@ -35,6 +35,7 @@
  mpif90 -g -O2 -c def_function.f90
  mpif90 -g -O2 -c def_grad.f90
  mpif90 -g -O2 -c def_swarm.f90
+ mpif90 -g -O2 -c def_mlmodel_training.f90
  mpif90 -g -O2 -c def_ff_training.f90
  mpif90 -g -O2 -c def_spinham_map.f90  
 
