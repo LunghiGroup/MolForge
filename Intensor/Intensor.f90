@@ -1,175 +1,118 @@
-        program NeuralNets
-        use nets_class
-        use random_numbers_class        
+        program Intensor
+        use atoms_class
         use particles_swarm_class
-        use external_functions_class
+        use gradmin_class
+        use mlmodel_trainer_class
+        use general_types_class 
         implicit none
-        type(particles_swarm)         :: swarm
-        integer, allocatable          :: nodes(:)
-        integer                       :: i,j,max_iter,npar,nnodes=1,ninp,iter,ii
-        double precision              :: rand_num,rmse_tr,rmse_te,gradnorm,val,disp
-        double precision, allocatable :: vec(:),step(:),min_val(:),max_val(:)
-        double precision, allocatable :: inps(:),outs(:)
-        double precision, allocatable :: grad(:),gradres(:),gradres2(:)
-        double precision              :: beta1,beta2,alpha,eps,lr
-        logical                       :: do_grad=.false.,do_swarm=.false.
-        logical                       :: random_init=.true.,restart=.false.
-        character(len=100)            :: word,restart_file
-       
-         do i=1,iargc()
-          call getarg(i,word)
+        integer                         :: i,j
+        integer                         :: t1,t2,rate
+        integer                         :: t1_tot,t2_tot,rate_tot
 
-          select case (trim(word))
+        type(particles_swarm)           :: swarm
+        type(adam)                      :: grad
+        type(mlmodel_trainer), pointer  :: model
 
-             case ('-adam')
-                 do_grad=.true.
+        integer                         :: ninp,nlayers
+        type(vector_int)                :: topo
 
-             case ('-swarm')
-                 do_swarm=.true.
+        character(len=100)              :: input_file
+        double precision, allocatable   :: vec(:),vecmax(:),vecmin(:),loc_lr(:) 
+        logical, allocatable            :: fixval(:)
+        double precision                :: val
 
-             case ('-deep')
-                 call getarg(i+1,word)
-                 read(word,*) nnodes
-                 nnodes=nnodes+1
-                 allocate(nodes(nnodes))
-                 do j=1,nnodes-1
-                  call getarg(i+1+j,word)
-                  read(word,*) nodes(j)
-                 enddo
+        double precision, allocatable   :: L2val(:)
+        integer, allocatable            :: L2id(:)
 
-             case ('-restart')
-                 call getarg(i+1,word)
-                 read(word,*) restart_file
-                 random_init=.false.
-                 restart=.true.
+          call system_clock(t1_tot,rate_tot)
 
-          end select
+         ! Setup Training/Test Sets
 
-         enddo
+          call system_clock(t1,rate)
 
-!        Gen Train/Set
+          allocate(model)
+          allocate(model%ML)                    
 
-         call f%read_sets()
-         f%batch_size=2000
+          input_file='input_datas'
+          call model%read_sets(input_file)
 
-!        Set Net Topology
+          call system_clock(t2)
+          write(*,*) 'Intensor set up the systems. Time:',real(t2-t1)/real(rate),'s'
 
-         ninp=f%tr(1)%size_desc
-         if(.not. allocated(nodes)) allocate(nodes(nnodes))
-         nodes(nnodes)=f%ndim
-         call f%mymodel%set_topology(ninp,nnodes,nodes)
+         ! Setup ML model
+          
+          call system_clock(t1,rate)
 
-         write(*,*) "N Parameters: ",f%mymodel%nparams,nodes
+          open(13,file='input_net')
 
-!        Set Initial Net Parameters
-        
-         allocate(vec(f%mymodel%nparams))
-         if(restart)then
-          open(13,file=trim(restart_file))
-          read(13,*) ii
-          if(f%mymodel%nparams.eq.ii)then
-           write(*,*) 'Reading Parameters from: ',trim(restart_file)
-           read(13,*) vec
-           random_init=.false.
-          else
-           Write(*,*) 'Restart parameters conflict with topology'
-           Write(*,*) 'Setting initial parameters to random'
-           random_init=.true.
-          endif
+          read(13,*) nlayers ! input layer + inner layers + output layer
+          allocate(topo%v(nlayers-1))
+          read(13,*) ninp,topo%v
+
           close(13)
-         endif
-         
-         if(random_init)then
-          call init_random_seed()
-          do i=1,f%mymodel%nparams
-           call random_number(rand_num)
-           vec(i)=rand_num
-          enddo
-         endif
 
-         call f%mymodel%set_parameters(vec)
+          call model%set_nets(ninp,topo)
+          deallocate(topo%v)
 
-!        Set Swarm Parameters
+          call system_clock(t2)
+          write(*,*) 'Intensor set up the model. Time:',real(t2-t1)/real(rate),'s'
 
-         if(do_swarm)then
+          call system_clock(t1,rate)
 
-          npar=50
+!          allocate(L2id(model%ML%nparams-1))
+!          allocate(L2val(model%ML%nparams-1))   
+!          L2val=0.01d0
+!          j=1
+!          do i=1,model%ML%nparams-1
+!           L2id(j)=i
+!           j=j+1
+!          enddo
 
-          allocate(step(f%mymodel%nparams))
-          allocate(min_val(f%mymodel%nparams))
-          allocate(max_val(f%mymodel%nparams))
+!          call model%set_L2(L2id=L2id,L2val=L2val)
 
-          step=0.6d0
-          min_val=-5d-1
-          max_val=5d-1
-          max_iter=1000
+          call model%set_L2(L2=0.001d0)
+          call model%std_sets()
 
-!         swarm%do_meta=.true.
-          swarm%meta%ngauss=0
-          swarm%meta%sigma=0.1
-          swarm%meta%height=0.1
-          allocate(swarm%meta%gauss(npar*max_iter))         
+          call system_clock(t2)
+          write(*,*) 'Intensor set up L2 regularization and std sets. Time:',real(t2-t1)/real(rate),'s'
+        
+          allocate(vecmin(model%ML%nparams))
+          allocate(vecmax(model%ML%nparams))
+          vecmin=-0.5d0
+          vecmax=0.5d0
+          allocate(fixval(model%ML%nparams))
+          fixval=.false.
 
-!        Net Training
+          swarm%target_f => model
 
-          call swarm%init_swarm(npar,f%mymodel%nparams,step,min_val,max_val)
-          call swarm%minimize(max_iter)
-          vec=swarm%par(swarm%best_par)%val
+!          call swarm%init_swarm(nval=model%ML%nparams,npar=25,min_val=vecmin,max_val=vecmax,fixval=fixval)
+          call swarm%init_swarm(nval=model%ML%nparams,npar=25) 
+!          swarm%print_val=.true.
+          call swarm%minimize(max_iter=2000)        
+          call swarm%get_best_val(vec)
+          call swarm%release_target_f()
 
-         endif
+          call model%get_fval(vec,val)
 
-!        Adam Minimization
-         
-         if(do_grad)then
+!          allocate(loc_lr(model%ML%nparams))
+!          loc_lr=1.0d0
+!          grad%target_f => model
+!          call grad%init(nval=model%ML%nparams,vec=vec,loc_lr=loc_lr)
+!          call grad%init(nval=model%ML%nparams)
+!          grad%print_val=.true.
+!          grad%print_grad=.true.
+!          grad%lr=1.0e-5
+!          call grad%minimize(max_iter=10000,start_iter=1000)          
+!          call grad%release_target_f()
 
-          iter=1
-          max_iter=3000
-          allocate(gradres(size(vec)))
-          allocate(gradres2(size(vec)))
-          eps=1.0d-7
-          beta1=0.9d0
-          beta2=0.999d0
-          lr=0.0005d0
-          gradres=0.0d0
-          gradres2=0.0d0
+         ! Print Results
 
-          do while (iter.le.max_iter)
-           call f%get_fgrad(vec,grad,val)
-           call f%get_fval_test(vec,rmse_te)
+          call model%out_results()
 
-           gradres=beta1*gradres+(1-beta1)*grad
-           gradres2=beta2*gradres2+(1-beta2)*grad**2
-           
-           gradnorm=0.0d0
-           do i=1,size(grad)
-            gradnorm=gradnorm+grad(i)**2
-           enddo
+          call system_clock(t2_tot)
+          write(*,*) 'Intensor Simulation Concluded'
+          write(*,*) 'Total Simulation Time:',real(t2_tot-t1_tot)/real(rate_tot),'s'
 
-           write(*,*) iter,val,sqrt(gradnorm/size(grad)),rmse_te
-
-           vec=vec-lr*(gradres/(1-beta1**(iter+1)))/(sqrt(gradres2/(1-beta2**(iter+1)))+eps)
-
-           iter=iter+1
-          enddo
-
-         endif
-
-!        Output Parameters
-
-         open(13,file='model_param.dat')
-         write(13,*) size(vec)
-         write(13,*) vec
-         close(13)
-
-!        Output Errors
-
-         call f%get_fval(vec,rmse_tr)         
-         call f%get_fval_test(vec,rmse_te)  
-         call f%mymodel%set_parameters(vec)
-         call f%out_results()
-
-         close(12)
-         write(*,*) 'RMSE Training and Test Sets: ',rmse_tr,rmse_te
- 
         return
-        end program NeuralNets
+        end program Intensor
+

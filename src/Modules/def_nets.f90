@@ -212,11 +212,11 @@
          
          subroutine set_topology(this,ninp,layers,nodes)
          implicit none
-         class(net)                    :: this
-         integer                       :: layers,i,j,ninp
-         integer, allocatable          :: nodes(:)
+         class(net)                     :: this
+         integer                        :: layers,i,j,ninp
+         integer, allocatable           :: nodes(:)
          character(len=10), allocatable :: nodes_act(:)
-
+         
           this%ninput=ninp
           this%noutput=nodes(layers)
           this%nlayers=layers
@@ -238,6 +238,7 @@
           do i=1,this%noutput
            this%layers(this%nlayers)%neu(i)%activ='none'
           enddo
+
 
          return
          end  subroutine set_topology

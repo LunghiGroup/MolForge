@@ -4,7 +4,7 @@
         use atoms_class
         implicit none
         
-        type, extends(target_function) :: chi2
+        type, extends(target_function)   :: mlmodel_trainer
          type(mlmodel), pointer          :: ML
          integer                         :: npoints_tr,npoints_te
          type(atoms_group), allocatable  :: tr(:),te(:)                 
@@ -24,13 +24,13 @@
          procedure                       :: std_sets_inp
          procedure                       :: std_sets_out
          procedure                       :: out_results
-        end type chi2
+        end type mlmodel_trainer
 
         contains
 
          subroutine out_results(this)                 
          implicit none
-         class(chi2)                    :: this
+         class(mlmodel_trainer)         :: this
          integer                        :: i
 
           open(13,file='tr_rmse.dat')
@@ -56,7 +56,7 @@
 
          subroutine std_sets(this)
          implicit none
-         class(chi2)                    :: this
+         class(mlmodel_trainer)                    :: this
            call this%std_sets_inp()
            call this%std_sets_out()
          return
@@ -64,8 +64,8 @@
 
          subroutine std_sets_inp(this)
          implicit none
-         class(chi2)                    :: this
-         integer                        :: i,j,l,v
+         class(mlmodel_trainer)                    :: this
+         integer                                   :: i,j,l,v
 
           this%ML%NN%norm_inp=.true.
           allocate(this%ML%NN%mean_inp(this%ML%NN%ninput))
@@ -99,12 +99,14 @@
 
          subroutine std_sets_out(this)
          implicit none
-         class(chi2)                    :: this
-         integer                        :: i
+         class(mlmodel_trainer)                 :: this
+         integer                                :: i
 
          !! Normalize Training Set Output
 
           this%ML%norm_out=.true.
+          allocate(this%ML%mean_out(this%ndim))
+          allocate(this%ML%sigma_out(this%ndim))
           this%ML%mean_out=0.0d0
           this%ML%sigma_out=0.0d0
 
@@ -124,7 +126,7 @@
 
          subroutine read_sets(this,input_file)
          implicit none
-         class(chi2)                    :: this
+         class(mlmodel_trainer)                    :: this
          integer                        :: i,l,j
          character(len=100)             :: input_file
          character(len=100)             :: tr_file,te_file
@@ -132,8 +134,8 @@
          character(len=10)              :: kind_desc='CART'
 
           open(13,file=input_file)
-          read(13,*) this%npoints_tr,tr_file,tr_val_file
-          read(13,*) this%npoints_te,te_file,te_val_file
+          read(13,*) this%npoints_tr,this%ndim,tr_file,tr_val_file
+          read(13,*) this%npoints_te,this%ndim,te_file,te_val_file
           close(13)
 
           allocate(this%tr(this%npoints_tr))
@@ -172,7 +174,7 @@
          use general_types_class
          use random_numbers_class 
          implicit none
-         class(chi2)                              :: this
+         class(mlmodel_trainer)                              :: this
          integer                                  :: i,j
          double precision, allocatable, optional  :: L2val(:)
          integer, allocatable, optional           :: L2id(:)
@@ -196,21 +198,23 @@
          return
          end subroutine set_L2
 
-         subroutine set_nets(this,nnets,ninp,topo)
+         subroutine set_nets(this,ninp,topo)
          use general_types_class
          use random_numbers_class 
          implicit none
-         class(chi2)                    :: this
-         integer                        :: i,j,nnets
-         integer, allocatable           :: ninp
+         class(mlmodel_trainer)         :: this
+         integer                        :: i,j
+         integer                        :: ninp
          type(vector_int)               :: topo
          double precision, allocatable  :: vec(:)
         
           call init_random_seed()
-  
+
           this%ML%nparams=0
 
           call this%ML%NN%set_topology(ninp,size(topo%v),topo%v)
+
+          this%ML%nparams=this%ML%NN%nparams
 
           if(allocated(vec)) deallocate(vec)
           allocate(vec(this%ML%NN%nparams))
@@ -228,7 +232,7 @@
         
          subroutine map_nets(this)
          implicit none
-         class(chi2)                    :: this
+         class(mlmodel_trainer)                    :: this
          integer                        :: i
 
           do i=1,size(this%tr)
@@ -244,22 +248,22 @@
 
          subroutine get_chi2(this,vec,val)
          implicit none
-         class(chi2)                    :: this
+         class(mlmodel_trainer)         :: this
          double precision               :: val
-         double precision, allocatable  :: vec(:),outs(:),inps(:),vec_loc(:),rij(:,:)
-         integer                        :: i,j,offset,npar
+         double precision, allocatable  :: vec(:),outs(:),inps(:),vec_loc(:)
+         integer                        :: i,j,npar
 
           val=0.0d0
 
           call this%ML%set_params(vec)
 
           do i=1,size(this%tr)
+           call this%tr(i)%ML%get_output(this%tr(i)%at_desc(1)%desc)
            do j=1,this%ndim
-            call this%tr(i)%ML%get_output(this%tr(i)%at_desc(1)%desc)
             val=val+(this%tr(i)%ML%output(j)-this%tr_val(i,j))**2
            enddo
           enddo
-
+          
           val=val/size(this%tr)
 
           if( this%L2 )then
@@ -275,7 +279,7 @@
 
          subroutine get_chi2_grad(this,vec,val,grad)
          implicit none
-         class(chi2)                    :: this
+         class(mlmodel_trainer)         :: this
          integer                        :: i,j,offset,npar
          double precision               :: val
          double precision, allocatable  :: vec(:),vec_loc(:),rij(:,:)

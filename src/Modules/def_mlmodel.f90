@@ -7,7 +7,7 @@
           integer                         ::  nparams
           double precision, allocatable   ::  output(:)
           double precision, allocatable   ::  grad(:,:)
-          type(net), pointer              ::  NN
+          type(net)                       ::  NN
           double precision, allocatable   ::  mean_out(:)
           double precision, allocatable   ::  sigma_out(:)
           logical                         ::  norm_out=.false.
@@ -34,12 +34,20 @@
          implicit none
          class(mlmodel)                   :: this
          double precision, allocatable    :: desc(:)
+         double precision, allocatable    :: loc_prop(:),inps(:)
+
 
           if(.not.allocated(this%output)) allocate(this%output(this%ndims))
 
           this%output=0.0d0
 
-          call this%NN%get_output(desc,this%output)
+          if(.not.allocated(loc_prop)) allocate(loc_prop(this%ndims))
+          if(allocated(inps)) deallocate(inps)
+          inps=desc
+
+          call this%NN%get_output(inps,loc_prop)
+
+          this%output=loc_prop
 
           if(this%norm_out) this%output=this%sigma_out*this%output+this%mean_out
 
