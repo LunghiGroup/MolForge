@@ -3,6 +3,7 @@
         use general_types_class 
         use descriptors_class
         use ffs_class
+        use mlmodels_class
         implicit none
 
         type fc_branch
@@ -34,6 +35,7 @@
          type(fc_branch), allocatable    :: fcs3
          type(descriptor), pointer       :: at_desc(:)
          type(force_field), pointer      :: FF
+         type(mlmodel), pointer          :: ML
          contains
          procedure        :: delete => delete_atoms_group
          procedure        :: build_descriptors

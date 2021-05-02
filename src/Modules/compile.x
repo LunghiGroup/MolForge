@@ -19,6 +19,7 @@
  mpif90 -g -O2 -c def_bispectrum.f90
  mpif90 -g -O2 -c def_descriptors.f90
  mpif90 -g -O2 -c def_forcefields.f90
+ mpif90 -g -O2 -c def_mlmodel.f90
  mpif90 -g -O2 -c def_lattice.f90        
  mpif90 -g -O2 -c def_atoms.f90   
  mpif90 -g -O2 -fcheck=all -c def_proj_disp.f90      

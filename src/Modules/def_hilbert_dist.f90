@@ -7,7 +7,6 @@
         use general_types_class
         use dist_class
         implicit none
-
                 
         type, extends(spins_group)  :: spins_hilbert
          integer                            :: Hdim=0
