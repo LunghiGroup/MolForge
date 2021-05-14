@@ -144,7 +144,6 @@
         use stevens_class
         use particles_swarm_class
         use gradmin_class
-        use external_functions_class
         implicit none
         integer                        :: lmax,Odim,Nj,dimB,dimA
         integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf
@@ -229,33 +228,6 @@
 
 
          select case (lsmf_opt)
-
-         case ("LASSO")
-          f%A=A
-          f%B=B
-          f%lambda=0.0d0
-          allocate(step(dimA))
-          allocate(min_val(dimA))
-          allocate(max_val(dimA))
-          max_val=5.0d-1
-          min_val=-5.0d-1
-          max_val(1)=5.0d0
-          min_val(1)=0.0d0
-          step=0.001
-          step(1)=0.1
-          max_iter=5000
-          npar=20
-
-!          call swarm%init_swarm(npar,dimA,step,min_val,max_val)
-!          call swarm%minimize(max_iter)
-          gradm%nval=dimA
-          allocate(gradm%val(dimA))
-!          gradm%val=swarm%par(swarm%best_par)%val
-          gradm%val=0.0d0
-          gradm%max_iter=500000
-          call gradm%minimize()
-          B=cmplx(gradm%val,0.0d0,8)
-
 
          case ("RIDGE")
 
