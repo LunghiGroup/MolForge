@@ -2939,18 +2939,10 @@
 
           case ('NO_ENTANGLE')
 
-!           this%beta0=0.0d0
-!           allocate(rho_i(4,4))
            do v=1,this%nspins                       
             call make_rho0_i(this%spin(this%kind(v)),rho_i,this%alpha0(v),this%beta0(v),this%gamma0(v))
-!             if(v.eq.2)then
-!              rho_i=(0.0d0,0.0d0)
-!              rho_i(1,1)=(1.0d0,0.0d0)
-!             else
-!              rho_i=(0.0d0,0.0d0)
-!              rho_i(1,1)=(0.5d0,0.0d0)
-!              rho_i(2,2)=(0.5d0,0.0d0)
-!             endif
+             write(*,*) v,rho_i(1,1),rho_i(1,2)
+             write(*,*) v,rho_i(2,1),rho_i(2,2)
              do ii=1,size(this%rho%mat,1)
               do jj=1,size(this%rho%mat,2)
                i=indxl2g(ii,NB,myrow,0,nprow)
@@ -2965,7 +2957,7 @@
                enddo
               enddo
             enddo
-           
+         
            if(this%sparse)then
             call this%sp_rho%tosparse(this%Hdim,this%rho)
             if(this%ntot.gt.1) then
@@ -2997,7 +2989,6 @@
 
         return
         end subroutine make_rho0_H
-
 
         subroutine to_eigenbasis(this,mat)
         use mpi
@@ -3402,7 +3393,7 @@
 
             a=.true.
             do k=1,this%nspins
-             if(k.ne.s .and. k.ne.t)then
+             if(k.ne.v)then
               if(ABS(this%basis(s,k)-this%basis(t,k)).gt.1.0d-8)then
                a(k)=.false.
                exit
