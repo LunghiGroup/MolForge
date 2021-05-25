@@ -1,5 +1,7 @@
 #! /bin/bash
 
+ rm *.o *.mod
+
  mpif90 -g -O2 -c def_lists.f90 
  mpif90 -g -O2 -c def_random_numbers.f90
  mpif90 -g -O2 -c def_angmom.f90  

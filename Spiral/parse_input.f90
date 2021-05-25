@@ -34,7 +34,7 @@
 
            case('&HILBERT_SPACE')
 
-            call parse_global
+            call parse_global(spindy)
             write(6,*) 'Hilbert Space Parsed'
             operation='MAKE_HILBERT'
             exit
@@ -816,17 +816,19 @@
         end subroutine parse_rho0
 
 
-        subroutine parse_global
+        subroutine parse_global(spindy)
         use control_variables
         use parser_class
+        use hilbert_dist_class
         implicit none
+        class(spins_hilbert)           :: spindy
         character(len=:),allocatable   :: line,word
         integer                        :: l,i,int_val
         double precision               :: dbl_val
         logical                        :: eof=.false.
 
          fulldiag=.true.
-         dump_s=.true.
+         dump_s=.false.
          nex_max=-1
          ncorr_max=-1
          nexclude=0
@@ -855,9 +857,20 @@
            case('NODIAG')
             fulldiag=.false.
 
+           case('DUMP_H0')
+            spindy%printH0=.true.
+
+           case('DUMP_HEIG')
+            spindy%printHeig=.true.
+
+           case('DUMP_RHO')
+            spindy%printRho=.true.
+
+           case('DUMP_RMAT')
+            spindy%printRmat=.true.
+
            case('DUMP_S')
-            call get_word(line,word,2)
-            read(word,*) dump_s
+            dump_s=.true.
 
            case('MAX_DIST')
             call get_word(line,word,2)

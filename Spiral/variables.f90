@@ -278,8 +278,8 @@
           case ('MAKE_RHO0') 
            if(mpi_id.eq.0)    write(6,*) '  Building Density Matrix'
            call bcast_rho0()
-           spindy%beta0=0.0d0
-           spindy%beta0(2)=acos(-1.0d0)/2.0d0
+!           spindy%beta0=0.0d0
+!           spindy%beta0(2)=acos(-1.0d0)/2.0d0
            call spindy%make_rho0(type_rho0,spin_temp,rho_restart_file)
 
           case ('MAKE_HILBERT')

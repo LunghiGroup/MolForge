@@ -23,6 +23,7 @@
          type(vector_dbl), allocatable      :: Ener(:)
          type(dist1d)                       :: dos1p
          type(dist1d)                       :: dos2pm
+         double precision                   :: smear=1.0d0
          type(dist_cmplx_mat)               :: rho
          type(csr_mat_cmplx)                :: sp_rho
          type(dist_cmplx_mat)               :: rho0
@@ -47,6 +48,10 @@
          logical                            :: make_SA=.false.
          logical                            :: make_PT2=.false.
          logical                            :: sparse=.true.
+         logical                            :: printHeig=.false.
+         logical                            :: printH0=.false.
+         logical                            :: printRmat=.false.
+         logical                            :: printRho=.false.
          integer, allocatable               :: print_si(:)
          integer                            :: s2print=0         
          contains
@@ -1167,15 +1172,17 @@
 
          call AA%dealloc()
 
-         if(mpi_id.eq.0) open(15,file='RL.dat')
-         do l=1,this%Ldim
-          do l2=1,this%Ldim         
-           call pzelget('A',' ',valc,R0%mat,l2,l,R0%desc)
-           if(mpi_id.eq.0) write(15,*) l2,l,dble(valc),aimag(valc)
+         if(this%printRmat)then
+          if(mpi_id.eq.0) open(15,file='R.dat')
+          do l=1,this%Ldim
+           do l2=1,this%Ldim         
+            call pzelget('A',' ',valc,R0%mat,l2,l,R0%desc)
+            if(mpi_id.eq.0) write(15,*) l2,l,dble(valc),aimag(valc)
+           enddo
+           if(mpi_id.eq.0) write(15,*)
           enddo
-          if(mpi_id.eq.0) write(15,*)
-         enddo
-         if(mpi_id.eq.0) close(15)
+          if(mpi_id.eq.0) close(15)
+         endif
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
@@ -1601,16 +1608,18 @@
           call pdelset(R0%mat,l,l,R0%desc,norm)
          enddo
 
-         if(mpi_id.eq.0) open(15,file='R.dat')
-         do l=1,this%Hdim
-          do l2=1,this%Hdim         
-           call pdelget('A',' ',val,R0%mat,l2,l,R0%desc)
-           if(mpi_id.eq.0) write(15,*) l2,l,dble(val)
+         if(this%printRmat)then
+          if(mpi_id.eq.0) open(15,file='R.dat')
+          do l=1,this%Hdim
+           do l2=1,this%Hdim         
+            call pdelget('A',' ',val,R0%mat,l2,l,R0%desc)
+            if(mpi_id.eq.0) write(15,*) l2,l,dble(val)
+           enddo
+           if(mpi_id.eq.0) write(15,*)
           enddo
-          if(mpi_id.eq.0) write(15,*)
-         enddo
-         if(mpi_id.eq.0) close(15)
-
+          if(mpi_id.eq.0) close(15)
+         endif
+ 
          if(mpi_id.eq.0)then
           write(*,*) '           T1 (ps)'
           do i=1,this%Hdim
@@ -2141,15 +2150,17 @@
           call pdelset(R0%mat,l,l,R0%desc,norm)
          enddo
 
-         if(mpi_id.eq.0) open(15,file='R.dat')
-         do l=1,this%Hdim
-          do l2=1,this%Hdim         
-           call pdelget('A',' ',val,R0%mat,l2,l,R0%desc)
-           if(mpi_id.eq.0) write(15,*) l2,l,dble(val)
+         if(this%printRmat)then
+          if(mpi_id.eq.0) open(15,file='R.dat')
+          do l=1,this%Hdim
+           do l2=1,this%Hdim         
+            call pdelget('A',' ',val,R0%mat,l2,l,R0%desc)
+            if(mpi_id.eq.0) write(15,*) l2,l,dble(val)
+           enddo
+           if(mpi_id.eq.0) write(15,*)
           enddo
-          if(mpi_id.eq.0) write(15,*)
-         enddo
-         if(mpi_id.eq.0) close(15)
+          if(mpi_id.eq.0) close(15)
+         endif
 
          if(mpi_id.eq.0)then
           write(*,*) '           T1 (ps)'
@@ -2307,7 +2318,7 @@
          
          if(start_step.eq.0)then
           if(this%s2print.gt.0) call this%dump_M(0,time)
-          call this%dump_rho()
+          if(this%printRho) call this%dump_rho()
           start_step=1
          endif
 
@@ -2467,13 +2478,13 @@
 
           if ( mod(i,dump_freq).eq.0 ) then
            if(this%s2print .gt. 0) call this%dump_M(i,time)
-!           call this%dump_rho()
+           if(this%printRho)  call this%dump_rho()
           endif
 
          enddo
 
          if ( mod(i,dump_freq).eq.0 ) then
-!          call this%dump_rho()
+          if(this%printRho) call this%dump_rho()
          endif
          
          start_step=start_step+nsteps
@@ -2547,9 +2558,7 @@
           do j=1,this%Hdim
            call pzelget('A',' ',val,this%kbasis%mat,l,j,this%kbasis%desc)
            if(mpi_id.eq.0) write(15,*) k,l,j,dble(val),aimag(val)
-!           if(mpi_id.eq.0) write(15,*) l,j,sqrt(dble(conjg(val)*val)) 
           enddo
-!          if(mpi_id.eq.0) write(15,*) 
          enddo
 
          if(mpi_id.eq.0) close(15)
@@ -2573,10 +2582,8 @@
            do l=1,size_block
             call pzelget('A',' ',val,this%H(k)%mat,l,j,this%H(k)%desc)
             if(mpi_id.eq.0) write(15,*) k,l,j,dble(val),aimag(val),dble(val*conjg(val))
-!            if(mpi_id.eq.0) write(15,*) l,j,sqrt(dble(conjg(val)*val)) 
            enddo
-            write(15,*)
-!           if(mpi_id.eq.0) write(15,*) 
+            if(mpi_id.eq.0) write(15,*) 
           enddo
          enddo
 
@@ -2626,16 +2633,14 @@
           do j=1,this%Hdim         
            call pzelget('A',' ',val,this%rho%mat,l,j,this%rho%desc)
            if(mpi_id.eq.0) write(15,*) l,j,dble(val),aimag(val)
-!           if(mpi_id.eq.0) write(15,*) l,j,sqrt(dble(conjg(val)*val)) 
           enddo
-!          if(mpi_id.eq.0) write(15,*) 
+          if(mpi_id.eq.0) write(15,*) 
          enddo
 
          if(mpi_id.eq.0) close(15)
 
         return
         end subroutine dump_rho_H
-
 
         subroutine make_propagator_H(this,step_min,mult_fact)
         use mpi
@@ -3158,7 +3163,8 @@
           call this%H(k)%set(size_block,size_block,NB,MB)
          enddo
 
-         call this%dump_H0()                
+         if( this%printH0) call this%dump_H0()                
+         
          
         ! diagonalizing hamiltonian with scalapack
 
@@ -3177,7 +3183,7 @@
 !          call new_diag(size_block,this%H(k)%mat,this%Ener(k)%v)
 !         enddo
 
-         call this%dump_Heig()
+        if(this%printHeig) call this%dump_Heig()
 
         ! find the largest/minimum eigenvalue
 

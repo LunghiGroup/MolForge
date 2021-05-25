@@ -7,6 +7,8 @@ export LIB_DIR=${MOLFORGE}/Modules
 export LIBS="-lscalapack -llapack -lmolforge"
 export FFLAGS="-fmax-errors=10 -g -O2 -fcheck=all"
 
+rm *.o *.mod
+
 mpif90 ${FFLAGS} -c variables.f90 -I ${MOD_DIR}
 mpif90 ${FFLAGS} -c parse_input.f90 -I ${MOD_DIR}
 mpif90 ${FFLAGS} -c Spiral.f90 -I ${MOD_DIR}
