@@ -821,8 +821,6 @@
         complex(8)           :: val,Cij
         logical              :: cross
 
-         call system_clock(t1,rate)        
-
          if(size(A%AI).ne.size(B%AI))then
           write(*,*) size(A%AI),size(B%AI)
           flush(6)
@@ -875,10 +873,6 @@
          call mat%delete
          call matI%delete
          call matJ%delete
-
-         call system_clock(t2)
-         write(*,*) 'Sparse mult done in ',real(t2-t1)/real(rate),'s'
-         flush(6)
         
         return
         end subroutine mult_sparse_cmplx
@@ -900,10 +894,6 @@
         logical              :: cross,check
         integer              :: nloc,nstart,nnz
         integer,allocatable  :: proc_grid(:)
-
-         if(mpi_blacs_id.eq.0)then
-          call system_clock(t1,rate)        
-         endif
 
          if(size(A2%AI).ne.size(B2%AI))then
           write(*,*) size(A2%AI),size(B2%AI)
@@ -1013,11 +1003,6 @@
          call matI%delete
          call matJ%delete
 
-         if(mpi_blacs_id.eq.0)then
-          call system_clock(t2)
-          write(*,*) 'Sparse mult done in ',real(t2-t1)/real(rate),'s'
-          flush(6)
-         endif
         
         return
         end subroutine mult2_sparse_cmplx

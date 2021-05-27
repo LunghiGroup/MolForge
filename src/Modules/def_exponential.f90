@@ -90,7 +90,8 @@
          call BB%dealloc()
 
          if(mpi_id.eq.0) &
-         write(*,*) 'Taylor expansion converged in ',i,'steps'
+         write(*,*) '     Taylor expansion of exp(A) converged in ',i,'steps'
+ 
 
         end subroutine exp_taylor
 

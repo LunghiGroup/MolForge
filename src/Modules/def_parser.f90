@@ -73,8 +73,6 @@
 
 20      continue
 
-
-        write(*,*) 'End of input file'
         eof=.true.
 
         return

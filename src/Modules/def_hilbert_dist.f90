@@ -249,7 +249,7 @@
            if (this%dos2pm%get_val(phondy%list(ph)%freq(bn)).lt.1.0d-6) cycle
 
 !           call phondy%calc_linewidth_sp(sys,ph,bn)
-           write(*,*) ph,bn,phondy%list(ph)%width(bn,1)
+!           write(*,*) ph,bn,phondy%list(ph)%width(bn,1)
 
           enddo
          enddo
@@ -294,7 +294,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '      Building R2 matrix'
+          write(*,*) '     Building the Redfield matrix: 1st-order PT + 2nd-order of coupling strenght'
           flush(6)
          endif
 
@@ -648,7 +648,7 @@
          nphonons=nze
          avg_sph=val
          
-         if(mpi_id.eq.0) write(*,*) 'Raman Phonons included: ',nphonons
+         if(mpi_id.eq.0) write(*,*) '     Total number of phonons included: ',nphonons
 
          do ii=1,size(R0%mat,1)
           do jj=1,size(R0%mat,2)
@@ -736,7 +736,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '          ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -778,7 +778,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '      Building R1 matrix'
+          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strenght'
           flush(6)
          endif
 
@@ -1085,7 +1085,7 @@
 
          nphonons=nze
 
-         if(mpi_id.eq.0) write(*,*) 'Phonons included: ',nphonons
+         if(mpi_id.eq.0) write(*,*) '     Number of phonons included: ',nphonons
 
          do ii=1,size(R0%mat,1)
           do jj=1,size(R0%mat,2)
@@ -1186,7 +1186,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '          ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -1235,7 +1235,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '   Building R matrix'
+          write(*,*) '     Initializing the calculation of spin-phonon relaxation with the Redfield theory'
           flush(6)
          endif
 
@@ -1270,12 +1270,12 @@
 !         call mat_inv(BB%mat,this%Ldim) 
 
          if(mpi_id.eq.0) then
-          write(*,*) 'R Matrix Eigenvalues:'
+          write(*,*) '     Redfield Matrix Eigenvalues:'
           allocate(rates(this%Ldim))
           rates=abs(dble(this%Rval))
           call  order_array(rates)
           do l=1,this%Ldim
-           write(*,*) l,rates(l)
+           write(*,*) '          ',l,rates(l)
           enddo
           deallocate(rates)
          endif
@@ -1304,7 +1304,7 @@
          
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -1352,7 +1352,8 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '   Building R matrix...',temp(1),' K'
+          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strenght'
+          write(*,*) '     The diagonal approximation to the secular Redfield equations will be used'
           flush(6)
          endif
 
@@ -1591,7 +1592,7 @@
          call mpi_allreduce(nphonons,nze,1,&
               mpi_integer,mpi_sum,mpi_phonons_world,err)
                   
-         if(mpi_id.eq.0) write(*,*) 'Phonons included: ',nphonons
+         if(mpi_id.eq.0) write(*,*) '      Number of phonons included: ',nphonons
 
          R0%mat=2.0d0*pi*pi*R0%mat/hplank
          this%T2%mat=pi*pi*this%T2%mat/hplank   
@@ -1620,12 +1621,12 @@
           if(mpi_id.eq.0) close(15)
          endif
  
-         if(mpi_id.eq.0)then
-          write(*,*) '           T1 (ps)'
-          do i=1,this%Hdim
-           write(*,*) i,-1.0d0/this%T1(i)
-          enddo
-         endif
+!         if(mpi_id.eq.0)then
+!          write(*,*) '           T1 (ps)'
+!          do i=1,this%Hdim
+!           write(*,*) i,-1.0d0/this%T1(i)
+!          enddo
+!         endif
 
       ! Compute correlation propagator
        
@@ -1684,14 +1685,14 @@
                      (1.0d0,0.0d0),BB%mat,1,1,BB%desc,AA%mat,&
                      1,1,AA%desc,(0.0d0,0.0d0),CC%mat,1,1,CC%desc)
 
-         if(mpi_id.eq.0) write(*,*) 'R Matrix Eigenvalues:'
+         if(mpi_id.eq.0) write(*,*) '     Redfield Matrix Eigenvalues:'
 
          if(mpi_id.eq.0)then
           allocate(rates(this%Hdim))
           rates=abs(dble(this%Rval))
           call  order_array(rates)
           do l=1,this%Hdim
-           write(*,*) l,rates(l) 
+           write(*,*) '        ',l,rates(l) 
           enddo
           deallocate(rates)
          endif
@@ -1717,8 +1718,8 @@
               mpi_double_precision,MPI_SUM,mpi_blacs_world,err)    
 
          if(mpi_id.eq.0) then
-          write(*,*) 'Diagonal Right-Left Overlap:',diag_sum/this%Hdim
-          write(*,*) 'Out of Diagonal Right-Left Overlap:',nodiag_sum
+          write(*,*) '     Diagonal R/L Overlap:',diag_sum/this%Hdim,' it should be close to zero!'
+          write(*,*) '     Off-diagonal R/L Overlap:',nodiag_sum,' it should be close to one!'
          endif
 
       ! Build Pop Propagator R= R exp(Rval) R^{\cross}
@@ -1744,7 +1745,7 @@
          
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -1792,7 +1793,8 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '   Building R matrix...',temp(1),' K'
+          write(*,*) '     Building the Redfield matrix: 2nd-order PT + 1st-order of coupling strenght'
+          write(*,*) '     The diagonal approximation to the secular Redfield equations will be used'
           flush(6)
          endif
 
@@ -1885,7 +1887,6 @@
       ! Rotate Vij
 
             if(this%ntot.gt.1)then
-             write(*,*) 'kpoints and Raman not implemented'
              stop
             endif           
 
@@ -2133,7 +2134,7 @@
 
          nphonons=nze
          
-         if(mpi_id.eq.0) write(*,*) 'Raman Phonons included: ',nphonons
+         if(mpi_id.eq.0) write(*,*) '     Total number of phonons included: ',nphonons
          
          R0%mat=pi*pi*R0%mat/hplank
          this%T2%mat=pi*pi*this%T2%mat/hplank/2.0d0
@@ -2162,12 +2163,12 @@
           if(mpi_id.eq.0) close(15)
          endif
 
-         if(mpi_id.eq.0)then
-          write(*,*) '           T1 (ps)'
-          do i=1,this%Hdim
-           write(*,*) i,-1.0d0/this%T1(i)
-          enddo
-         endif
+!         if(mpi_id.eq.0)then
+!          write(*,*) '           T1 (ps)'
+!          do i=1,this%Hdim
+!           write(*,*) i,-1.0d0/this%T1(i)
+!          enddo
+!         endif
 
       ! Compute correlation propagator
        
@@ -2226,7 +2227,7 @@
                      (1.0d0,0.0d0),BB%mat,1,1,BB%desc,AA%mat,&
                      1,1,AA%desc,(0.0d0,0.0d0),CC%mat,1,1,CC%desc)
 
-         if(mpi_id.eq.0) write(*,*) 'R Matrix Eigenvalues:'
+         if(mpi_id.eq.0) write(*,*) '     Redfield Matrix Eigenvalues:'
 
          nodiag_sum=(0.0d0,0.0d0)
          diag_sum=(0.0d0,0.0d0)
@@ -2236,7 +2237,7 @@
           rates=abs(dble(this%Rval))
           call  order_array(rates)
           do l=1,this%Hdim
-           write(*,*) l,rates(l) 
+           write(*,*) '          ',l,rates(l) 
           enddo
           deallocate(rates)
          endif
@@ -2286,7 +2287,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '    Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -2312,7 +2313,8 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Propagating dynamics for ',nsteps*step,' ps'
+          write(*,*) '     Propagation timestep  : ',step,' ps'
+          write(*,*) '     Total propagation time: ',nsteps*step,' ps'
           flush(6)
          endif
          
@@ -2493,7 +2495,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -2661,7 +2663,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Building Unitary Propagator operator'
+          write(*,*) '     Building unitary propagator operator'
           flush(6)
          endif
 
@@ -2759,7 +2761,7 @@
 
            enddo
 
-           if(mpi_id.eq.0) write(*,*) 'Taylor expansion converged in ',i,'steps'
+           if(mpi_id.eq.0) write(*,*) '     Taylor expansion converged in ',i,'steps'
 
         !  Quadrature of the propagator
 
@@ -2782,7 +2784,7 @@
 
            ii=this%U(kpt)%get_nze(1.0d-9)
            if(mpi_id.eq.0)  &
-           write(*,*) 'Propagator Sparsity:', ii/dble(size_block**2)
+           write(*,*) '     Propagator Sparsity: ',10*(1-ii/dble(size_block**2)),'%'
 
           enddo ! end on kpt
 
@@ -2791,7 +2793,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -2821,7 +2823,6 @@
         return
         end subroutine make_rho0_i
 
-
         subroutine make_rho0_H(this,type_rho0,temp,rho_restart_file)
         use mpi
         use mpi_utils
@@ -2843,7 +2844,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Building Starting density matrix'
+          write(*,*) '     Building starting density matrix'
           flush(6)
          endif
 
@@ -2988,7 +2989,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -3142,8 +3143,9 @@
 
 
          if(mpi_id.eq.0)then
-          call system_clock(t1,rate)        
-          write(*,*) '   H Diagonalization'
+          call system_clock(t1,rate)       
+          write(*,*) '' 
+          write(*,*) '     Diagonalizing the Spin'
           flush(6)
          endif
 
@@ -3265,7 +3267,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
          endif
 
         return
@@ -3324,10 +3326,10 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Calculation of S matrix elements'
+          write(*,*) '' 
+          write(*,*) '     Calculation of the Spin operators matrix elements'
           flush(6)
          endif
-
 
          if(this%s2print.gt.0)then
        
@@ -3461,23 +3463,13 @@
           enddo
          enddo
 
-         !!!!!
          if(this%sparse)then
 
           do s=1,this%s2print
 
-           if(mpi_id.eq.0)then
-            call system_clock(t1_2,rate)        
-           endif
            call this%sp_Sz(s)%tosparse(this%Hdim,this%Sz(s))
            call this%sp_Sy(s)%tosparse(this%Hdim,this%Sy(s))
            call this%sp_Sx(s)%tosparse(this%Hdim,this%Sx(s))
-
-           if(mpi_id.eq.0)then
-            call system_clock(t2)
-            write(*,*) '   3 tosparse ',real(t2-t1_2)/real(rate),'s'
-            flush(6)
-           endif
 
            if(this%ntot.gt.1)then
             call mult2_sparse_cmplx(.false.,this%sp_Sz(s),this%sp_kbasis,Sz(s))          
@@ -3496,23 +3488,13 @@
             call Sx(s)%delete()
            endif
 
-        ! set this%Sz(s)
-
           call this%Sz(s)%dealloc()
           call this%Sy(s)%dealloc()
           call this%Sx(s)%dealloc()
 
-           if(mpi_id.eq.0)then
-            call system_clock(t1_2,rate)        
-           endif
           call this%sp_Sz(s)%todense(this%Sz(s)) 
           call this%sp_Sy(s)%todense(this%Sy(s)) 
           call this%sp_Sx(s)%todense(this%Sx(s)) 
-           if(mpi_id.eq.0)then
-            call system_clock(t2)
-            write(*,*) '   3 todense ',real(t2-t1_2)/real(rate),'s'
-            flush(6)
-           endif
 
          enddo ! print
         
@@ -3520,21 +3502,11 @@
 
           if(this%ntot.gt.1)then
 
-           if(mpi_id.eq.0)then
-            call system_clock(t1,rate)        
-            write(*,*) '   Calculation of S matrix elements'
-            flush(6)
-           endif
            do s=1,this%s2print
             call this%to_kbasis(this%Sx(s))
             call this%to_kbasis(this%Sy(s))
             call this%to_kbasis(this%Sz(s))             
            enddo
-           if(mpi_id.eq.0)then
-            call system_clock(t2)
-            write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
-            flush(6)
-           endif
 
           endif
 
@@ -3550,17 +3522,12 @@
         
          endif
 
-!         write(*,*) 'Sz sp 1'
-!         do i=1,size(this%Sz(1)%mat,1)
-!          write(*,*) this%Sz(1)%mat(i,i)
-!         enddo
-
          deallocate(Mtmp)
          deallocate(a)
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -3607,7 +3574,8 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Calculation of non-zero elements of H'
+          write(*,*) '' 
+          write(*,*) '     Calculation of non-zero elements of H0'
           flush(6)
          endif
          
@@ -3684,8 +3652,6 @@
           call nodes(4)%skip()
          enddo 
 
-         write(*,*) 'Numero Elementi di matrice da calcolare: ',mpi_id,nodes(1)%nelem
-
          call nodes(1)%delete()
          call nodes(2)%delete()
          call nodes(3)%delete()
@@ -3693,7 +3659,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -4018,12 +3984,6 @@
           enddo ! s2           
          enddo ! s1
 
-!         if(mpi_id.eq.0)then
-!          call system_clock(t2)
-!          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
-!          flush(6)
-!         endif
-
         return
         end subroutine make_SH_rep
 
@@ -4224,7 +4184,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Building 2nd Order Spin-Phonon Dipolar Network'
+          write(*,*) '     Building 2nd-order Spin-Phonon Dipolar Network'
           flush(6)
          endif
 
@@ -4274,8 +4234,8 @@
          allocate(SPH%Ddip_t(SPH%nDdip))
 
          if(mpi_id.eq.0)  &
-         write(*,*) '             Total Number of Spin-Phonon '&
-                                 'Dipolar interactions',SH%nDdip
+         write(*,*) '     Total Number of Spin-Phonon '&
+                                 'Dipolar interactions: ',SH%nDdip
 
          v=1
 
@@ -4381,7 +4341,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -4405,7 +4365,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Building Spin-Phonon Dipolar Network'
+          write(*,*) '     Building Spin-Phonon Dipolar Network'
           flush(6)
          endif
 
@@ -4455,8 +4415,8 @@
          allocate(SPH%Ddip_t(SPH%nDdip))
 
          if(mpi_id.eq.0)  &
-         write(*,*) '             Total Number of Spin-Phonon '&
-                                 'Dipolar interactions',SH%nDdip
+         write(*,*) '     Total Number of Spin-Phonon '&
+                                 'Dipolar interactions: ',SH%nDdip
 
          v=1
 
@@ -4569,7 +4529,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -4593,7 +4553,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Building Dipolar Network'
+          write(*,*) '     Building Dipolar Network'
           flush(6)
          endif
 
@@ -4642,7 +4602,7 @@
          allocate(SH%Ddip(SH%nDdip))
 
          if(mpi_id.eq.0)  &
-         write(*,*) '             Total Number of Dipolar interactions',SH%nDdip
+         write(*,*) '     Total Number of spin-spin dipolar interactions: ',SH%nDdip
 
          v=1
 
@@ -4735,7 +4695,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -4759,7 +4719,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Building Hamiltonian Matrix'
+          write(*,*) '     Building Hamiltonian Matrix'
           flush(6)
          endif
 
@@ -4786,20 +4746,19 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
-
-
-         if(mpi_id.eq.0)then
-          call system_clock(t1,rate)        
-          write(*,*) '   Rotating Hamiltonian in T invariant basis'
-          flush(6)
-         endif
-         
-         ! rotate H in Tinvariant basis e block-factorize it
 
          if(this%ntot.gt.1)then
+
+          if(mpi_id.eq.0)then
+           call system_clock(t1,rate)        
+           write(*,*) '     Rotating Hamiltonian in T invariant basis'
+           flush(6)
+          endif
+         
+         ! rotate H in Tinvariant basis e block-factorize it
                  
           do l=1,this%ntot
 
@@ -4832,7 +4791,7 @@
           do l=1,this%ntot
            size_block=this%kblc(l+1)-this%kblc(l)
            jj=this%H0(l)%get_nze(1.0D-9)
-           if(mpi_blacs_id.eq.0) writE(*,*) 'H0 Sparsity:',jj,jj/dble(size_block**2)
+           if(mpi_blacs_id.eq.0) writE(*,*) '     Spin Hamiltonian Matrix Sparsity:',100*(1-jj/dble(size_block**2)),'%'
           enddo
          endif
 
@@ -4840,7 +4799,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -4901,18 +4860,19 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
-         if(mpi_id.eq.0)then
-          call system_clock(t1,rate)        
-          write(*,*) '   Rotating Hamiltonian in T invariant basis'
-          flush(6)
-         endif
-         
-         ! rotate H in Tinvariant basis e block-factorize it
 
          if(this%ntot.gt.1)then
+
+          if(mpi_id.eq.0)then
+           call system_clock(t1,rate)        
+           write(*,*) '          Rotating Hamiltonian in T invariant basis'
+           flush(6)
+          endif
+         
+         ! rotate H in Tinvariant basis e block-factorize it
                  
           do l=1,this%ntot
 
@@ -4944,14 +4904,14 @@
          do l=1,this%ntot
           size_block=this%kblc(l+1)-this%kblc(l)
           jj=this%H0(l)%get_nze(1.0D-9)
-          if(mpi_id.eq.0) writE(*,*) 'H0 Sparsity:',jj,jj/dble(size_block**2)
+          if(mpi_id.eq.0) writE(*,*) '          H0 Matrix Sparsity:',100*(1-jj/dble(size_block**2)),'%'
          enddo
 
          call AA%dealloc()
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -5007,8 +4967,9 @@
                  
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Building Basis Set'
-          write(*,*) '    Max Ex: ',max_ex
+          write(*,*) '' 
+          write(*,*) '     Building Basis Set'
+          write(*,*) '     Maximum number of spin excitations: ',max_ex
           flush(6)
          endif
 
@@ -5045,9 +5006,9 @@
 !           write(*,*) this%basis(v,:)
           enddo
 !          close(15)
-          write(*,*) '    Total Hilbert space size: ',this%Hdim
+          write(*,*) '     Total Hilbert space size: ',this%Hdim
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -5326,7 +5287,8 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '   Building T invariant Basis Set'
+          write(*,*) ''
+          write(*,*) '     Building translational invariant basis set'
           flush(6)
          endif
         
@@ -5371,7 +5333,6 @@
           enddo
           i=i+1
          enddo
-
 
          nelem_tot=AJ%nelem
          call mpi_allreduce(nelem_tot,nelem_tot,1,mpi_integer,mpi_sum,mpi_blacs_world,err)
@@ -5636,12 +5597,14 @@
           Ti_old=Ti
           Ti=Ti+1
 
-
          enddo
 
          Ti=Ti_old
 
          ! allocate kbasis
+
+         call this%kbasis%set(this%Hdim,this%Hdim,NB,MB)
+         this%kbasis%mat=(0.0d0,0.0d0)
 
          if(allocated(mapp)) deallocate(mapp)
          allocate(this%kblc(this%ntot+1))
@@ -5676,16 +5639,16 @@
           this%klist(nblc,3)=ki(3)
 
           do j=1,this%Hdim
-
+           
            if(check(j))cycle
 
            kj(1)=list_i(j,Ti)%k(1)
            kj(2)=list_i(j,Ti)%k(2)
            kj(3)=list_i(j,Ti)%k(3)
 
-           if(abs(kj(1)-ki(1)).lt.1.0e-4  .and. &
-              abs(kj(2)-ki(2)).lt.1.0e-4  .and. &
-              abs(kj(3)-ki(3)).lt.1.0e-4  )then
+           if(abs(kj(1)-ki(1)).lt.1.0d-4  .and. &
+              abs(kj(2)-ki(2)).lt.1.0d-4  .and. &
+              abs(kj(3)-ki(3)).lt.1.0d-4  )then
 
             this%kblc(nblc+1)=this%kblc(nblc+1)+1
             mapp(l)=j
@@ -5697,11 +5660,7 @@
 
          enddo ! end while
 
-
          ! set kbasis
-
-         call this%kbasis%set(this%Hdim,this%Hdim,NB,MB)
-         this%kbasis%mat=(0.0d0,0.0d0)
 
          do i=1,this%ntot
           size_block=this%kblc(i+1)-this%kblc(i)
@@ -5725,7 +5684,7 @@
          !!!!!
 
          jj=this%kbasis%get_nze(1.0D-9)
-         if(mpi_id.eq.0) writE(*,*) 'Kbasis Sparsity:',jj,jj/dble(this%Hdim**2)
+         if(mpi_id.eq.0) writE(*,*) '     K-basis Sparsity:',100*(1-jj/dble(this%Hdim**2)),'%'
           
          ! free memory
 
@@ -5740,7 +5699,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '       ... Done in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
          
@@ -5792,7 +5751,7 @@
           call Sn%dealloc()
 
           ii=pulse(i)%rot%get_nze(1.0d-9)
-          if(mpi_id.eq.0) write(*,*) 'Pulse Sparsity:',ii,ii/dble(this%Hdim**2)
+          if(mpi_id.eq.0) write(*,*) '     Pulse Sparsity:',100*(1-ii/dble(this%Hdim**2)),'%'
 
          enddo
 
