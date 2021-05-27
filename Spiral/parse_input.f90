@@ -648,7 +648,6 @@
         class(brillouin)                 :: phondy
         class(atoms_group)               :: lattice
         character(len=:), allocatable    :: line,word
-        character(len=100)               :: fc2_file,fc3_file
         integer                          :: l
         logical                          :: eof=.false.
 
@@ -707,11 +706,10 @@
             
            case('&END')
 
-           if(read_fc3) call lattice%read_restart_file(fc2_file,fc3_file)
-           if(.not. read_fc3) call lattice%read_restart_file(fc2_file)
            return
 
           end select
+
 
          enddo
 
@@ -1552,9 +1550,6 @@
              enddo
 
              deallocate(coord3d)
-             write(*,*) spindy%tr_map(:,1)
-             write(*,*) spindy%tr_map(:,2)
-             write(*,*) spindy%tr_map(:,3)
 
             endif
 

@@ -337,7 +337,6 @@
             A(l,2)=abs(this%list(i)%k(2))
             A(l,3)=abs(this%list(i)%k(3))
             B(l)=this%list(i)%freq(j)
-            write(*,*) l,i,this%list(i)%freq(j)
             l=l+1
            endif
           enddo
@@ -599,11 +598,11 @@
          enddo
         
          if(mpi_id.eq.0)then 
-           write(*,*) '   Group Velocities:'
+           write(*,*) '     Group Velocities:'
           do i=1,this%ntot
-            write(*,*) '      ',i,this%list(i)%k(:)
+            write(*,*) '     ',i,this%list(i)%k(:)
            do j=1,sys%nats*3
-            write(*,*) '          ',j,this%list(i)%vel(j,:)
+            write(*,*) '     ',j,this%list(i)%vel(j,:)
            enddo
           enddo
          endif

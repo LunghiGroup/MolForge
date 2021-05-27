@@ -796,14 +796,14 @@
 
          if(mpi_id.eq.0)then
 
-         write(*,*) 'Reading Structure File:',structure_file
+         write(*,*) '     Reading Structure File:',structure_file
          write(*,*)
          write(*,*)
 
          open(unit=11,file=structure_file)
 
          read(11,*) this%nkinds,this%nats
-         write(*,*) '   Detected ',this%nkinds,' kinds and ',&
+         write(*,*) '     Detected ',this%nkinds,' kinds and ',&
                     this%nats,' atoms'
          write(*,*) 
          write(*,*)
@@ -831,53 +831,51 @@
          this%touched=.true.
          call this%cell2abc()
 
-         write(*,*) '#################################'
-         write(*,*) 'Bravais Lattice Properties:'
-         write(*,*) '#################################'
+         write(*,*) '     Bravais Lattice Properties:'
          write(*,*)
          write(*,*)
         
-         write(*,*) '   Unit Cell Vectors (Angstrom):'
-         write(*,*) '      ',this%cell(1,:)
-         write(*,*) '      ',this%cell(2,:)
-         write(*,*) '      ',this%cell(3,:)
+         write(*,*) '     Unit Cell Vectors (Angstrom):'
+         write(*,*) '     ',this%cell(1,:)
+         write(*,*) '     ',this%cell(2,:)
+         write(*,*) '     ',this%cell(3,:)
          write(*,*)
          write(*,*)
 
-         write(*,*) '   Unit Cell Parameters (Angstrom, Deg):'
-         write(*,*) '        a=',this%a
-         write(*,*) '        b=',this%b
-         write(*,*) '        c=',this%c
-         write(*,*) '    alpha=',this%alpha*180.0d0/acos(-1.0d0)
-         write(*,*) '     beta=',this%beta*180.0d0/acos(-1.0d0)
-         write(*,*) '    gamma=',this%gamma*180.0d0/acos(-1.0d0)
+         write(*,*) '      Unit Cell Parameters (Angstrom, Deg):'
+         write(*,*) '            a=',this%a
+         write(*,*) '            b=',this%b
+         write(*,*) '            c=',this%c
+         write(*,*) '        alpha=',this%alpha*180.0d0/acos(-1.0d0)
+         write(*,*) '         beta=',this%beta*180.0d0/acos(-1.0d0)
+         write(*,*) '        gamma=',this%gamma*180.0d0/acos(-1.0d0)
          write(*,*)
          write(*,*)
         
          call this%init()
 
-         write(*,*) '   Jacobian Tensor:'
+         write(*,*) '      Jacobian Tensor:'
          write(*,*) '      ',this%J(1,:)
          write(*,*) '      ',this%J(2,:)
          write(*,*) '      ',this%J(3,:)
          write(*,*)
          write(*,*)
 
-         write(*,*) '   Inverse Jacobian Tensor:'
+         write(*,*) '      Inverse Jacobian Tensor:'
          write(*,*) '      ',this%Jinv(1,:)
          write(*,*) '      ',this%Jinv(2,:)
          write(*,*) '      ',this%Jinv(3,:)
          write(*,*)
          write(*,*)
 
-         write(*,*) '   Covariant Metric Tensor:'
+         write(*,*) '      Covariant Metric Tensor:'
          write(*,*) '      ',this%Gcov(1,:)
          write(*,*) '      ',this%Gcov(2,:)
          write(*,*) '      ',this%Gcov(3,:)
          write(*,*)
          write(*,*)
 
-         write(*,*) '   Controvariant Metric Tensor:'
+         write(*,*) '      Controvariant Metric Tensor:'
          write(*,*) '      ',this%Gcon(1,:)
          write(*,*) '      ',this%Gcon(2,:)
          write(*,*) '      ',this%Gcon(3,:)
@@ -886,22 +884,18 @@
 
          call this%frac2cart()
 
-         write(*,*) '#################################'
-         write(*,*) 'Unit Cell Atomic Kinds:'
-         write(*,*) '#################################'
+         write(*,*) '     Unit Cell Atomic Kinds:'
          write(*,*)
          write(*,*)
 
          write(*,*)
          do i=1,this%nkinds
-          write(*,*) '      ','kind=',this%label(i),'mass=',this%mass(i)
+          write(*,*) '     kind=',this%label(i),'mass=',this%mass(i)
          enddo
          write(*,*)
          write(*,*)
        
-         write(*,*) '#################################'
-         write(*,*) 'Unit Cell Cartesian Coordinates:'
-         write(*,*) '#################################'
+         write(*,*) '     Unit Cell Cartesian Coordinates:'
          write(*,*)
          write(*,*)
 
@@ -920,7 +914,7 @@
          endif
 
          read(11,*) this%nx,this%ny,this%nz
-         write(*,*) '   Detected Real-Space Supercell:',this%nx,this%ny,this%nz 
+         write(*,*) '     Detected Real-Space Supercell:',this%nx,this%ny,this%nz 
          write(*,*) 
          write(*,*)
 
@@ -953,14 +947,14 @@
 
          if(present(anharmonic_file)) read_fc3=.true.
 
-         write(*,*) 'Reading Structure File:',restart_file
+         write(*,*) '     Reading Structure File:',restart_file
          write(*,*)
          write(*,*)
 
          open(unit=11,file=restart_file)
 
          read(11,*) this%nkinds,this%nats
-         write(*,*) '   Detected ',this%nkinds,' kinds and ',&
+         write(*,*) '     Detected ',this%nkinds,' kinds and ',&
                     this%nats,' atoms'
          write(*,*) 
          write(*,*)
@@ -989,83 +983,77 @@
          this%touched=.true.
          call this%cell2abc()
 
-         write(*,*) '#################################'
-         write(*,*) 'Bravais Lattice Properties:'
-         write(*,*) '#################################'
+         write(*,*) '     Bravais Lattice Properties:'
          write(*,*)
          write(*,*)
         
-         write(*,*) '   Unit Cell Vectors (Angstrom):'
-         write(*,*) '      ',this%cell(1,:)
-         write(*,*) '      ',this%cell(2,:)
-         write(*,*) '      ',this%cell(3,:)
+         write(*,*) '     Unit Cell Vectors (Angstrom):'
+         write(*,*) '     ',this%cell(1,:)
+         write(*,*) '     ',this%cell(2,:)
+         write(*,*) '     ',this%cell(3,:)
          write(*,*)
          write(*,*)
 
-         write(*,*) '   Unit Cell Parameters (Angstrom, Deg):'
-         write(*,*) '        a=',this%a
-         write(*,*) '        b=',this%b
-         write(*,*) '        c=',this%c
-         write(*,*) '    alpha=',this%alpha*180.0d0/acos(-1.0d0)
-         write(*,*) '     beta=',this%beta*180.0d0/acos(-1.0d0)
-         write(*,*) '    gamma=',this%gamma*180.0d0/acos(-1.0d0)
+         write(*,*) '     Unit Cell Parameters (Angstrom, Deg):'
+         write(*,*) '          a=',this%a
+         write(*,*) '          b=',this%b
+         write(*,*) '          c=',this%c
+         write(*,*) '      alpha=',this%alpha*180.0d0/acos(-1.0d0)
+         write(*,*) '       beta=',this%beta*180.0d0/acos(-1.0d0)
+         write(*,*) '      gamma=',this%gamma*180.0d0/acos(-1.0d0)
          write(*,*)
          write(*,*)
         
          call this%init()
 
-         write(*,*) '   Jacobian Tensor:'
-         write(*,*) '      ',this%J(1,:)
-         write(*,*) '      ',this%J(2,:)
-         write(*,*) '      ',this%J(3,:)
+         write(*,*) '     Jacobian Tensor:'
+         write(*,*) '     ',this%J(1,:)
+         write(*,*) '     ',this%J(2,:)
+         write(*,*) '     ',this%J(3,:)
          write(*,*)
          write(*,*)
 
-         write(*,*) '   Inverse Jacobian Tensor:'
-         write(*,*) '      ',this%Jinv(1,:)
-         write(*,*) '      ',this%Jinv(2,:)
-         write(*,*) '      ',this%Jinv(3,:)
+         write(*,*) '     Inverse Jacobian Tensor:'
+         write(*,*) '     ',this%Jinv(1,:)
+         write(*,*) '     ',this%Jinv(2,:)
+         write(*,*) '     ',this%Jinv(3,:)
          write(*,*)
          write(*,*)
 
-         write(*,*) '   Covariant Metric Tensor:'
-         write(*,*) '      ',this%Gcov(1,:)
-         write(*,*) '      ',this%Gcov(2,:)
-         write(*,*) '      ',this%Gcov(3,:)
+         write(*,*) '     Covariant Metric Tensor:'
+         write(*,*) '     ',this%Gcov(1,:)
+         write(*,*) '     ',this%Gcov(2,:)
+         write(*,*) '     ',this%Gcov(3,:)
          write(*,*)
          write(*,*)
 
-         write(*,*) '   Controvariant Metric Tensor:'
-         write(*,*) '      ',this%Gcon(1,:)
-         write(*,*) '      ',this%Gcon(2,:)
-         write(*,*) '      ',this%Gcon(3,:)
+         write(*,*) '     Controvariant Metric Tensor:'
+         write(*,*) '     ',this%Gcon(1,:)
+         write(*,*) '     ',this%Gcon(2,:)
+         write(*,*) '     ',this%Gcon(3,:)
          write(*,*)
          write(*,*)
 
          call this%frac2cart()
 
-         write(*,*) '#################################'
-         write(*,*) 'Unit Cell Atomic Kinds:'
-         write(*,*) '#################################'
+         write(*,*) '     Unit Cell Atomic Kinds:'
          write(*,*)
          write(*,*)
 
          write(*,*)
          do i=1,this%nkinds
-          write(*,*) '      ','kind=',this%label(i),'mass=',this%mass(i)
+          write(*,*) '     kind=',this%label(i),'mass=',this%mass(i)
          enddo
          write(*,*)
          write(*,*)
        
-         write(*,*) '#################################'
-         write(*,*) 'Unit Cell Cartesian Coordinates:'
-         write(*,*) '#################################'
+         write(*,*) '     Unit Cell Cartesian Coordinates:'
          write(*,*)
          write(*,*)
 
          write(*,*)
          do i=1,this%nats   
-          write(*,*) '      ',this%label(this%kind(i)),this%x(i,1:3)
+          write(*,'(A6,A4,3(F12.4))') '     ',this%label(this%kind(i)),this%x(i,1:3)
          enddo
          write(*,*)
          write(*,*)
@@ -1078,7 +1066,7 @@
          endif
 
          read(11,*) this%nx,this%ny,this%nz
-         write(*,*) '   Detected Real-Space Supercell:',this%nx,this%ny,this%nz 
+         write(*,*) '     Detected Real-Space Supercell:',this%nx,this%ny,this%nz 
          write(*,*) 
          write(*,*)
 
@@ -1112,12 +1100,7 @@
 
          close(11)
 
-         write(*,*) '   2nd Order Force Constants read correctly.'
-         write(*,*) 
-         write(*,*)
-
          if(read_fc3)then
-
         
           write(*,*) 'Reading 3rd order FCs from File:',anharmonic_file
           write(*,*)

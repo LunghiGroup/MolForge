@@ -40,6 +40,7 @@
          integer                       :: echo_spin
          double precision              :: echo_step
 
+         character(len=100)            :: fc2_file,fc3_file
          double precision              :: max_phonon_ener=4000
          double precision              :: euler(3)=0.0d0
 
@@ -75,6 +76,8 @@
          call mpi_bcast(s2print,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(dist_max,1,mpi_double_precision,0,mpi_comm_world,err)
          call mpi_bcast(max_phonon_ener,1,mpi_double_precision,0,mpi_comm_world,err)
+         call mpi_bcast(fc2_file,100,mpi_character,0,mpi_comm_world,err)
+         call mpi_bcast(fc3_file,100,mpi_character,0,mpi_comm_world,err)
 
          call mpi_bcast(euler,3,mpi_double_precision,0,mpi_comm_world,err)
 
@@ -280,6 +283,7 @@
            if(mpi_id.eq.0) write(6,*) ''
            if(mpi_id.eq.0) write(6,*) 'Setting up the Spin-Phonon Hamiltonian..........................................'
            if(mpi_id.eq.0) write(6,*) ''
+           call lattice%read_restart_file(fc2_file)
            call lattice%atoms_bcast()
            call gen_vars_bcast() 
            call phondy%brillouin_bcast()
