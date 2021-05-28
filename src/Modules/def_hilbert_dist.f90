@@ -47,7 +47,7 @@
          logical                            :: make_R2mat=.false.
          logical                            :: make_SA=.false.
          logical                            :: make_PT2=.false.
-         logical                            :: sparse=.true.
+         logical                            :: sparse=.false.
          logical                            :: printHeig=.false.
          logical                            :: printH0=.false.
          logical                            :: printRmat=.false.
