@@ -129,7 +129,22 @@
           enddo
           call setup_multiblacs(mpi_nproc_spin,map,context(i))
          enddo
-         call blacs_set_gridinfo()
+         call blacs_set_gridinfo()         
+
+         if(myrow.ne.-1) mpi_color=1
+         if(myrow.eq.-1) mpi_color=2
+
+         key=mpi_blacs_id
+         call mpi_comm_split(mpi_blacs_world,mpi_color,key,mpi_blacs_world,err)
+
+         call MPI_COMM_RANK(MPI_BLACS_WORLD,mpi_blacs_id,err)
+         call MPI_COMM_SIZE(MPI_BLACS_WORLD,mpi_blacs_nproc,err)
+
+         key=mpi_phonons_id
+         call mpi_comm_split(mpi_phonons_world,mpi_color,key,mpi_phonons_world,err)
+
+         call MPI_COMM_RANK(MPI_PHONONS_WORLD,mpi_phonons_id,err)
+         call MPI_COMM_SIZE(MPI_PHONONS_WORLD,mpi_phonons_nproc,err)
 
          if(myrow.eq.-1)then
           write(*,*) 'WRN: mpi process ',mpi_id,&
@@ -142,7 +157,8 @@
           write(*,*) '********************************************************************************'
           write(*,*) '********************************************************************************'
           write(*,*) 'Total Number of MPI processes: ',mpi_nproc
-          write(*,*) 'Total Number of MPI processes dedicated to spin matrices: ',mpi_nproc_spin
+          write(*,*) 'Total Number of MPI processes dedicated to spin matrices: ',mpi_blacs_nproc
+          write(*,*) 'Total Number of MPI processes dedicated to phonons matrices: ',mpi_phonons_nproc
           write(*,*) '********************************************************************************'
           write(*,*) '********************************************************************************'
           write(*,*) ''
