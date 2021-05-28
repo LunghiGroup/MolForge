@@ -183,7 +183,7 @@
           npcol=mpi_nproc_loc/nprow
 
           call blacs_get( -1, 0, cntx )
-          call blacs_gridmap(cntx,map,nprow,npcol,nprow)
+          call blacs_gridmap(cntx,map,nprow,nprow,npcol)
           call blacs_gridinfo(cntx,nprow,npcol,myrow,mycol)
 
          return
