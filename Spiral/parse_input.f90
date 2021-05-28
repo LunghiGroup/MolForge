@@ -1527,7 +1527,7 @@
                 check=.false.
 
                 if (spindy%ny.eq.1 .or.  coord3d(k,2)+1.eq.coord3d(m,2)) check(2)=.true.
-                if (spindy%ny.ne.1 .and. coord3d(m,2).eq.2 .and. coord3d(k,2).eq.spindy%ny) check(2)=.true.
+                if (spindy%ny.ne.1 .and. coord3d(m,2).eq.1 .and. coord3d(k,2).eq.spindy%ny) check(2)=.true.
                 if (spindy%nx.eq.1 .or.  coord3d(k,1).eq.coord3d(m,1)) check(1)=.true.
                 if (spindy%nz.eq.1 .or.  coord3d(k,3).eq.coord3d(m,3)) check(3)=.true.
 

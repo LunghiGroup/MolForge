@@ -5603,9 +5603,6 @@
 
          ! allocate kbasis
 
-         call this%kbasis%set(this%Hdim,this%Hdim,NB,MB)
-         this%kbasis%mat=(0.0d0,0.0d0)
-
          if(allocated(mapp)) deallocate(mapp)
          allocate(this%kblc(this%ntot+1))
          allocate(this%klist(this%ntot,3))
@@ -5661,6 +5658,9 @@
          enddo ! end while
 
          ! set kbasis
+
+         call this%kbasis%set(this%Hdim,this%Hdim,NB,MB)
+         this%kbasis%mat=(0.0d0,0.0d0)
 
          do i=1,this%ntot
           size_block=this%kblc(i+1)-this%kblc(i)
