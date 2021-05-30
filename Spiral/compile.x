@@ -1,9 +1,15 @@
 ### compile all moduli
 
 export EXE_NAME=Spiral.x
-export MOLFORGE=/home/Alessandro/ERC/MolForge/src
+export SPIRAL_DIR=$(pwd) 
+export MOLFORGE=$( echo ${SPIRAL_DIR} | sed "s/Spiral/src/g" )
 export MOD_DIR=${MOLFORGE}/Modules
 export LIB_DIR=${MOLFORGE}/Modules
+
+cd ${MOD_DIR}
+./compile.x
+cd ${SPIRAL_DIR}
+
 export LIBS="-lscalapack -llapack -lmolforge"
 export FFLAGS="-fmax-errors=10 -g -O2 -fcheck=all"
 
