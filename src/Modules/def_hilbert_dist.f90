@@ -5679,7 +5679,7 @@
 
          ! build kbasis as sparse
 
-          call this%sp_kbasis%tosparse(this%Hdim,this%kbasis)
+         if(this%sparse) call this%sp_kbasis%tosparse(this%Hdim,this%kbasis)
 
          !!!!!
 
