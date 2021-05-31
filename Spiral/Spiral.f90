@@ -146,11 +146,7 @@
          call MPI_COMM_RANK(MPI_PHONONS_WORLD,mpi_phonons_id,err)
          call MPI_COMM_SIZE(MPI_PHONONS_WORLD,mpi_phonons_nproc,err)
 
-         if(myrow.eq.-1)then
-          write(*,*) 'WRN: mpi process ',mpi_id,&
-                     ' has been excluded from computing nodes.'
-          goto 20
-         endif
+         if(myrow.eq.-1)goto 20
 
          if(mpi_id.eq.0)then
 

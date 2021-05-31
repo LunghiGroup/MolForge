@@ -2515,30 +2515,35 @@
         
          call this%make_M(M,Mi)
 
-         inquire(file='Mx_dynamics.dat',number=unit_no)
-         if(unit_no.eq.-1)  open(11,file='Mx_dynamics.dat')
-         inquire(file='My_dynamics.dat',number=unit_no)
-         if(unit_no.eq.-1)  open(12,file='My_dynamics.dat')
-         inquire(file='Mz_dynamics.dat',number=unit_no)
-         if(unit_no.eq.-1)  open(13,file='Mz_dynamics.dat')
-
          norm=(0.0d0,0.0d0)
          do k=1,this%Hdim
-          call pzelget('A',' ',val,this%rho%mat,k,k,this%rho%desc)
+          val=(0.0d0,0.0d0)
+          call pzelget(' ',' ',val,this%rho%mat,k,k,this%rho%desc)
           norm=norm+val
          enddo
+
+         call mpi_allreduce(norm,norm,1,mpi_double_complex,mpi_sum,mpi_blacs_world,err)
 
          nze=this%rho%get_nze(1.0d-4)
 
          if(mpi_id.eq.0)then
 
           if(this%s2print.gt.0)then
+
+           inquire(file='Mx_dynamics.dat',number=unit_no)
+           if(unit_no.eq.-1)  open(11,file='Mx_dynamics.dat')
+           inquire(file='My_dynamics.dat',number=unit_no)
+           if(unit_no.eq.-1)  open(12,file='My_dynamics.dat')
+           inquire(file='Mz_dynamics.dat',number=unit_no)
+           if(unit_no.eq.-1)  open(13,file='Mz_dynamics.dat')
+
            write(11,*) i,time,Mi(1,:),dble(norm),nze
            flush(11)
            write(12,*) i,time,Mi(2,:),dble(norm),nze
            flush(12)
            write(13,*) i,time,Mi(3,:),dble(norm),nze
            flush(13)
+
           endif
 
          endif
