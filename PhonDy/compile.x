@@ -1,9 +1,15 @@
 ### compile all moduli
 
 export EXE_NAME=PhonDy.x
-export MOLFORGE=/home/Alessandro/ERC/MolForge/src
+export PHONDY_DIR=$(pwd) 
+export MOLFORGE=$( echo ${PHONDY_DIR} | sed "s/PhonDy/src/g" )
 export MOD_DIR=${MOLFORGE}/Modules
 export LIB_DIR=${MOLFORGE}/Modules
+
+cd ${MOD_DIR}
+./compile.x
+cd ${PHONDY_DIR}
+
 export LIBS="-lscalapack -llapack -lmolforge"
 export FFLAGS="-fmax-errors=10 -g -O2 -fcheck=all"
 

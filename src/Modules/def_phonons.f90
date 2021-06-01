@@ -3,7 +3,7 @@
 
          logical                        :: read_fc3=.false.
          logical                        :: do_brillouin_path=.false.
-         logical                        :: do_brillouin_mesh=.true.
+         logical                        :: do_brillouin_mesh=.false.
          logical                        :: boundary_scattering=.false.
          double precision, allocatable  :: temp(:)
          integer                        :: ntemps
@@ -285,22 +285,22 @@
         
          if(mpi_id.eq.0)then
           open(12,file='disp.dat')
-          open(13,file='disp_modes.dat')
+!          open(13,file='disp_modes.dat')
           dist=0.0d0
           do i=1,size(this%path)
            if(i.gt.1)then
             dist=dist+sqrt(sys%dist_rec(this%path(i)%k(:)-this%path(i-1)%k(:)))
            endif
            write(12,*) this%path(i)%k(:),dist,(this%path(i)%freq(s),s=1,size(this%path(i)%freq))
-           do s=1,sys%nats*3
-            write(13,*) 'K:',this%path(i)%k(:),'Mode:',s
-            do j=1,sys%nats*3
-             write(13,*) this%path(i)%k(:),dist,dble(this%path(i)%hess(j,s)),aimag(this%path(i)%hess(j,s))
-            enddo
-           enddo
+!           do s=1,sys%nats*3
+!            write(13,*) 'K:',this%path(i)%k(:),'Mode:',s
+!            do j=1,sys%nats*3
+!             write(13,*) this%path(i)%k(:),dist,dble(this%path(i)%hess(j,s)),aimag(this%path(i)%hess(j,s))
+!            enddo
+!           enddo
           enddo
           close(12)
-          close(13)
+!          close(13)
          endif
 
         return
