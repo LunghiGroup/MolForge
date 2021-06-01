@@ -148,6 +148,9 @@
          do j=1,this%ntot
           do i=1,size(this%list(1)%freq)
 
+           if(this%list(j)%freq(i).le.0.0d0) cycle
+           if(j.eq.1 .and. i.le.3) cycle
+
            k=NINT(this%list(j)%freq(i)/this%dos1p%step)
            l=NINT(this%dos1p%sigma/this%dos1p%step)
 
