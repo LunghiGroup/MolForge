@@ -6,3 +6,6 @@
 # Ignore reg-tests files and tools
 reg-tests/
 Documents/
+Spiral.x
+libmolforge.a
+PhonDy.x

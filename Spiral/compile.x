@@ -10,7 +10,7 @@ cd ${MOD_DIR}
 ./compile.x
 cd ${SPIRAL_DIR}
 
-export LIBS="-lscalapack -llapack -lmolforge"
+export LIBS="-lmolforge -lscalapack -llapack"
 export FFLAGS="-fmax-errors=10 -g -O2 -fcheck=all"
 
 rm *.o *.mod
