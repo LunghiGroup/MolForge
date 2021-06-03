@@ -2,7 +2,7 @@
 
 export EXE_NAME=Spiral.x
 export SPIRAL_DIR=$(pwd) 
-export MOLFORGE=$( echo ${SPIRAL_DIR} | sed "s/Spiral/src/g" )
+export MOLFORGE=$( echo ${SPIRAL_DIR} | sed "s/\/Spiral//g" )
 export MOD_DIR=${MOLFORGE}/Modules
 export LIB_DIR=${MOLFORGE}/Modules
 

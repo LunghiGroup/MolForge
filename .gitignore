@@ -1,4 +1,6 @@
 # Ignore object files and modules
+*.x
+*.a
 *.o
 *.mod
 *.f90_*
@@ -6,6 +8,3 @@
 # Ignore reg-tests files and tools
 reg-tests/
 Documents/
-Spiral.x
-libmolforge.a
-PhonDy.x

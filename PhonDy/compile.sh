@@ -2,7 +2,7 @@
 
 export EXE_NAME=PhonDy.x
 export PHONDY_DIR=$(pwd) 
-export MOLFORGE=$( echo ${PHONDY_DIR} | sed "s/PhonDy/src/g" )
+export MOLFORGE=$( echo ${PHONDY_DIR} | sed "s/\/PhonDy//g" )
 export MOD_DIR=${MOLFORGE}/Modules
 export LIB_DIR=${MOLFORGE}/Modules
 

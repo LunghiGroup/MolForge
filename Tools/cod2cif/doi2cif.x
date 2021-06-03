@@ -1,6 +1,5 @@
 #! /bin/bash
 
-
 export DOI=$1
 
 echo select file from data where doi like \"${DOI}\" > cod_query.tmp
