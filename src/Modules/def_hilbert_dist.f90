@@ -2259,8 +2259,8 @@
               mpi_double_precision,MPI_SUM,mpi_blacs_world,err)    
 
          if(mpi_id.eq.0) then
-          write(*,*) 'Diagonal Right-Left Overlap:',diag_sum/this%Hdim
-          write(*,*) 'Out of Diagonal Right-Left Overlap:',nodiag_sum
+          write(*,*) '     Diagonal Right-Left Overlap:',diag_sum/this%Hdim
+          write(*,*) '     Out of Diagonal Right-Left Overlap:',nodiag_sum
          endif
 
       ! Build Pop Propagator R= R exp(Rval) R^{\cross}
@@ -3150,7 +3150,7 @@
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)       
           write(*,*) '' 
-          write(*,*) '     Diagonalizing the Spin'
+          write(*,*) '     Diagonalizing the Spin Hamiltonian Matrix'
           flush(6)
          endif
 
