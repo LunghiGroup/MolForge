@@ -1,11 +1,14 @@
         program make_cells
+        use atoms_class
         use variables
         implicit none
         DOUBLE PRECISION              :: ZERO=1.0E-12,mat_h(3,3),mat_hinv(3,3),aaa,bbb,pi,deg2rad,lat
         double precision, pointer     :: pos(:)
+        double precision              :: mass
         integer                       :: s,k,i,ialloc,v,l,shift,nkind
         integer,allocatable           :: label_num(:)
-        character*30, allocatable     :: label(:),kind(:),old_kind(:)
+        character*10, allocatable     :: label(:),kind(:),old_kind(:)
+        character(len=2)              :: lab
         character*100                 :: word,unit_cell
         logical                       :: lammps_file_gen=.false. 
 
@@ -18,7 +21,7 @@
           stop
          endif
 
-         do l=1,100
+         do l=1,iargc()
           call getarg(l,word)
 
           if(trim(word).eq.'-unit')then               
@@ -51,6 +54,8 @@
            read(word,*) cell(6)
  
           endif
+
+          if(trim(word).eq.'-lammps') lammps_file_gen=.true.
 
          enddo
 
@@ -157,7 +162,9 @@
           write(11,*) 'Masses'
           write(11,*)
           do i=1,nkind
-           write(11,*)  i,'insert_mass',trim(kind(i))
+           lab=trim(kind(i))
+           call get_mass(lab,mass)
+           write(11,*)  i,mass!,trim(kind(i))
           enddo
           write(11,*)
           write(11,*) 'Atoms'

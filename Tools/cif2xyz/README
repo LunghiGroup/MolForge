@@ -1,0 +1,13 @@
+
+
+######## Installation Requirements:
+
+The script cif2xyz.x calls to external softwares: "atomsk" [1] and "open babel" [2]
+
+Openbabel can be found at http://openbabel.org/wiki/Category:Installation 
+Atomsk is a Fortran code that can be downloded from https://atomsk.univ-lille.fr/
+
+References:
+
+[1] "Atomsk: A tool for manipulating and converting atomic data files" Pierre Hirel, Comput. Phys. Comm. 197 (2015) 212-219. doi:10.1016/j.cpc.2015.07.012
+[2] "Open Babel: An open chemical toolbox." O'Boyle, N.M., Banck, M., James, C.A. et al. J Cheminform 3, (2011) 33. doi:10.1186/1758-2946-3-33

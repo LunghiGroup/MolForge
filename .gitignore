@@ -1,8 +1,10 @@
 # Ignore object files and modules
+*.x
+*.a
 *.o
 *.mod
 *.f90_*
 *.f90.*
 # Ignore reg-tests files and tools
 reg-tests/
-tools/
+Documents/
