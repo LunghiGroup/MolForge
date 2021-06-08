@@ -1,5 +1,19 @@
 .SUFFIXES:
 
+export INC_DIR = 
+export LIB_DIR = 
+export LIBS = -lscalapack -llapack 
+
+export FC = mpif90
+export FFLAGS = -g -O2
+export INC_FLAG =  ## -I$(INC_DIR) 
+export LINK_FLAG = $(LIBS) ## -L$(LIB_DIR) $(LIBS)
+
+export SCALAPACK_FLAG = GNU ## Has to be "MKL" or "GNU", any other value will default to GNU
+
+
+######## The rest of the flags should not be touched
+
 export MOLFORGE_DIR = $(shell pwd )
 
 export MODULES_DIR = $(MOLFORGE_DIR)/Modules
@@ -17,20 +31,8 @@ export MOLFORGE_LIBS = -lMolForge
 export MOLFORGE_INC_FLAG = -I$(MOLFORGE_INC_DIR) 
 export MOLFORGE_LINK_FLAG = -L$(MOLFORGE_LIB_DIR) $(MOLFORGE_LIBS)
 
-export INC_DIR = 
-export LIB_DIR = 
-export LIBS = -lscalapack -llapack 
-
-export FC = mpif90
-export FFLAGS = -g -O2
-export INC_FLAG =  ## -I$(INC_DIR) 
-export LINK_FLAG = $(LIBS) ## -L$(LIB_DIR) $(LIBS)
-
-export SCALAPACK_FLAG = GNU ## Has to be "MKL" or "GNU", any other value will default to GNU
 
 all : libMolForge Spiral PhonDy Tools
-
-
 
 
 libMolForge :
@@ -44,8 +46,6 @@ PhonDy : libMolForge
 
 Tools : libMolForge
 	cd $(TOOLS_DIR) && $(MAKE) all
-
-
 
 
 clean_all : clean_MolForge clean_Spiral clean_PhonDy clean_Tools

@@ -27,10 +27,6 @@ atomsk $cifname -remove-doubles 0.6 ${name}.xyz
 
 ${MOLFORGE}/Tools/FindMols/find_mols.x -xyz ${name}.xyz -cell ${name}.cell -reorder_mols -remap_mols > ${name}_remap.xyz
 
-obabel -ixyz ${name}_remap.xyz -omol2 > ${name}.mol2
-obabel -imol2 ${name}.mol2 -oxyz -h > ${name}_hydro.xyz
-
-${MOLFORGE}/Tools/FindMols/find_mols.x -xyz ${name}_hydro.xyz -cell ${name}.cell -reorder_mols -remap_mols > ${name}_hydro_remap.xyz
 
 
 
