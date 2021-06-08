@@ -1,7 +1,8 @@
-      subroutine xyztoxray(hinv)
-      use variables, only      : cell
+      subroutine xyztoxray(cell,hinv)
       implicit none
-      double precision  :: deg2rad,pi,alpha,beta,gamma,a,b,c,V,hinv(3,3)
+      double precision      :: cell(6)
+      double precision      :: deg2rad,pi,alpha,beta,gamma,a,b,c,V,hinv(3,3)
+
       
       pi=dacos(-1.0d0)
       deg2rad=pi/180.0d0
@@ -37,9 +38,9 @@
       end subroutine
 
 
-      subroutine xraytoxyz(h)
-      use variables, only    : cell
+      subroutine xraytoxyz(cell,h)
       implicit none
+      double precision      :: cell(6)
       double precision      :: deg2rad,pi,alpha,beta,gamma,a,b,c,V,h(3,3)
       
       pi=acos(-1.0d0)

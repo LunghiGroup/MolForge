@@ -28,7 +28,10 @@ export LINK_FLAG = $(LIBS) ## -L$(LIB_DIR) $(LIBS)
 
 export SCALAPACK_FLAG = GNU ## Has to be "MKL" or "GNU", any other value will default to GNU
 
-all : libMolForge Spiral PhonDy
+all : libMolForge Spiral PhonDy Tools
+
+
+
 
 libMolForge :
 	cd $(MODULES_DIR) && $(MAKE) $@
@@ -39,7 +42,13 @@ Spiral : libMolForge
 PhonDy : libMolForge
 	cd $(PHONDY_DIR) && $(MAKE) $@
 
-clean_all : clean_MolForge clean_Spiral clean_PhonDy
+Tools : libMolForge
+	cd $(TOOLS_DIR) && $(MAKE) all
+
+
+
+
+clean_all : clean_MolForge clean_Spiral clean_PhonDy clean_Tools
 
 clean_MolForge :
 	rm -f $(MODULES_DIR)/*.o
@@ -56,4 +65,6 @@ clean_PhonDy :
 	rm -f $(PHONDY_DIR)/*.mod
 	rm -f $(EXE_DIR)/PhonDy.x
 
+clean_Tools :
+	cd $(TOOLS_DIR) && $(MAKE) clean
 

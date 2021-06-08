@@ -34,10 +34,6 @@ logical                                           :: &
  SPINSPIN=.false.,   &
  adapt_step=.false., &
  damp_mol=.false.  
-integer                                             :: nrep,nmolxcell,nmol,nx,ny,nz
-DOUBLE PRECISION, DIMENSION(6)             :: cell
-DOUBLE PRECISION, POINTER, DIMENSION(:,:)           :: pos0
-DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:,:)     :: r
 
 
 END MODULE variables

@@ -4,6 +4,7 @@
       double precision  :: a,b,c,alpha,beta,gamma,V,d(3,3),pi
       character(len=20) :: cellin,cellout
 
+
       if (iargc().eq.0)then
        write(*,*) "abc2cell Usage:"       
        write(*,*) "abc_file    : 1-line file with a,b,c,alpha,beta,gamma (Ang&Deg)"       
