@@ -36,19 +36,23 @@ all : libMolForge Spiral PhonDy Tools
 
 
 libMolForge :
+	mkdir -p $(MOLFORGE_DIR)/libs
 	cd $(MODULES_DIR) && $(MAKE) $@
 
 Spiral : libMolForge
+	mkdir -p $(MOLFORGE_DIR)/bin
 	cd $(SPIRAL_DIR) && $(MAKE) $@
 
 PhonDy : libMolForge
+	mkdir -p $(MOLFORGE_DIR)/bin
 	cd $(PHONDY_DIR) && $(MAKE) $@
 
 Tools : libMolForge
+	mkdir -p $(MOLFORGE_DIR)/bin
 	cd $(TOOLS_DIR) && $(MAKE) all
 
 
-clean_all : clean_MolForge clean_Spiral clean_PhonDy clean_Tools
+clean : clean_MolForge clean_Spiral clean_PhonDy clean_Tools
 
 clean_MolForge :
 	rm -f $(MODULES_DIR)/*.o
