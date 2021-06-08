@@ -1,17 +1,24 @@
 # MolForge
 A multipurpose Fortran2003+MPI suite of codes 
-for the simulation of spin dynamics at the 
+for the simulation of quantum spin dynamics at the 
 atomistic level. The code is developed to readily 
-interface with first-principles codes.
+interface with electronic structure codes and makes 
+it possible to predict spin decoherence and spin-phonon 
+relaxation fully ab initio.
 
 ## Licence and Copyright
 
+Copyright (2021) Trinity College Dublin
+
+Authorship: Alessandro Lunghi, School of Physics, AMBER and CRANN Institute, Trinity College, Dublin 2, Ireland
 
 ## How to Cite MolForge
 
-When using any component of MolForge, please always reference:
+When using  MolForge or any of its components, please always cite:
 
 - How do phonons relax molecular spins? Science Advances, 5 (9), eaax7163, 2019
+
+- Electronic spin-spin decoherence contribution in molecular qubits by quantum unitary spin dynamics, Journal of Magnetism and Magnetic Materials 487, 165325, 2019
 
 - The limit of spin lifetime in solid-state electronic spins, The Journal of Physical Chemistry Letters, 11 (15), 6273-6278, 2020 
 
