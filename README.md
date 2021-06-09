@@ -32,11 +32,22 @@ When using  MolForge or any of its components, please always cite:
 
 ## How to Build MolForge
 
-Molforge is known to compile on Linux machines with GNU 
-compilers and openmpi 
+Molforge is known to compile on Linux machines with GNU compilers(v8.2.0) and openmpi(3.1.2).
 
-MolForge depends on the linear algebra routines Lapack, Blas, and
-Scalapack.
+MolForge depends on the linear algebra routines Lapack (v3.8.0), Blas(v3.8.0), and Scalapack(2.1.0).
+
+The following variables in the main Makefile might need to be set 
+
+> export INC_DIR = "path to libraries include files"
+
+> export LIB_DIR = "path to libraries files"
+
+> export LIBS = -lscalapack -llapack -lblas
+
+> export INC_FLAG = -I$(INC_DIR) 
+ 
+> export LINK_FLAG = -L$(LIB_DIR) 
+
 
 To compile and link MolForge and its programs, it 
 is necessary to install the command make. 
