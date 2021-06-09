@@ -1,16 +1,22 @@
 # MolForge
-A multipurpose Fortran2003+MPI suite of codes 
-for the simulation of quantum spin dynamics at the 
-atomistic level. The code is developed to readily 
-interface with electronic structure codes and makes 
-it possible to predict spin decoherence and spin-phonon 
-relaxation fully ab initio.
+A multipurpose FORTRAN2003 and MPI suite of codes for the simulation of quantum spin dynamics at the atomistic level. The code is developed to readily 
+interface with electronic structure codes and makes it possible to predict spin decoherence and spin-phonon relaxation fully ab initio.
 
 ## Licence and Copyright
 
-Copyright (2021) Trinity College Dublin
+MolForge: a multipurpose FORTRAN2003 and MPI suite of codes for the simulation of quantum spin dynamics at the atomistic level. 
 
-Authorship: Alessandro Lunghi, School of Physics, AMBER and CRANN Institute, Trinity College, Dublin 2, Ireland
+Copyright (c) 2021 Trinity College Dublin
+
+Developed by Alessandro Lunghi, School of Physics, AMBER and CRANN Institute, Trinity College, Dublin 2, Ireland
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## How to Cite MolForge
 
