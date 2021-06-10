@@ -1,16 +1,14 @@
 .SUFFIXES:
 
-export INC_DIR = 
-export LIB_DIR = 
-export LIBS = -lscalapack -llapack 
-
 export FC = mpif90
 export FFLAGS = -g -O2
+
+export LIBS = -lscalapack -llapack 
 export INC_FLAG =  ## -I$(INC_DIR) 
 export LINK_FLAG = $(LIBS) ## -L$(LIB_DIR) $(LIBS)
 
-export SCALAPACK_FLAG = GNU ## Has to be "MKL" or "GNU", any other value will default to GNU
-
+## Set this keyword to "MKL" if you are using MKL scalapack instead of GNU libs.
+export SCALAPACK_FLAG =
 
 ######## The rest of the flags should not be touched
 
