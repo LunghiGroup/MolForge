@@ -19,6 +19,8 @@
          integer, pointer                :: kind(:)         
          integer, allocatable            :: molid(:)
          logical, allocatable            :: good_ids(:)
+         double precision                :: eps(3,3)
+         double precision, allocatable   :: Zeff(:,:,:)
          double precision, allocatable   :: x(:,:)         
          double precision, allocatable   :: v(:,:)         
          double precision, allocatable   :: mass(:)
@@ -1064,8 +1066,29 @@
          read(11,*) this%born_charges
 
          if(this%born_charges)then
-          write(*,*) 'Input with Born_Charges not implemented yet'
-          stop
+          allocate(this%Zeff(this%nkinds,3,3))
+          read(11,*) this%eps(1,:)
+          read(11,*) this%eps(2,:)
+          read(11,*) this%eps(3,:)
+          write(*,*) '     Detected Dielectric Function:'
+          write(*,*) '     ',this%eps(1,:)
+          write(*,*) '     ',this%eps(2,:)
+          write(*,*) '     ',this%eps(3,:)
+          write(*,*) 
+          write(*,*)
+
+          write(*,*) '     Detected Born Charges:'
+          do i=1,this%nkinds
+           read(11,*) this%Zeff(i,1,:)
+           read(11,*) this%Zeff(i,2,:)
+           read(11,*) this%Zeff(i,3,:)
+           write(*,*) '      Type:',i
+           write(*,*) '     ',this%Zeff(i,1,:)
+           write(*,*) '     ',this%Zeff(i,2,:)
+           write(*,*) '     ',this%Zeff(i,3,:)
+          enddo
+          write(*,*) 
+          write(*,*)
          endif
 
          read(11,*) this%nx,this%ny,this%nz

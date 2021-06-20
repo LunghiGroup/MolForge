@@ -723,7 +723,7 @@
         class(kpoint)                 :: ph
         type(atoms_group)             :: sys
         integer                       :: v1,v2,i1,i2,s1,s2,l
-        double precision              :: A,pi
+        double precision              :: A,pi,B1(3),B2(3),B3(3),B4
         double precision, allocatable :: mass(:)
 
          pi=acos(-1.0d0)
@@ -748,10 +748,25 @@
 
             ph%hess(v1,v2)=ph%hess(v1,v2)+sys%fcs2(l,i1,s1,i2,s2)*exp(CMPLX(0.0d0,2*pi*A,8))
 
+            B1=0.0d0
+            B2=0.0d0
+            B3=0.0d0
+            B4=0.0d0
+
+            B1=matmul(sys%Zeff(i1,:,:),ph%k)
+            B2=matmul(sys%Zeff(i2,:,:),ph%k)
+            B3=matmul(sys%eps,ph%k)
+            B4=dot_product(ph%k,B3)
+
+!            ph%hess(v1,v2)=ph%hess(v1,v2)+4*pi*B1(s1)*B2(s2)*exp(CMPLX(0.0d0,2*pi*A,8))&
+!                    /sys%vol/B4
+
+
            enddo
            enddo
           enddo
           enddo
+
          enddo
 
          allocate(mass(sys%nats))
