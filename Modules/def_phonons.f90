@@ -724,6 +724,7 @@
         type(atoms_group)             :: sys
         integer                       :: v1,v2,i1,i2,s1,s2,l
         double precision              :: A,pi,B1(3),B2(3),B3(3),B4
+        double complex                :: coeff
         double precision, allocatable :: mass(:)
 
          pi=acos(-1.0d0)
@@ -748,19 +749,6 @@
 
             ph%hess(v1,v2)=ph%hess(v1,v2)+sys%fcs2(l,i1,s1,i2,s2)*exp(CMPLX(0.0d0,2*pi*A,8))
 
-            B1=0.0d0
-            B2=0.0d0
-            B3=0.0d0
-            B4=0.0d0
-
-            B1=matmul(sys%Zeff(i1,:,:),ph%k)
-            B2=matmul(sys%Zeff(i2,:,:),ph%k)
-            B3=matmul(sys%eps,ph%k)
-            B4=dot_product(ph%k,B3)
-
-!            ph%hess(v1,v2)=ph%hess(v1,v2)+4*pi*B1(s1)*B2(s2)*exp(CMPLX(0.0d0,2*pi*A,8))&
-!                    /sys%vol/B4
-
 
            enddo
            enddo
@@ -768,6 +756,44 @@
           enddo
 
          enddo
+
+         if (sys%born_charges) then
+
+          coeff=(0.0d0,0.0d0)
+          do l=1,sys%nx*sys%ny*sys%nz      
+           A=DOT_PRODUCT(sys%rcell(l,:),ph%k(:))
+           coeff=coeff+exp(CMPLX(0.0d0,2*pi*A,8))
+          enddo
+
+          do i1=1,sys%nats
+          do i2=1,sys%nats
+           do s1=1,3
+           do s2=1,3
+
+            v1=(i1-1)*3+s1
+            v2=(i2-1)*3+s2
+             
+             B1=0.0d0
+             B2=0.0d0
+             B3=0.0d0
+             B4=0.0d0
+
+             B1=matmul(sys%Zeff(sys%kind(i1),:,:),ph%k)
+             B2=matmul(sys%Zeff(sys%kind(i2),:,:),ph%k)
+             B3=matmul(sys%eps,ph%k)
+             B4=dot_product(ph%k,B3)
+             
+                     ph%hess(v1,v2)=ph%hess(v1,v2)+&
+                     4*pi*B1(s1)*B2(s2)/B4/sys%vol/sys%ntot&
+                     *0.5291772109*0.5291772109*0.5291772109*coeff
+
+           enddo
+           enddo
+          enddo
+          enddo
+
+         endif
+
 
          allocate(mass(sys%nats))
          do i1=1,sys%nats

@@ -232,6 +232,8 @@
           enddo
          enddo
 
+         this%ntot=this%nx*this%ny*this%nz
+
         return
         end subroutine do_supercell
 
