@@ -139,7 +139,6 @@
         class(atoms_group)               :: this
  
          if(associated(this%kind)) deallocate(this%kind)
-         this%kind=>null()
          if(allocated(this%x)) deallocate(this%x)
          if(allocated(this%v)) deallocate(this%v)
          if(allocated(this%mass)) deallocate(this%mass)
@@ -393,8 +392,6 @@
         integer                       :: k,m,x
         class(*), pointer             :: arrow
 
-
-         write(*,*) 'aaa' 
 
          call this%dist_ij()
 

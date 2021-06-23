@@ -2009,8 +2009,8 @@
               enddo ! kk2
               
               Gf=0.0d0 
-!              Gmp=0.0d0
-!              Gpp=0.0d0
+              Gmp=0.0d0
+              Gpp=0.0d0
 
               if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib) .and. &
                  phondy%list(ph2)%freq(bn2).gt.phondy%list(ph)%freq(bn)  )then
@@ -2025,42 +2025,42 @@
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
                   Gf=Gf+bose(temp(1),phondy%list(ph2)%Freq(bn2))*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-!                  Gmp=Gf
+                  Gmp=Gf
               endif
 
               if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib))then
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
                   Gf=Gf+bose(temp(1),phondy%list(ph2)%Freq(bn2))*bose(temp(1),phondy%list(ph)%Freq(bn))*&
                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-!                  Gpp=Gf-Gmp
+                  Gpp=Gf-Gmp
               endif
 
               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0m*conjg(R0m))*Gf
         
-!              if(Gf.gt.1.0d-8)then
-!               if(ii.eq.1 .and. jj.eq.4)then
-!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+              if(Gf.gt.1.0d-8)then
+               if(ii.eq.1 .and. jj.eq.2)then
+               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !                do kk1=1,this%Hdim
 !                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !                enddo
-!               endif
-!               if(ii.eq.4 .and. jj.eq.1)then
-!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
-!                do kk1=1,this%Hdim
-!                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
-!                enddo
-!               endif
-!              endif
+               endif
+               if(ii.eq.2 .and. jj.eq.1)then
+               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!               do kk1=1,this%Hdim
+!                write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
+!               enddo
+               endif
+              endif
 
               Gf=0.0d0
-!              Gpm=0.0d0
-!              Gmm=0.0d0
+              Gpm=0.0d0
+              Gmm=0.0d0
  
               if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib))then
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
                   Gf=(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-!                  Gmm=Gf
+                  Gmm=Gf
               endif
 
               if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib) .and. &
@@ -2068,7 +2068,7 @@
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
                   Gf=Gf+(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*bose(temp(1),phondy%list(ph)%Freq(bn))*&
                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-!                  Gpm=Gf-Gmm
+                  Gpm=Gf-Gmm
               endif
 
               if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib) .and. &
@@ -2076,25 +2076,25 @@
                   DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
                   Gf=Gf+(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*bose(temp(1),phondy%list(ph)%Freq(bn))*&
                       delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-!                  Gpm=Gf-Gmm
+                  Gpm=Gf-Gmm
               endif
  
               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0p*conjg(R0p))*Gf
 
-!              if(Gf.gt.1.0d-12)then
-!               if(ii.eq.1 .and. jj.eq.4)then
-!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+              if(Gf.gt.1.0d-8)then
+               if(ii.eq.1 .and. jj.eq.2)then
+                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !                do kk1=1,this%Hdim
 !                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !                enddo
-!               endif
-!               if(ii.eq.4 .and. jj.eq.1)then
-!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+               endif
+               if(ii.eq.2 .and. jj.eq.1)then
+                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !                do kk1=1,this%Hdim
 !                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !                enddo
-!               endif
-!              endif
+               endif
+              endif
 
              enddo ! jj
             enddo ! ii

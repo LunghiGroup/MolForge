@@ -233,20 +233,20 @@
 
          ! Symmetrise by average of out-of-diag elements 
 
-         do s=1,3
-          do l=1,sys%nats
-           do k=1,3
-            do i=1,sys%nats
-             v=(l-1)*3+s
-             j=(i-1)*3+k
-             if(j.lt.v)cycle 
-             sum=sys%fcs2(1,l,s,i,k)+sys%fcs2(1,i,k,l,s)
-             sys%fcs2(1,l,s,i,k)=sum/2.0d0
-             sys%fcs2(1,i,k,l,s)=sum/2.0d0
-            enddo
-           enddo
-          enddo
-         enddo
+!         do s=1,3
+!          do l=1,sys%nats
+!           do k=1,3
+!            do i=1,sys%nats
+!             v=(l-1)*3+s
+!             j=(i-1)*3+k
+!             if(j.lt.v)cycle 
+!             sum=sys%fcs2(1,l,s,i,k)+sys%fcs2(1,i,k,l,s)
+!             sys%fcs2(1,l,s,i,k)=sum/2.0d0
+!             sys%fcs2(1,i,k,l,s)=sum/2.0d0
+!            enddo
+!           enddo
+!          enddo
+!         enddo
 
          ! Acoustic Sum Rule for solids
 
