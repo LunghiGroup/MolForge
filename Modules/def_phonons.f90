@@ -723,7 +723,7 @@
         class(kpoint)                 :: ph
         type(atoms_group)             :: sys
         integer                       :: v1,v2,i1,i2,s1,s2,l
-        double precision              :: A,pi,B1(3),B2(3),B3(3),B4
+        double precision              :: A,pi,B1(3),B2(3),B3(3),B4,mat(3,3)
         double complex                :: coeff
         double precision, allocatable :: mass(:)
 
@@ -778,8 +778,10 @@
              B3=0.0d0
              B4=0.0d0
 
-             B1=matmul(sys%Zeff(sys%kind(i1),:,:),ph%k)
-             B2=matmul(sys%Zeff(sys%kind(i2),:,:),ph%k)
+             mat=sys%Zeff(sys%kind(i1),:,:)
+             B1=matmul(mat,ph%k)
+             mat=sys%Zeff(sys%kind(i2),:,:)
+             B2=matmul(mat,ph%k)
              B3=matmul(sys%eps,ph%k)
              B4=dot_product(ph%k,B3)
              

@@ -3288,24 +3288,28 @@
         class(spins_hilbert)            :: this
         integer                         :: i,j,k,info
         integer                         :: t1,t2,rate
-        complex(8)                      :: s_tmp(3)
+        complex(8), allocatable         :: s_tmp(:,:)
 
-         k=0
-
-         do j=1,this%s2print
-          if(this%print_si(j).eq.-1) k=j  
-         enddo
-
-         if(k.eq.0)return
+         allocate(s_tmp(3,size(this%print_si)))
          
-         if(mpi_id.eq.0) open(11,file='S_eigenval.dat')  
+         if(mpi_id.eq.0) open(11,file='Sx_diag.dat')  
+         if(mpi_id.eq.0) open(12,file='Sy_diag.dat')  
+         if(mpi_id.eq.0) open(13,file='Sz_diag.dat')  
          do i=1,this%Hdim          
-          call pzelget('A',' ',s_tmp(3),this%Sz(k)%mat,i,i,this%Sz(k)%desc)
-          call pzelget('A',' ',s_tmp(2),this%Sy(k)%mat,i,i,this%Sy(k)%desc)
-          call pzelget('A',' ',s_tmp(1),this%Sx(k)%mat,i,i,this%Sx(k)%desc)
-          if(mpi_id.eq.0)  write(11,*) i,dble(s_tmp)
+          do j=1,this%s2print
+           call pzelget('A',' ',s_tmp(3,j),this%Sz(j)%mat,i,i,this%Sz(j)%desc)
+           call pzelget('A',' ',s_tmp(2,j),this%Sy(j)%mat,i,i,this%Sy(j)%desc)
+           call pzelget('A',' ',s_tmp(1,j),this%Sx(j)%mat,i,i,this%Sx(j)%desc)
+          enddo
+          if(mpi_id.eq.0)  write(11,*) i,dble(s_tmp(1,:))
+          if(mpi_id.eq.0)  write(12,*) i,dble(s_tmp(2,:))
+          if(mpi_id.eq.0)  write(13,*) i,dble(s_tmp(3,:))
          enddo
          if(mpi_id.eq.0) close(11)
+         if(mpi_id.eq.0) close(12)
+         if(mpi_id.eq.0) close(13)
+
+         deallocate(s_tmp)
 
         return
         end subroutine dump_S_H
