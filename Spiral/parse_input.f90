@@ -34,57 +34,49 @@
 
            case('&HILBERT_SPACE')
 
-            call parse_global
-            write(6,*) 'Hilbert Space Parsed'
+            call parse_global(spindy)
             operation='MAKE_HILBERT'
             exit
 
            case('&SPIN_H')
 
             call parse_spinham(spindy)
-            write(6,*) 'Spin Hamiltonian Parsed'
             operation='SET_SPINHAM'
             exit
 
            case('&GS_SPIN_H')
 
             call parse_spinham(gsh)
-            write(6,*) 'Spin Hamiltonian Parsed'
             operation='SET_GSH_SPINHAM'
             exit
 
            case('&SPH_H')
 
             call parse_sph(spindy,phondy,lattice)
-            write(6,*) 'Spin-Phonon Hamiltonian Parsed'
             operation='SET_SPH'
             exit
 
            case('&SYSTEM')
 
             call parse_system(spindy)
-            write(6,*) 'System Parsed'
             operation='SET_SYSTEM'
             exit
 
            case('&GS_SYSTEM')
 
             call parse_system(gsh)
-            write(6,*) 'System Parsed'
             operation='SET_GSH_SYSTEM'
             exit
 
            case('&PULSE')
 
             call parse_pulse(spindy)
-            write(6,*) 'Pulse Parsed'
             operation='MAKE_PULSE'
             exit
 
            case('&SPIN_DYNAMICS')
 
             call parse_dynamics
-            write(6,*) 'Spin Dynamics Parsed'
             operation='SET_SPINDYN'
             exit
 
@@ -656,7 +648,6 @@
         class(brillouin)                 :: phondy
         class(atoms_group)               :: lattice
         character(len=:), allocatable    :: line,word
-        character(len=100)               :: fc2_file,fc3_file
         integer                          :: l
         logical                          :: eof=.false.
 
@@ -715,11 +706,10 @@
             
            case('&END')
 
-           if(read_fc3) call lattice%read_restart_file(fc2_file,fc3_file)
-           if(.not. read_fc3) call lattice%read_restart_file(fc2_file)
            return
 
           end select
+
 
          enddo
 
@@ -816,17 +806,19 @@
         end subroutine parse_rho0
 
 
-        subroutine parse_global
+        subroutine parse_global(spindy)
         use control_variables
         use parser_class
+        use hilbert_dist_class
         implicit none
+        class(spins_hilbert)           :: spindy
         character(len=:),allocatable   :: line,word
         integer                        :: l,i,int_val
         double precision               :: dbl_val
         logical                        :: eof=.false.
 
          fulldiag=.true.
-         dump_s=.true.
+         dump_s=.false.
          nex_max=-1
          ncorr_max=-1
          nexclude=0
@@ -855,9 +847,20 @@
            case('NODIAG')
             fulldiag=.false.
 
+           case('DUMP_H0')
+            spindy%printH0=.true.
+
+           case('DUMP_HEIG')
+            spindy%printHeig=.true.
+
+           case('DUMP_RHO')
+            spindy%printRho=.true.
+
+           case('DUMP_RMAT')
+            spindy%printRmat=.true.
+
            case('DUMP_S')
-            call get_word(line,word,2)
-            read(word,*) dump_s
+            dump_s=.true.
 
            case('MAX_DIST')
             call get_word(line,word,2)
@@ -1399,13 +1402,12 @@
         implicit none
         class(spins_group) :: spindy
         character(len=:),allocatable   :: line,word
-        integer            :: l,repx,repy,repz,v,k,s,i,m
-        integer            :: nspins
-        logical            :: eof=.false.,check(3)
-        double precision   :: cell(3,3),cell_inv(3,3),diff(3)
+        integer                        :: l,repx,repy,repz,v,k,s,i,m
+        integer                        :: nspins,i2,l2
+        logical                        :: eof=.false.,check(3)
+        double precision               :: cell(3,3),cell_inv(3,3),diff(3)
         double precision, allocatable  :: x(:,:)
-        integer, allocatable  :: kind(:)
-        
+        integer, allocatable           :: kind(:),coord3d(:,:)        
 
          repx=1
          repy=1
@@ -1475,6 +1477,8 @@
 
             call spindy%cart2frac()
 
+            if(spindy%ntot.gt.1) allocate(coord3d(nspins*spindy%ntot,3))
+
             v=1
             do k=1,repz
              do s=1,repy
@@ -1484,6 +1488,9 @@
                 spindy%x(v,2)=spindy%x(l,2)+s-1
                 spindy%x(v,3)=spindy%x(l,3)+k-1
                 spindy%kind(v)=kind(l)
+                if(spindy%ntot.gt.1) coord3d(v,1)=i
+                if(spindy%ntot.gt.1) coord3d(v,2)=s
+                if(spindy%ntot.gt.1) coord3d(v,3)=k
                 v=v+1
                enddo
               enddo
@@ -1494,61 +1501,59 @@
 
              allocate(spindy%tr_map(spindy%nspins,3))
 
-
              do i=1,spindy%ntot
               do l=1,spindy%nspins_pr
 
                k=(i-1)*spindy%nspins_pr+l
                spindy%tr_map(k,:)=k
 
-               do m=1,spindy%nspins
-                
-                diff(1)=spindy%x(m,1)-spindy%x(k,1)
-                diff(2)=spindy%x(m,2)-spindy%x(k,2)
-                diff(3)=spindy%x(m,3)-spindy%x(k,3)
+               do i2=1,spindy%ntot
+               do l2=1,spindy%nspins_pr
 
-                diff(1)=diff(1)-nint(diff(1)/dble(spindy%nx))*spindy%nx
-                diff(2)=diff(2)-nint(diff(2)/dble(spindy%ny))*spindy%ny
-                diff(3)=diff(3)-nint(diff(3)/dble(spindy%nz))*spindy%nz
+                m=(i2-1)*spindy%nspins_pr+l2
 
-                if(spindy%nx.eq.2 &
-                   .and. abs(spindy%rcell(i,1)).lt.1.0d-4) diff(1)=-1.0d0*diff(1)
-                if(spindy%ny.eq.2 &
-                   .and. abs(spindy%rcell(i,2)).lt.1.0d-4) diff(2)=-1.0d0*diff(2)
-                if(spindy%nz.eq.2 &
-                   .and. abs(spindy%rcell(i,3)).lt.1.0d-4) diff(3)=-1.0d0*diff(3)
+                if(l2.ne.l) cycle
 
                 check=.false.
 
-                if (spindy%nx.eq.1 .or.  abs(diff(1)-1.0d0).lt.1.0D-4) check(1)=.true.
-                if (spindy%ny.eq.1 .or.  abs(diff(2)).lt.1.0D-4) check(2)=.true.
-                if (spindy%nz.eq.1 .or.  abs(diff(3)).lt.1.0D-4) check(3)=.true.
+                if (spindy%nx.eq.1 .or.  coord3d(k,1)+1.eq.coord3d(m,1)) check(1)=.true.
+                if (spindy%nx.ne.1 .and. coord3d(m,1).eq.1 .and. coord3d(k,1).eq.spindy%nx) check(1)=.true.
+                if (spindy%ny.eq.1 .or.  coord3d(k,2).eq.coord3d(m,2)) check(2)=.true.
+                if (spindy%nz.eq.1 .or.  coord3d(k,3).eq.coord3d(m,3)) check(3)=.true.
 
                 if (all(check)) spindy%tr_map(k,1)=m
 
+
                 check=.false.
 
-                if (spindy%nx.eq.1 .or.  abs(diff(1)).lt.1.0D-4) check(1)=.true.
-                if (spindy%ny.eq.1 .or.  abs(diff(2)-1.0d0).lt.1.0D-4) check(2)=.true.
-                if (spindy%nz.eq.1 .or.  abs(diff(3)).lt.1.0D-4) check(3)=.true.
+                if (spindy%ny.eq.1 .or.  coord3d(k,2)+1.eq.coord3d(m,2)) check(2)=.true.
+                if (spindy%ny.ne.1 .and. coord3d(m,2).eq.1 .and. coord3d(k,2).eq.spindy%ny) check(2)=.true.
+                if (spindy%nx.eq.1 .or.  coord3d(k,1).eq.coord3d(m,1)) check(1)=.true.
+                if (spindy%nz.eq.1 .or.  coord3d(k,3).eq.coord3d(m,3)) check(3)=.true.
 
                 if (all(check)) spindy%tr_map(k,2)=m
 
+
                 check=.false.
 
-                if (spindy%nx.eq.1 .or.  abs(diff(1)).lt.1.0D-4) check(1)=.true.
-                if (spindy%ny.eq.1 .or.  abs(diff(2)).lt.1.0D-4) check(2)=.true.
-                if (spindy%nz.eq.1 .or.  abs(diff(3)-1.0d0).lt.1.0D-4) check(3)=.true.
- 
+                if (spindy%nz.eq.1 .or.  coord3d(k,3)+1.eq.coord3d(m,3)) check(3)=.true.
+                if (spindy%nz.ne.1 .and. coord3d(m,3).eq.1 .and. coord3d(k,3).eq.spindy%nz) check(3)=.true.
+                if (spindy%ny.eq.1 .or.  coord3d(k,2).eq.coord3d(m,2)) check(2)=.true.
+                if (spindy%nx.eq.1 .or.  coord3d(k,1).eq.coord3d(m,1)) check(1)=.true.
+
                 if (all(check)) spindy%tr_map(k,3)=m
 
+               enddo
                enddo
 
               enddo              
              enddo
 
+             deallocate(coord3d)
+
             endif
 
+            
             call spindy%frac2cart()
 
             return

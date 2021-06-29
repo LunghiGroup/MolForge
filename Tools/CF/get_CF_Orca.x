@@ -1,6 +1,6 @@
 #! /bin/bash
  
- export CF_DIR=/home/Alessandro/ERC/MolForge/Tools/CF
+ export CF_DIR=XXXSETDIRXXX
  export orca_output=$1
  export Nj=$2
  export lmax=$3
@@ -24,7 +24,7 @@
  echo Reading ORCA output file ${orca_output}
  echo Projecting the lowest ${Nj} states of ${soc_size} CI solutions on a CF operator of order ${lmax}
 
- rm  Os.dat
+ rm -f Os.dat
  
  grep -A $(( ${block_size} +2 )) 'SZ' ${orca_output} | tail -n ${block_size} > Sz.dat
  grep -A $(( ${block_size} +2 )) 'SX' ${orca_output} | tail -n ${block_size} > Sx.dat

@@ -1,6 +1,5 @@
         program make_cells
         use atoms_class
-        use variables
         implicit none
         DOUBLE PRECISION              :: ZERO=1.0E-12,mat_h(3,3),mat_hinv(3,3),aaa,bbb,pi,deg2rad,lat
         double precision, pointer     :: pos(:)
@@ -11,6 +10,10 @@
         character(len=2)              :: lab
         character*100                 :: word,unit_cell
         logical                       :: lammps_file_gen=.false. 
+        integer                                             :: nrep,nmolxcell,nmol,nx,ny,nz
+        DOUBLE PRECISION, DIMENSION(6)                      :: cell
+        DOUBLE PRECISION, POINTER, DIMENSION(:,:)           :: pos0
+        DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:,:)     :: r
 
          if( iargc().eq.0)then
           write(*,*) 'SuperCellGen Usage:'               
@@ -103,8 +106,8 @@
    
          pos=0.0d0
 
-         call xyztoxray(mat_hinv)
-         call xraytoxyz(mat_h)
+         call xyztoxray(cell,mat_hinv)
+         call xraytoxyz(cell,mat_h)
 
          do i=1,nmolxcell
           pos0(i,1:3)=MATMUL(mat_hinv,pos0(i,1:3))

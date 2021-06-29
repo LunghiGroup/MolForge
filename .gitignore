@@ -1,4 +1,6 @@
 # Ignore object files and modules
+*.x
+*.a
 *.o
 *.mod
 *.f90_*

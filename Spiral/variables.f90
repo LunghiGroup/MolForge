@@ -40,6 +40,7 @@
          integer                       :: echo_spin
          double precision              :: echo_step
 
+         character(len=100)            :: fc2_file,fc3_file
          double precision              :: max_phonon_ener=4000
          double precision              :: euler(3)=0.0d0
 
@@ -75,6 +76,8 @@
          call mpi_bcast(s2print,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(dist_max,1,mpi_double_precision,0,mpi_comm_world,err)
          call mpi_bcast(max_phonon_ener,1,mpi_double_precision,0,mpi_comm_world,err)
+         call mpi_bcast(fc2_file,100,mpi_character,0,mpi_comm_world,err)
+         call mpi_bcast(fc3_file,100,mpi_character,0,mpi_comm_world,err)
 
          call mpi_bcast(euler,3,mpi_double_precision,0,mpi_comm_world,err)
 
@@ -238,25 +241,35 @@
          select case (operation)
 
           case ('SET_SYSTEM')
-           if(mpi_id.eq.0)    write(6,*) '  Setting Spin System'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Setting up the Spin System......................................................'
+           if(mpi_id.eq.0) write(6,*) ''
            call spindy%spin_bcast()
            call spindy%dist_ij()
 
           case ('SET_SPINHAM')
-           if(mpi_id.eq.0)    write(6,*) '  Setting Spin Hamiltonian'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Setting up the Spin Hamiltonian.................................................'
+           if(mpi_id.eq.0) write(6,*) ''
            call spindy%SH%spinham_bcast()
 
           case ('SET_GSH_SYSTEM')
-           if(mpi_id.eq.0)    write(6,*) '  Setting Spin System'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Setting up the Spin System......................................................'
+           if(mpi_id.eq.0) write(6,*) ''
            call gsh%spin_bcast()
            call gsh%dist_ij()
 
           case ('SET_GSH_SPINHAM')
-           if(mpi_id.eq.0)    write(6,*) '  Setting Spin Hamiltonian'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Setting up the Spin Hamiltonian.................................................'
+           if(mpi_id.eq.0) write(6,*) ''
            call gsh%SH%spinham_bcast()
 
           case ('MAKE_SH_MAPP')
-           if(mpi_id.eq.0)    write(6,*) '  MSH - GSH Mapping'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Mapping the Giant Spin Hamiltonian on the many-spin Hamiltonian.................'
+           if(mpi_id.eq.0) write(6,*) ''
            call bcast_method(gsh)
            call gsh%make_basis(nex_max,ncorr_max,max_dist,tinv)
            call gsh%make_Hmat_nodes()
@@ -267,8 +280,10 @@
            call msh2gsh(spindy,gsh,lmax,compress,lambda) 
 
           case ('SET_SPH')
-           if(mpi_id.eq.0)    write(6,*) '  Setting Spin-Phonon ', &
-                                           'Hamiltonian'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Setting up the Spin-Phonon Hamiltonian..........................................'
+           if(mpi_id.eq.0) write(6,*) ''
+           call lattice%read_restart_file(fc2_file)
            call lattice%atoms_bcast()
            call gen_vars_bcast() 
            call phondy%brillouin_bcast()
@@ -276,22 +291,23 @@
            call spindy%SPH2%spinphonon_bcast()
 
           case ('MAKE_RHO0') 
-           if(mpi_id.eq.0)    write(6,*) '  Building Density Matrix'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Building the Initial Density Matrix.............................................'
+           if(mpi_id.eq.0) write(6,*) ''
            call bcast_rho0()
-           spindy%beta0=0.0d0
-           spindy%beta0(1)=acos(-1.0d0)/2.0d0
            call spindy%make_rho0(type_rho0,spin_temp,rho_restart_file)
 
           case ('MAKE_HILBERT')
-           if(mpi_id.eq.0)    write(6,*) '  Building Hilbert Space'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Building the Hilbert Space......................................................'
+           if(mpi_id.eq.0) write(6,*) ''
            call bcast_method(spindy)
            if(spindy%SH%make_dipolar) call spindy%set_dipolar(spindy%SH,ex_list)
            call spindy%make_basis(nex_max,ncorr_max,max_dist,tinv)
+           call spindy%make_kbasis()
            call spindy%make_Hmat_nodes()
            call spindy%SH%rot(euler)
            call spindy%make_SH_rep(spindy%SH,-1,-1)
-           call spindy%make_kbasis()
-!            call spindy%make_Hmat()
            call spindy%make_Hmat_2()
            if(fulldiag) call spindy%diag_Hmat()
            call spindy%make_S()           
@@ -309,6 +325,9 @@
            endif
 
           case ('MAKE_U')
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Building the Quantum Propagator.................................................'
+           if(mpi_id.eq.0) write(6,*) ''
            call bcast_propagator()
            call spindy%make_U(step_min,step_nmult)
            if(spindy%make_Rmat .or. spindy%make_R2mat) then
@@ -324,17 +343,24 @@
            endif
 
           case ('PROPAGATE')
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Propagating the Spin Dynamics...................................................'
+           if(mpi_id.eq.0) write(6,*) ''
            call bcast_propagate()
            call spindy%propagate(start_step,time,nsteps,step,dump_freq)
 
           case ('MAKE_PULSE')
-           if(mpi_id.eq.0)    write(6,*) '  Applying Pulse'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Building the Pulse''s Matrix Representation.....................................'
+           if(mpi_id.eq.0) write(6,*) ''
             call bcast_pulse()
             call spindy%make_rot(pulse)
             call spindy%rot_rho(pulse)
 
           case ('MAKE_ECHO')
-           if(mpi_id.eq.0)    write(6,*) '  Calculating Echo'
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Calculating the Hahn Spin Echo Decay............................................'
+           if(mpi_id.eq.0) write(6,*) ''
             call bcast_echo()           
             type_pulse='PI2'
             call set_pulse(pulse_pi2,type_pulse,echo_spin)

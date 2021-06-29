@@ -30,6 +30,31 @@
          call MPI_COMM_SIZE(MPI_COMM_WORLD,mpi_nproc,err)
          mpi_nproc_spin=mpi_nproc
 
+         if(mpi_id.eq.0)then
+          write(*,*) ''
+          write(*,*) ''
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) '****                                                                        ****'
+          write(*,*) '****                      SPIRAL@MolForge v1.0_beta.0                       ****'
+          write(*,*) '****                                                                        ****'
+          write(*,*) '****               A first-principles spin dynamics software                ****'
+          write(*,*) '****                                                                        ****'
+          write(*,*) '****                      Author: Alessandro Lunghi                         ****'
+          write(*,*) '****                        email: lunghia@tcd.ie                           ****'
+          write(*,*) '****                                                                        ****'
+          write(*,*) '****                                                                        ****'
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) ''
+          write(*,*) ''
+          flush(6)
+         endif
+
          if ( iargc().eq.0 )then
           if(mpi_id.eq.0)then
            write(*,*) '-i                  : input file'
@@ -103,12 +128,37 @@
           enddo
           call setup_multiblacs(mpi_nproc_spin,map,context(i))
          enddo
-         call blacs_set_gridinfo()
+         call blacs_set_gridinfo()         
 
-         if(myrow.eq.-1)then
-          write(*,*) 'WRN: mpi process ',mpi_id,&
-                     ' has been excluded from computing nodes.'
-          goto 20
+         if(myrow.ne.-1) mpi_color=1
+         if(myrow.eq.-1) mpi_color=2
+
+         key=mpi_blacs_id
+         call mpi_comm_split(mpi_blacs_world,mpi_color,key,mpi_blacs_world,err)
+
+         call MPI_COMM_RANK(MPI_BLACS_WORLD,mpi_blacs_id,err)
+         call MPI_COMM_SIZE(MPI_BLACS_WORLD,mpi_blacs_nproc,err)
+
+         key=mpi_phonons_id
+         call mpi_comm_split(mpi_phonons_world,mpi_color,key,mpi_phonons_world,err)
+
+         call MPI_COMM_RANK(MPI_PHONONS_WORLD,mpi_phonons_id,err)
+         call MPI_COMM_SIZE(MPI_PHONONS_WORLD,mpi_phonons_nproc,err)
+
+         if(myrow.eq.-1)goto 20
+
+         if(mpi_id.eq.0)then
+
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) 'Total Number of MPI processes: ',mpi_nproc
+          write(*,*) 'Total Number of MPI processes dedicated to spin matrices: ',mpi_blacs_nproc
+          write(*,*) 'Total Number of MPI processes dedicated to phonons matrices: ',mpi_phonons_nproc
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) ''
+          flush(6)
+
          endif
 
          if(mpi_id.eq.0)then
@@ -133,24 +183,15 @@
 
           enddo
 
-          write(*,*)  '**********************************************'
-          write(*,*)  '**********************************************'
-          write(*,*)  '****ssss* ppppp***ii**nn****n**ddddd***y***y**'
-          write(*,*)  '***s***** pp   p**ii**n*n***n**d****d***y*y***'
-          write(*,*)  '****sss** ppppp***ii**n**n**n**d*****d***y****'
-          write(*,*)  '*******s* pp******ii**n***n*n**d****d****y****'
-          write(*,*)  '***sssss* pp******ii**n****nn**ddddd*****y****'
-          write(*,*)  '**********************************************'
-          write(*,*)  '**********************************************'
-          write(*,*)  'SPINDY v0.9. Author: Alessandro Lunghi'
-          write(*,*)  '**********************************************'
-          write(*,*)  '**********************************************'
-          flush(6)
 
           open(10,file=input)
           rewind(10)
-          write(*,*) 'Parsing input: ',trim(input)
-          write(*,*)  '**********************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) 'Parsing input file: ',trim(input)
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) ''
           flush(6)
 
          endif
@@ -170,8 +211,13 @@
          if(mpi_id.eq.0)then
 
           call system_clock(t2)
+          write(*,*) ''
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
+          write(*,*) 'SPIRAL correctly ended '
           write(*,*) 'Total running time: ',real(t2-t1)/real(rate),'s'
-          write(*,*) 'May the Force be with you!'
+          write(*,*) '********************************************************************************'
+          write(*,*) '********************************************************************************'
 
           close(10)        
           close(6)
