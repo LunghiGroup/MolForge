@@ -18,14 +18,14 @@ export vec_ga=$( grep 'cell_angle_gamma' ${cifname} | awk '{printf "%1.4f \n",$2
 
 echo ${vec_a} ${vec_b} ${vec_c} ${vec_al} ${vec_be} ${vec_ga} > ${name}.abc
 
-${MOLFORGE}/Tools/abc2cell/abc2cell.x ${name}.abc ${name}.cell
+${MOLFORGE}/bin/abc2cell.x ${name}.abc ${name}.cell
 
 ####################################
 
 rm -f ${name}.xyz
 atomsk $cifname -remove-doubles 0.6 ${name}.xyz
 
-${MOLFORGE}/Tools/FindMols/find_mols.x -xyz ${name}.xyz -cell ${name}.cell -reorder_mols -remap_mols > ${name}_remap.xyz
+${MOLFORGE}/bin/find_mols.x -xyz ${name}.xyz -cell ${name}.cell -reorder_mols -remap_mols > ${name}_remap.xyz
 
 
 
