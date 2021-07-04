@@ -294,7 +294,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '     Building the Redfield matrix: 1st-order PT + 2nd-order of coupling strenght'
+          write(*,*) '     Building the Redfield matrix: 1st-order PT + 2nd-order of coupling strength'
           flush(6)
          endif
 
@@ -778,7 +778,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strenght'
+          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strength'
           flush(6)
          endif
 
@@ -1352,7 +1352,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strenght'
+          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strength'
           write(*,*) '     The diagonal approximation to the secular Redfield equations will be used'
           flush(6)
          endif
@@ -1718,8 +1718,8 @@
               mpi_double_precision,MPI_SUM,mpi_blacs_world,err)    
 
          if(mpi_id.eq.0) then
-          write(*,*) '     Diagonal R/L Overlap:',diag_sum/this%Hdim,' it should be close to zero!'
-          write(*,*) '     Off-diagonal R/L Overlap:',nodiag_sum,' it should be close to one!'
+          write(*,*) '     Diagonal R/L Overlap:',diag_sum/this%Hdim,' it should be close to one!'
+          write(*,*) '     Off-diagonal R/L Overlap:',nodiag_sum,' it should be close to zero!'
          endif
 
       ! Build Pop Propagator R= R exp(Rval) R^{\cross}
@@ -1793,7 +1793,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '     Building the Redfield matrix: 2nd-order PT + 1st-order of coupling strenght'
+          write(*,*) '     Building the Redfield matrix: 2nd-order PT + 1st-order of coupling strength'
           write(*,*) '     The diagonal approximation to the secular Redfield equations will be used'
           flush(6)
          endif
