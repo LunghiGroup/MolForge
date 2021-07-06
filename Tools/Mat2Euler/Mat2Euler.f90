@@ -6,6 +6,10 @@
         integer          :: x,y,z,s
         character(len=18) :: word,inp_file
 
+        if(iargc().eq.0)then
+         write(*,*) 'Usage: Mat2Euler.x mat.inp'
+         stop
+        endif
 
          call getarg(1,inp_file)
          call getarg(2,word)
