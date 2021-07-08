@@ -2037,20 +2037,20 @@
 
               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0m*conjg(R0m))*Gf
         
-              if(Gf.gt.1.0d-8)then
-               if(ii.eq.1 .and. jj.eq.2)then
-               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+ !             if(Gf.gt.1.0d-8)then
+!               if(ii.eq.1 .and. jj.eq.2)then
+!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !                do kk1=1,this%Hdim
 !                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !                enddo
-               endif
-               if(ii.eq.2 .and. jj.eq.1)then
-               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!               endif
+!               if(ii.eq.2 .and. jj.eq.1)then
+!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !               do kk1=1,this%Hdim
 !                write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !               enddo
-               endif
-              endif
+!               endif
+!              endif
 
               Gf=0.0d0
               Gpm=0.0d0
@@ -2081,20 +2081,20 @@
  
               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0p*conjg(R0p))*Gf
 
-              if(Gf.gt.1.0d-8)then
-               if(ii.eq.1 .and. jj.eq.2)then
-                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!              if(Gf.gt.1.0d-8)then
+!               if(ii.eq.1 .and. jj.eq.2)then
+!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !                do kk1=1,this%Hdim
 !                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !                enddo
-               endif
-               if(ii.eq.2 .and. jj.eq.1)then
-                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!               endif
+!               if(ii.eq.2 .and. jj.eq.1)then
+!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !                do kk1=1,this%Hdim
 !                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !                enddo
-               endif
-              endif
+!               endif
+!              endif
 
              enddo ! jj
             enddo ! ii
