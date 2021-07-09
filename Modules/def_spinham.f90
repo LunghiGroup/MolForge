@@ -90,11 +90,12 @@
 
         type :: Gtensor
          complex(8)               :: G(3,3)
-         integer                  :: kind
          complex(8), allocatable  :: mat(:,:)
+         integer                  :: kind
          contains
          procedure           :: mat_elem => G_matelem
          procedure           :: get_norm => get_G_norm
+         procedure           :: rotg     => rot_g_tensor
         end type Gtensor
 
         type :: SpinHamiltonian
@@ -127,6 +128,18 @@
 
          do v=1,this%nO
           call this%O(v)%rot(euler(1),euler(2),euler(3))
+         enddo        
+
+         do v=1,this%nG
+          call this%G(v)%rotg(euler(1),euler(2),euler(3))
+         enddo        
+
+         do v=1,this%nDSI
+          call this%DSI(v)%rot(euler(1),euler(2),euler(3))
+         enddo        
+
+         do v=1,this%nD2S
+          call this%D2S(v)%rot(euler(1),euler(2),euler(3))
          enddo        
 
         return
@@ -601,14 +614,13 @@
         !!!!!
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        subroutine rot_cart_tensor(this,alpha,beta,gamma)
+        subroutine rot_g_tensor(this,alpha,beta,gamma)
         implicit none
-        class(cart_tensor)                     :: this
-        double complex                         :: rotD(3,3)
-        double precision                       :: rotmat(3,3),alpha,beta,gamma
+        class(Gtensor)                         :: this
+        double complex                         :: rotG(3,3)
+        double complex                         :: rotmat(3,3)
+        double precision                       :: alpha,beta,gamma
 
-         rotD=(0.0d0,0.0d0)
-         
          rotmat(1,1)=cos(alpha)*cos(beta)*cos(gamma)-sin(alpha)*sin(gamma) 
          rotmat(2,1)=cos(alpha)*sin(gamma)+cos(beta)*cos(gamma)*sin(alpha)
          rotmat(3,1)=-cos(gamma)*sin(beta)
@@ -621,9 +633,37 @@
          rotmat(2,3)=sin(alpha)*sin(beta)
          rotmat(3,3)=cos(beta)
 
-         rotD=matmul(rotmat,this%D)
-         rotD=matmul(transpose(rotmat),rotD)
+         rotG=matmul(transpose(rotmat),this%G)
+         rotG=matmul(rotG,rotmat)
 
+         this%G=rotG
+
+        return
+        end subroutine rot_g_tensor
+
+        subroutine rot_cart_tensor(this,alpha,beta,gamma)
+        implicit none
+        class(cart_tensor)                     :: this
+        double complex                         :: rotD(3,3)
+        double complex                         :: rotmat(3,3)
+        double precision                       :: alpha,beta,gamma
+                                 
+
+         rotmat(1,1)=cos(alpha)*cos(beta)*cos(gamma)-sin(alpha)*sin(gamma) 
+         rotmat(2,1)=cos(alpha)*sin(gamma)+cos(beta)*cos(gamma)*sin(alpha)
+         rotmat(3,1)=-cos(gamma)*sin(beta)
+
+         rotmat(1,2)=-cos(gamma)*sin(alpha)-cos(alpha)*cos(beta)*sin(gamma)
+         rotmat(2,2)=cos(alpha)*cos(gamma)-cos(beta)*sin(gamma)*sin(alpha)
+         rotmat(3,2)=sin(beta)*sin(gamma)
+
+         rotmat(1,3)=cos(alpha)*sin(beta)
+         rotmat(2,3)=sin(alpha)*sin(beta)
+         rotmat(3,3)=cos(beta)
+
+         rotD=matmul(transpose(rotmat),this%D)
+         rotD=matmul(rotD,rotmat)
+         
          this%D=rotD
 
         return
