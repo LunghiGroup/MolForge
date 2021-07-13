@@ -31,6 +31,9 @@
           logical                        :: norm_inp=.false.
           contains
           procedure :: get_output
+          procedure :: get_grad_nn
+          procedure :: get_grad_weights
+          procedure :: get_grad_bias
           procedure :: backprop
           procedure :: set_topology
           procedure :: set_parameters
@@ -152,8 +155,8 @@
              Wmat=Wmat3            
             endif
 
-           enddo ! i innerlayers
-           
+           enddo ! i innerlayers                    
+
           enddo ! l outputs
 
           if(allocated(Wmat)) deallocate(Wmat)
@@ -291,111 +294,111 @@
          return
          end subroutine get_activity
 
-        end module nets_class
-
-        ! subroutine get_grad(this,grad)
-        ! implicit none
-        ! class(net)                    :: this
-        ! double precision, allocatable :: grad(:,:)
-        ! double precision              :: gradp
-        ! integer                       :: i,j,k,v,l
+         subroutine get_grad_nn(this,grad)
+         implicit none
+         class(net)                    :: this
+         double precision, allocatable :: grad(:,:)
+         double precision              :: gradp
+         integer                       :: i,j,k,v,l
                  
-        !  if(allocated(grad)) deallocate(grad)
-        !  allocate(grad(this%nparams,this%noutput))
-        !  grad=0.0d0
-        !  gradp=0.0d0
+          if(allocated(grad)) deallocate(grad)
+          allocate(grad(this%nparams,this%noutput))
+          grad=0.0d0
+!          gradp=0.0d0
 
-        !  do l=1,this%noutput
-        !   v=1
-        !   do i=1,this%nlayers
-        !    do j=1,this%layers(i)%nneu
+          do l=1,this%noutput
+           v=1
+           do i=1,this%nlayers
+            do j=1,this%layers(i)%nneu
+             do k=1,this%layers(i)%neu(j)%nweights
+              if(i.eq.this%nlayers .and. j.ne.l)then
+               grad(v,l)=0.0d0
+               v=v+1
+              else
+               call this%get_grad_weights(gradp,i,j,k,this%nlayers,l)
+               grad(v,l)=gradp
+               v=v+1
+              endif
+             enddo
 
-        !     do k=1,this%layers(i)%neu(j)%nweights
-        !      if(i.eq.this%nlayers .and. j.ne.l)then
-        !       grad(v,l)=0.0d0
-        !       v=v+1
-        !      else
-        !       call this%get_grad_weights(gradp,i,j,k,this%nlayers,l)
-        !       grad(v,l)=gradp
-        !       v=v+1
-        !      endif
-        !     enddo
+             if(i.eq.this%nlayers .and. j.ne.l)then
+              grad(v,l)=0.0d0
+              v=v+1
+             else
+              call this%get_grad_bias(gradp,i,j,this%nlayers,l)
+              grad(v,l)=gradp
+              v=v+1
+             endif
 
-        !     if(i.eq.this%nlayers .and. j.ne.l)then
-        !      grad(v,l)=0.0d0
-        !      v=v+1
-        !     else
-        !      call this%get_grad_bias(gradp,i,j,this%nlayers,l)
-        !      grad(v,l)=gradp
-        !      v=v+1
-        !     endif
+            enddo 
+           enddo
+          enddo
 
-        !    enddo 
-        !   enddo
-        !  enddo
+         return
+         end subroutine get_grad_nn
 
-        ! return
-        ! end subroutine get_grad
+         recursive subroutine get_grad_weights(this,gradp,layer,node,par,i,j)
+         implicit none
+         class(net)                    :: this
+         double precision              :: val,gradp,new_gradp
+         integer                       :: layer,node,i,j,par
+         integer                       :: k,v
 
-        ! recursive subroutine get_grad_weights(this,gradp,layer,node,par,i,j)
-        ! implicit none
-        ! class(net)                    :: this
-        ! double precision              :: val,gradp,new_gradp
-        ! integer                       :: layer,node,i,j,par
-        ! integer                       :: k,v
+          gradp=0.0d0
 
-        !  gradp=0.0d0
+          if(i.eq.layer)then
+           val=this%layers(i)%neu(node)%grad_act 
+           if(i.ne.1)then
+            gradp=val*this%layers(i-1)%neu(par)%output
+           else
+            gradp=val*this%inp(par)
+           endif
+           return
+          endif
 
-        !  if(i.eq.layer)then
-        !   val=this%layers(i)%neu(node)%grad_act 
-        !   if(i.ne.1)then
-        !    gradp=val*this%layers(i-1)%neu(par)%output
-        !   else
-        !    gradp=val*this%inp(par)
-        !   endif
-        !   return
-        !  endif
+          if(layer.eq.i-1)then
+           val=this%layers(i)%neu(j)%grad_act
+           call this%get_grad_weights(new_gradp,layer,node,par,i-1,node)
+           gradp=gradp+new_gradp*val*this%layers(i)%neu(j)%weights(node)
+          else
+           val=this%layers(i)%neu(j)%grad_act
+           do v=1,this%layers(i)%neu(j)%nweights
+            call this%get_grad_weights(new_gradp,layer,node,par,i-1,v)
+            gradp=gradp+new_gradp*val*this%layers(i)%neu(j)%weights(v)
+           enddo
+          endif
 
-        !  if(layer.eq.i-1)then
-        !   val=this%layers(i)%neu(j)%grad_act
-        !   call this%get_grad_weights(new_gradp,layer,node,par,i-1,node)
-        !   gradp=gradp+new_gradp*val*this%layers(i)%neu(j)%weights(node)
-        !  else
-        !   val=this%layers(i)%neu(j)%grad_act
-        !   do v=1,this%layers(i)%neu(j)%nweights
-        !    call this%get_grad_weights(new_gradp,layer,node,par,i-1,v)
-        !    gradp=gradp+new_gradp*val*this%layers(i)%neu(j)%weights(v)
-        !   enddo
-        !  endif
+         return
+         end subroutine get_grad_weights
 
-        ! return
-        ! end subroutine get_grad_weights
+         recursive subroutine get_grad_bias(this,gradp,layer,node,i,j)
+         implicit none
+         class(net)                    :: this
+         double precision              :: val,gradp,new_gradp
+         integer                       :: layer,node,i,j,par
+         integer                       :: k,v
 
-        ! recursive subroutine get_grad_bias(this,gradp,layer,node,i,j)
-        ! implicit none
-        ! class(net)                    :: this
-        ! double precision              :: val,gradp,new_gradp
-        ! integer                       :: layer,node,i,j,par
-        ! integer                       :: k,v
+          gradp=0.0d0
 
-        !  gradp=0.0d0
+          if(i.eq.layer)then
+           gradp=this%layers(i)%neu(node)%grad_act
+           return
+          endif
 
-        !  if(i.eq.layer)then
-        !   gradp=this%layers(i)%neu(node)%grad_act
-        !   return
-        !  endif
+          if(layer.eq.i-1)then
+           val=this%layers(i)%neu(j)%grad_act
+           call this%get_grad_bias(new_gradp,layer,node,i-1,node)
+           gradp=gradp+new_gradp*val*this%layers(i)%neu(j)%weights(node)
+          else
+           val=this%layers(i)%neu(j)%grad_act
+           do v=1,this%layers(i)%neu(j)%nweights
+            call this%get_grad_bias(new_gradp,layer,node,i-1,v)
+            gradp=gradp+new_gradp*val*this%layers(i)%neu(j)%weights(v)
+           enddo
+          endif
 
-        !  if(layer.eq.i-1)then
-        !   val=this%layers(i)%neu(j)%grad_act
-        !   call this%get_grad_bias(new_gradp,layer,node,i-1,node)
-        !   gradp=gradp+new_gradp*val*this%layers(i)%neu(j)%weights(node)
-        !  else
-        !   val=this%layers(i)%neu(j)%grad_act
-        !   do v=1,this%layers(i)%neu(j)%nweights
-        !    call this%get_grad_bias(new_gradp,layer,node,i-1,v)
-        !    gradp=gradp+new_gradp*val*this%layers(i)%neu(j)%weights(v)
-        !   enddo
-        !  endif
+         return
+         end subroutine get_grad_bias
+        
+         end module nets_class
 
-        ! return
-        ! end subroutine get_grad_bias

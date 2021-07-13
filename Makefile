@@ -18,6 +18,7 @@ export MODULES_DIR = $(MOLFORGE_DIR)/Modules
 
 export SPIRAL_DIR = $(MOLFORGE_DIR)/Spiral
 export PHONDY_DIR = $(MOLFORGE_DIR)/PhonDy
+export INTENSOR_DIR = $(MOLFORGE_DIR)/Intensor
 export TOOLS_DIR = $(MOLFORGE_DIR)/Tools
 
 export EXE_DIR = $(MOLFORGE_DIR)/bin
@@ -45,12 +46,16 @@ PhonDy : libMolForge
 	mkdir -p $(MOLFORGE_DIR)/bin
 	cd $(PHONDY_DIR) && $(MAKE) $@
 
+Intensor : libMolForge
+	mkdir -p $(MOLFORGE_DIR)/bin
+	cd $(INTENSOR_DIR) && $(MAKE) $@
+
 Tools : libMolForge
 	mkdir -p $(MOLFORGE_DIR)/bin
 	cd $(TOOLS_DIR) && $(MAKE) all
 
 
-clean : clean_MolForge clean_Spiral clean_PhonDy clean_Tools
+clean : clean_MolForge clean_Spiral clean_PhonDy clean_Tools clean_Intensor
 
 clean_MolForge :
 	rm -f $(MODULES_DIR)/*.o
@@ -66,6 +71,11 @@ clean_PhonDy :
 	rm -f $(PHONDY_DIR)/*.o
 	rm -f $(PHONDY_DIR)/*.mod
 	rm -f $(EXE_DIR)/PhonDy.x
+
+clean_Intensor : 
+	rm -f $(INTENSOR_DIR)/*.o
+	rm -f $(INTENSOR_DIR)/*.mod
+	rm -f $(EXE_DIR)/Intensor.x
 
 clean_Tools :
 	cd $(TOOLS_DIR) && $(MAKE) clean

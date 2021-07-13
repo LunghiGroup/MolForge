@@ -49,7 +49,7 @@
 
           this%output=loc_prop
 
-          if(this%norm_out) this%output=this%sigma_out*this%output+this%mean_out
+!          if(this%norm_out) this%output=this%sigma_out*this%output+this%mean_out
 
          return
          end subroutine get_model_output
@@ -58,6 +58,7 @@
          implicit none
          class(mlmodel)                   :: this
          double precision, allocatable    :: desc(:)
+         double precision, allocatable    :: loc_prop(:),inps(:),grad(:,:)
 
           if(.not.allocated(this%output)) allocate(this%output(this%ndims))
           if(.not.allocated(this%grad)) allocate(this%grad(this%nparams,this%ndims))
@@ -65,10 +66,18 @@
           this%grad=0.0d0
           this%output=0.0d0
 
-          call this%NN%get_output(desc,this%output)
-          call this%NN%backprop(this%grad)
+          if(.not.allocated(loc_prop)) allocate(loc_prop(this%ndims))
+          if(allocated(inps)) deallocate(inps)
+          if(allocated(grad)) deallocate(inps)
+          inps=desc
 
-          if(this%norm_out) this%output=this%sigma_out*this%output+this%mean_out
+          call this%NN%get_output(inps,loc_prop)
+          call this%NN%get_grad_nn(grad)
+!          call this%NN%backprop(grad)
+          this%output=loc_prop
+          this%grad=grad          
+
+!          if(this%norm_out) this%output=this%sigma_out*this%output+this%mean_out
 
          return
          end subroutine get_model_grad

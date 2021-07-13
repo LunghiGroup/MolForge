@@ -1,10 +1,10 @@
 ### compile all moduli
 
 export EXE_NAME=Intensor.x
-export MOLFORGE=/home/Alessandro/ERC/MolForge/src
+export MOLFORGE=/home/Alessandro/ERC/MolForge
 export MOD_DIR=${MOLFORGE}/Modules
-export LIB_DIR=${MOLFORGE}/Modules
-export LIBS="-lscalapack -llapack -lmolforge"
+export LIB_DIR=${MOLFORGE}/libs
+export LIBS="-lMolForge -lscalapack -llapack"
 export FFLAGS="-fmax-errors=10 -g -O2 -fcheck=all"
 
 mpif90 ${FFLAGS} -c Intensor.f90 -I ${MOD_DIR}

@@ -70,7 +70,7 @@
 
 !          call model%set_L2(L2id=L2id,L2val=L2val)
 
-          call model%set_L2(L2=0.001d0)
+!          call model%set_L2(L2=0.00001d0)
           call model%std_sets()
 
           call system_clock(t2)
@@ -85,25 +85,24 @@
 
           swarm%target_f => model
 
-!          call swarm%init_swarm(nval=model%ML%nparams,npar=25,min_val=vecmin,max_val=vecmax,fixval=fixval)
+ !         call swarm%init_swarm(nval=model%ML%nparams,npar=25,min_val=vecmin,max_val=vecmax,fixval=fixval)
           call swarm%init_swarm(nval=model%ML%nparams,npar=25) 
 !          swarm%print_val=.true.
-          call swarm%minimize(max_iter=2000)        
+          call swarm%minimize(max_iter=5000)        
           call swarm%get_best_val(vec)
           call swarm%release_target_f()
-
           call model%get_fval(vec,val)
 
 !          allocate(loc_lr(model%ML%nparams))
 !          loc_lr=1.0d0
-!          grad%target_f => model
-!          call grad%init(nval=model%ML%nparams,vec=vec,loc_lr=loc_lr)
-!          call grad%init(nval=model%ML%nparams)
+          grad%target_f => model
+!         call grad%init(nval=model%ML%nparams,vec=vec,loc_lr=loc_lr)
+          call grad%init(nval=model%ML%nparams,vec=vec)
 !          grad%print_val=.true.
 !          grad%print_grad=.true.
-!          grad%lr=1.0e-5
-!          call grad%minimize(max_iter=10000,start_iter=1000)          
-!          call grad%release_target_f()
+          grad%lr=1.0e-3        
+          call grad%minimize(max_iter=1000,start_iter=12500)          
+          call grad%release_target_f()
 
          ! Print Results
 
