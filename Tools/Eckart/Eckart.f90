@@ -2,7 +2,7 @@
         use atoms_class
         use proj_disp_class
         implicit none
-        integer                         :: i,j,l,s,v,nats,nframes
+        integer                         :: i,j,l,s,v,nats,nframes=1
 
         type(molecule)                  :: mol
         double precision,allocatable    :: geo(:,:),mass(:),geo0(:,:)

@@ -293,7 +293,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '     Building the Redfield matrix: 1st-order PT + 2nd-order of coupling strenght'
+          write(*,*) '     Building the Redfield matrix: 1st-order PT + 2nd-order of coupling strength'
           flush(6)
          endif
 
@@ -777,7 +777,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strenght'
+          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strength'
           flush(6)
          endif
 
@@ -1351,7 +1351,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strenght'
+          write(*,*) '     Building the Redfield matrix: 1st-order PT + 1st-order of coupling strength'
           write(*,*) '     The diagonal approximation to the secular Redfield equations will be used'
           flush(6)
          endif
@@ -1717,8 +1717,8 @@
               mpi_double_precision,MPI_SUM,mpi_blacs_world,err)    
 
          if(mpi_id.eq.0) then
-          write(*,*) '     Diagonal R/L Overlap:',diag_sum/this%Hdim,' it should be close to zero!'
-          write(*,*) '     Off-diagonal R/L Overlap:',nodiag_sum,' it should be close to one!'
+          write(*,*) '     Diagonal R/L Overlap:',diag_sum/this%Hdim,' it should be close to one!'
+          write(*,*) '     Off-diagonal R/L Overlap:',nodiag_sum,' it should be close to zero!'
          endif
 
       ! Build Pop Propagator R= R exp(Rval) R^{\cross}
@@ -1792,7 +1792,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '     Building the Redfield matrix: 2nd-order PT + 1st-order of coupling strenght'
+          write(*,*) '     Building the Redfield matrix: 2nd-order PT + 1st-order of coupling strength'
           write(*,*) '     The diagonal approximation to the secular Redfield equations will be used'
           flush(6)
          endif
@@ -2036,20 +2036,20 @@
 
               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0m*conjg(R0m))*Gf
         
-              if(Gf.gt.1.0d-8)then
-               if(ii.eq.1 .and. jj.eq.2)then
-               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+ !             if(Gf.gt.1.0d-8)then
+!               if(ii.eq.1 .and. jj.eq.2)then
+!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !                do kk1=1,this%Hdim
 !                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !                enddo
-               endif
-               if(ii.eq.2 .and. jj.eq.1)then
-               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!               endif
+!               if(ii.eq.2 .and. jj.eq.1)then
+!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !               do kk1=1,this%Hdim
 !                write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !               enddo
-               endif
-              endif
+!               endif
+!              endif
 
               Gf=0.0d0
               Gpm=0.0d0
@@ -2080,20 +2080,20 @@
  
               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0p*conjg(R0p))*Gf
 
-              if(Gf.gt.1.0d-8)then
-               if(ii.eq.1 .and. jj.eq.2)then
-                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!              if(Gf.gt.1.0d-8)then
+!               if(ii.eq.1 .and. jj.eq.2)then
+!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !                do kk1=1,this%Hdim
 !                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !                enddo
-               endif
-               if(ii.eq.2 .and. jj.eq.1)then
-                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
+!               endif
+!               if(ii.eq.2 .and. jj.eq.1)then
+!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
 !                do kk1=1,this%Hdim
 !                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
 !                enddo
-               endif
-              endif
+!               endif
+!              endif
 
              enddo ! jj
             enddo ! ii
