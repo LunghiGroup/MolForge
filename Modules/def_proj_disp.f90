@@ -318,6 +318,14 @@
            enddo
           enddo
 
+          write(*,*) ''
+          write(*,*) '     Eckart Rotation Matrix:'
+          write(*,*) ''
+          write(*,*) '     ',this%rot(1,:)
+          write(*,*) '     ',this%rot(2,:)
+          write(*,*) '     ',this%rot(3,:)
+          write(*,*) ''
+
          return
          end subroutine get_rot2
 
