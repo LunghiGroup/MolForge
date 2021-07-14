@@ -59,6 +59,7 @@
          class(mlmodel)                   :: this
          double precision, allocatable    :: desc(:)
          double precision, allocatable    :: loc_prop(:),inps(:),grad(:,:)
+         integer                          :: v,l
 
           if(.not.allocated(this%output)) allocate(this%output(this%ndims))
           if(.not.allocated(this%grad)) allocate(this%grad(this%nparams,this%ndims))
@@ -68,7 +69,7 @@
 
           if(.not.allocated(loc_prop)) allocate(loc_prop(this%ndims))
           if(allocated(inps)) deallocate(inps)
-          if(allocated(grad)) deallocate(inps)
+          if(allocated(grad)) deallocate(grad)
           inps=desc
 
           call this%NN%get_output(inps,loc_prop)

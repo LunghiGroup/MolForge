@@ -90,14 +90,14 @@
 
            !!! Set the index v to the l-output node's params
            if(this%nlayers.eq.1)then
-            v=this%nparams+(l-this%noutput)*(this%ninput+1)       
+            v=this%nparams+(l-this%noutput)*(this%ninput+1)
            else
-            v=this%nparams+(l-this%noutput)*(this%layers(this%nlayers-1)%nneu+1)  
+            v=this%nparams+(l-this%noutput)*(this%layers(this%nlayers-1)%nneu+1)
            endif
            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
            !!! Compute the grad of output l wrt the l-bias
-           grad(v,l)=grad(v,l)+this%layers(this%nlayers)%neu(l)%grad_act
+           grad(v,l)=this%layers(this%nlayers)%neu(l)%grad_act
            v=v-1
            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -105,7 +105,7 @@
            if(this%nlayers.eq.1)then
 
             do j=this%ninput,1,-1
-             grad(v,l)=grad(v,l)+this%layers(this%nlayers)%neu(l)%grad_act*this%inp(j)
+             grad(v,l)=this%layers(this%nlayers)%neu(l)%grad_act*this%inp(j)
              v=v-1   
             enddo
 
@@ -117,7 +117,7 @@
 
             do j=this%layers(this%nlayers-1)%nneu,1,-1
 
-             grad(v,l)=grad(v,l)+this%layers(this%nlayers-1)%neu(j)%output*this%layers(this%nlayers)%neu(l)%grad_act
+             grad(v,l)=this%layers(this%nlayers-1)%neu(j)%output*this%layers(this%nlayers)%neu(l)%grad_act
              Wmat(j)=this%layers(this%nlayers)%neu(l)%weights(j)*this%layers(this%nlayers)%neu(l)%grad_act  
              v=v-1   
 
@@ -126,12 +126,8 @@
            endif
            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-           if(this%nlayers.eq.1)then
-            v=this%nparams-this%noutput*(this%ninput+1)       
-           else
-            v=this%nparams-this%noutput*(this%layers(this%nlayers-1)%nneu+1)  
-           endif
-           
+           if(this%nlayers.gt.1) v=this%nparams-this%noutput*(this%layers(this%nlayers-1)%nneu+1)  
+
            do i=this%nlayers-1,1,-1
 
             if(i.gt.1)then
@@ -142,22 +138,22 @@
 
             do j=this%layers(i)%nneu,1,-1
 
-             grad(v,l)=grad(v,l)+Wmat(j)*this%layers(i)%neu(j)%grad_act
+             grad(v,l)=Wmat(j)*this%layers(i)%neu(j)%grad_act
              v=v-1
 
              if(i.eq.1)then
 
               do k=this%ninput,1,-1
-               grad(v,l)=grad(v,l)+Wmat(j)*this%inp(k)*this%layers(i)%neu(j)%grad_act
+               grad(v,l)=Wmat(j)*this%inp(k)*this%layers(i)%neu(j)%grad_act
                v=v-1
               enddo
 
              else
 
-              do t=this%layers(i-1)%nneu,1-1
-               grad(v,l)=grad(v,l)+Wmat(j)*this%layers(i-1)%neu(t)%output*this%layers(i)%neu(j)%grad_act
+              do t=this%layers(i-1)%nneu,1,-1
+               grad(v,l)=Wmat(j)*this%layers(i-1)%neu(t)%output*this%layers(i)%neu(j)%grad_act
                Wmat2(j,t)=this%layers(i)%neu(j)%weights(t)*this%layers(i)%neu(j)%grad_act
-               v=v-1
+              v=v-1
               enddo
 
              endif

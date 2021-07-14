@@ -239,7 +239,7 @@
           do j=1,this%ML%NN%nparams
            call random_number(vec(j))
           enddo
-          this%ML%nparams=this%ML%nparams+size(vec)
+!          this%ML%nparams=this%ML%nparams+size(vec) !??????
           call this%ML%NN%set_parameters(vec)
           if(allocated(vec)) deallocate(vec)
 
@@ -250,8 +250,8 @@
         
          subroutine map_nets(this)
          implicit none
-         class(mlmodel_trainer)                    :: this
-         integer                        :: i
+         class(mlmodel_trainer)                :: this
+         integer                               :: i
 
           do i=1,size(this%tr)
            this%tr(i)%ML => this%ML
@@ -303,11 +303,13 @@
          double precision, allocatable  :: vec(:),vec_loc(:),rij(:,:)
          double precision, allocatable  :: grad(:),grad_loc(:,:),grad2(:)
 
+
+          call this%ML%set_params(vec)
+          if(allocated(grad)) deallocate(grad)
+          allocate(grad(this%ML%nparams))
           val=0.0d0
           grad=0.0d0
 
-          call this%ML%set_params(vec)
-         
           do i=1,size(this%tr)
 
            call this%tr(i)%ML%get_grad(this%tr(i)%at_desc(1)%desc)

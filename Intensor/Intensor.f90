@@ -88,7 +88,7 @@
  !         call swarm%init_swarm(nval=model%ML%nparams,npar=25,min_val=vecmin,max_val=vecmax,fixval=fixval)
           call swarm%init_swarm(nval=model%ML%nparams,npar=25) 
 !          swarm%print_val=.true.
-          call swarm%minimize(max_iter=1000)        
+          call swarm%minimize(max_iter=100)        
           call swarm%get_best_val(vec)
           call swarm%release_target_f()
           call model%get_fval(vec,val)
@@ -101,7 +101,7 @@
 !          grad%print_val=.true.
 !          grad%print_grad=.true.
           grad%lr=1.0e-3        
-          call grad%minimize(max_iter=5000,start_iter=25000)          
+          call grad%minimize(max_iter=5000,start_iter=2500)          
           call grad%release_target_f()
 
          ! Print Results
