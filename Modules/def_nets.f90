@@ -81,18 +81,27 @@
          double precision, allocatable :: grad(:,:),Wmat(:)
          double precision, allocatable :: Wmat2(:,:),Wmat3(:)
          integer                       :: i,j,k,v,l,s,t
-                 
+        
           if(allocated(grad)) deallocate(grad)
           allocate(grad(this%nparams,this%noutput))
           grad=0.0d0
 
-          do l=1,this%noutput
+          do l=this%noutput,1,-1
 
-           v=this%nparams
-        
+           !!! Set the index v to the l-output node's params
+           if(this%nlayers.eq.1)then
+            v=this%nparams+(l-this%noutput)*(this%ninput+1)       
+           else
+            v=this%nparams+(l-this%noutput)*(this%layers(this%nlayers-1)%nneu+1)  
+           endif
+           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+           !!! Compute the grad of output l wrt the l-bias
            grad(v,l)=grad(v,l)+this%layers(this%nlayers)%neu(l)%grad_act
            v=v-1
+           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+           !!! Compute the grad of output l wrt the l-weights
            if(this%nlayers.eq.1)then
 
             do j=this%ninput,1,-1
@@ -109,14 +118,28 @@
             do j=this%layers(this%nlayers-1)%nneu,1,-1
 
              grad(v,l)=grad(v,l)+this%layers(this%nlayers-1)%neu(j)%output*this%layers(this%nlayers)%neu(l)%grad_act
-             Wmat(j)=this%layers(this%nlayers)%neu(l)%weights(j)*this%layers(this%nlayers)%neu(l)%grad_act
+             Wmat(j)=this%layers(this%nlayers)%neu(l)%weights(j)*this%layers(this%nlayers)%neu(l)%grad_act  
              v=v-1   
 
             enddo
 
            endif
+           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-           do i=this%nlayers-1,1,-1                      
+           if(this%nlayers.eq.1)then
+            v=this%nparams-this%noutput*(this%ninput+1)       
+           else
+            v=this%nparams-this%noutput*(this%layers(this%nlayers-1)%nneu+1)  
+           endif
+           
+           do i=this%nlayers-1,1,-1
+
+            if(i.gt.1)then
+             if(allocated(Wmat2)) deallocate(Wmat2)
+             allocate(Wmat2(this%layers(i)%nneu,this%layers(i-1)%nneu))
+             Wmat2=0.0d0
+            endif
+
             do j=this%layers(i)%nneu,1,-1
 
              grad(v,l)=grad(v,l)+Wmat(j)*this%layers(i)%neu(j)%grad_act
@@ -126,14 +149,10 @@
 
               do k=this%ninput,1,-1
                grad(v,l)=grad(v,l)+Wmat(j)*this%inp(k)*this%layers(i)%neu(j)%grad_act
-               v=v-1   
+               v=v-1
               enddo
 
              else
-
-              if(allocated(Wmat2)) deallocate(Wmat2)
-              allocate(Wmat2(this%layers(i)%nneu,this%layers(i-1)%nneu))
-              Wmat2=0.0d0
 
               do t=this%layers(i-1)%nneu,1-1
                grad(v,l)=grad(v,l)+Wmat(j)*this%layers(i-1)%neu(t)%output*this%layers(i)%neu(j)%grad_act
@@ -304,7 +323,6 @@
           if(allocated(grad)) deallocate(grad)
           allocate(grad(this%nparams,this%noutput))
           grad=0.0d0
-!          gradp=0.0d0
 
           do l=1,this%noutput
            v=1

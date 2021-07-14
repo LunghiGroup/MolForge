@@ -72,8 +72,8 @@
           inps=desc
 
           call this%NN%get_output(inps,loc_prop)
-          call this%NN%get_grad_nn(grad)
-!          call this%NN%backprop(grad)
+!          call this%NN%get_grad_nn(grad)
+          call this%NN%backprop(grad)
           this%output=loc_prop
           this%grad=grad          
 
