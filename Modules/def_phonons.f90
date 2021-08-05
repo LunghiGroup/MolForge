@@ -441,14 +441,14 @@
 !          enddo
          enddo
 
-!         if(mpi_id.eq.0)then 
-!          do i=1,this%ntot
-!           write(*,*) '      ',i,this%list(i)%k(:)
-!           do j=1,sys%nats*3
-!            write(*,*) '          ',j,this%list(i)%freq(j)
-!           enddo
-!          enddo
-!         endif
+         if(mpi_id.eq.0)then 
+          do i=1,1
+           write(*,*) '         ','Gamma-point Phonons'
+           do j=1,sys%nats*3
+            write(*,*) '          ',j,this%list(i)%freq(j)
+           enddo
+          enddo
+         endif
 
 !         call this%smooth_bands()        
          this%list(1)%freq(1:3)=0.0d0           
