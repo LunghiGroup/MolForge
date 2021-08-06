@@ -239,7 +239,6 @@
           do j=1,this%ML%NN%nparams
            call random_number(vec(j))
           enddo
-!          this%ML%nparams=this%ML%nparams+size(vec) !??????
           call this%ML%NN%set_parameters(vec)
           if(allocated(vec)) deallocate(vec)
 

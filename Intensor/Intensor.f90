@@ -3,11 +3,18 @@
         use particles_swarm_class
         use gradmin_class
         use mlmodel_trainer_class
+        use sh_mlmodel_trainer_class
         use general_types_class 
         implicit none
         integer                         :: i,j
         integer                         :: t1,t2,rate
         integer                         :: t1_tot,t2_tot,rate_tot
+
+        type sh_interpolator
+         type(sh_mlmodel_trainer), pointer  :: model
+         type(particles_swarm)           :: swarm
+         type(adam)                      :: grad
+        end type sh_interpolator
 
         type(particles_swarm)           :: swarm
         type(adam)                      :: grad

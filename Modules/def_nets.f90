@@ -27,6 +27,7 @@
           integer                        :: noutput
           type(layer), allocatable       :: layers(:) 
           double precision, allocatable  :: inp(:)
+          double precision, allocatable  :: gradinp(:,:)
           double precision, allocatable  :: mean_inp(:),sigma_inp(:)
           logical                        :: norm_inp=.false.
           contains
@@ -34,6 +35,7 @@
           procedure :: get_grad_nn
           procedure :: get_grad_weights
           procedure :: get_grad_bias
+          procedure :: get_gradinp
           procedure :: backprop
           procedure :: set_topology
           procedure :: set_parameters
@@ -75,6 +77,74 @@
          return
          end subroutine get_output
 
+         subroutine get_gradinp(this)
+         implicit none
+         class(net)                    :: this
+         double precision, allocatable :: Wmat(:)
+         double precision, allocatable :: Wmat2(:,:),Wmat3(:)
+         integer                       :: i,j,k,v,l,s,t
+        
+          if(allocated(this%gradinp)) deallocate(this%gradinp)
+          allocate(this%gradinp(this%ninput,this%noutput))
+          this%gradinp=0.0d0
+
+          do l=this%noutput,1,-1
+
+           if(this%nlayers.gt.1)then
+
+            if(allocated(Wmat)) deallocate(Wmat)
+            allocate(Wmat(this%layers(this%nlayers-1)%nneu))
+            Wmat=0.0d0
+
+            do j=this%layers(this%nlayers-1)%nneu,1,-1
+             Wmat(j)=this%layers(this%nlayers)%neu(l)%weights(j)*this%layers(this%nlayers)%neu(l)%grad_act  
+            enddo
+
+           endif
+
+           do i=this%nlayers-1,1,-1
+
+            if(i.gt.1)then
+             if(allocated(Wmat2)) deallocate(Wmat2)
+             allocate(Wmat2(this%layers(i)%nneu,this%layers(i-1)%nneu))
+             Wmat2=0.0d0
+            endif
+
+            do j=this%layers(i)%nneu,1,-1
+
+             if(i.eq.1)then
+              do k=this%ninput,1,-1
+               this%gradinp(k,l)=Wmat(j)*this%layers(i)%neu(j)%weights(k)*this%layers(i)%neu(j)%grad_act
+              enddo
+             else
+              do t=this%layers(i-1)%nneu,1,-1
+               Wmat2(j,t)=this%layers(i)%neu(j)%weights(t)*this%layers(i)%neu(j)%grad_act
+              enddo
+             endif
+
+            enddo ! j nodes
+
+            if(i.gt.1)then
+             if(allocated(Wmat3)) deallocate(Wmat3)
+             allocate(Wmat3(this%layers(i-1)%nneu))
+             Wmat3=0.0d0
+             Wmat3=matmul(Wmat,Wmat2)
+             deallocate(Wmat) 
+             allocate(Wmat(this%layers(i-1)%nneu))
+             Wmat=Wmat3            
+            endif
+
+           enddo ! i innerlayers                    
+
+          enddo ! l outputs
+
+          if(allocated(Wmat)) deallocate(Wmat)
+          if(allocated(Wmat2)) deallocate(Wmat2)
+          if(allocated(Wmat3)) deallocate(Wmat3)
+
+         return
+         end subroutine get_gradinp
+
          subroutine backprop(this,grad)
          implicit none
          class(net)                    :: this
@@ -85,6 +155,10 @@
           if(allocated(grad)) deallocate(grad)
           allocate(grad(this%nparams,this%noutput))
           grad=0.0d0
+
+          if(allocated(this%gradinp)) deallocate(this%gradinp)
+          allocate(this%gradinp(this%ninput,this%noutput))
+          this%gradinp=0.0d0
 
           do l=this%noutput,1,-1
 
@@ -145,6 +219,7 @@
 
               do k=this%ninput,1,-1
                grad(v,l)=Wmat(j)*this%inp(k)*this%layers(i)%neu(j)%grad_act
+               this%gradinp(k,l)=Wmat(j)*this%layers(i)%neu(j)%weights(k)*this%layers(i)%neu(j)%grad_act
                v=v-1
               enddo
 
