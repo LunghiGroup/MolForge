@@ -7,7 +7,7 @@
           double precision               :: bias
           double precision               :: output
           double precision               :: grad_act
-          character(len=10)              :: activ='relu'
+          character(len=10)              :: activ='sigma'
           contains 
           procedure                      :: get_activity
          end type neuron
@@ -20,7 +20,7 @@
          end type layer
 
          type net
-          integer                        :: nlayers 
+          integer                        :: nlayers     !! tot layers, including output one
           integer                        :: nneu
           integer                        :: nparams
           integer                        :: ninput
@@ -41,7 +41,6 @@
           procedure :: set_parameters
           procedure :: get_parameters
          end type net
-
 
          contains
 
@@ -228,7 +227,7 @@
               do t=this%layers(i-1)%nneu,1,-1
                grad(v,l)=Wmat(j)*this%layers(i-1)%neu(t)%output*this%layers(i)%neu(j)%grad_act
                Wmat2(j,t)=this%layers(i)%neu(j)%weights(t)*this%layers(i)%neu(j)%grad_act
-              v=v-1
+               v=v-1
               enddo
 
              endif
@@ -323,6 +322,7 @@
           enddo
 
           call this%layers(1)%set_nodes(nodes(1),this%ninput) 
+
           do i=2,layers
            call this%layers(i)%set_nodes(nodes(i),nodes(i-1)) 
            ! add keyword in arguments to set activ type
@@ -331,7 +331,6 @@
           do i=1,this%noutput
            this%layers(this%nlayers)%neu(i)%activ='none'
           enddo
-
 
          return
          end  subroutine set_topology

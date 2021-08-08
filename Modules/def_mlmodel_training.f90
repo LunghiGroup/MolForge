@@ -39,7 +39,7 @@
            call this%tr(i)%ML%get_output(this%tr(i)%at_desc(1)%desc)           
            if(this%ML%norm_out)then
             this%tr_val(i,:)=this%tr_val(i,:)*this%ML%sigma_out+this%ML%mean_out
-            this%tr(i)%ML%output=this%tr(i)%ML%output*this%ML%sigma_out+this%ML%mean_out           
+            this%tr(i)%ML%output=this%tr(i)%ML%output*this%ML%sigma_out+this%ML%mean_out    
            endif
            write(13,*) this%tr_val(i,:),this%tr(i)%ML%output
           enddo

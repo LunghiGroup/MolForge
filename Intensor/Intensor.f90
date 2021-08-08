@@ -10,15 +10,9 @@
         integer                         :: t1,t2,rate
         integer                         :: t1_tot,t2_tot,rate_tot
 
-        type sh_interpolator
-         type(sh_mlmodel_trainer), pointer  :: model
-         type(particles_swarm)           :: swarm
-         type(adam)                      :: grad
-        end type sh_interpolator
-
         type(particles_swarm)           :: swarm
         type(adam)                      :: grad
-        type(mlmodel_trainer), pointer  :: model
+        type(sh_mlmodel_trainer), pointer  :: model
 
         integer                         :: ninp,nlayers
         type(vector_int)                :: topo
@@ -30,6 +24,10 @@
 
         double precision, allocatable   :: L2val(:)
         integer, allocatable            :: L2id(:)
+
+        double precision, allocatable   :: geo0(:)
+        integer                         :: nats,v
+        character(len=4)                :: label
 
           call system_clock(t1_tot,rate_tot)
 
@@ -95,7 +93,7 @@
  !         call swarm%init_swarm(nval=model%ML%nparams,npar=25,min_val=vecmin,max_val=vecmax,fixval=fixval)
           call swarm%init_swarm(nval=model%ML%nparams,npar=25) 
 !          swarm%print_val=.true.
-          call swarm%minimize(max_iter=100)        
+          call swarm%minimize(max_iter=200)        
           call swarm%get_best_val(vec)
           call swarm%release_target_f()
           call model%get_fval(vec,val)
@@ -108,12 +106,26 @@
 !          grad%print_val=.true.
 !          grad%print_grad=.true.
           grad%lr=1.0e-3        
-          call grad%minimize(max_iter=5000,start_iter=2500)          
+          call grad%minimize(max_iter=5000,start_iter=5000)          
           call grad%release_target_f()
 
          ! Print Results
 
           call model%out_results()
+
+          open(13,file='geo_0.xyz')
+          read(13,*) nats          
+          read(13,*)
+          allocate(geo0(3*nats))
+
+          v=0
+          do i=1,nats
+           read(13,*) label,geo0(v+1),geo0(v+2),geo0(v+3)
+           v=v+3
+          enddo
+
+          call model%get_sph_1(vec0=geo0,step=0.0025d0)
+          call model%get_sph_2(vec0=geo0,step=0.0025d0)
 
           call system_clock(t2_tot)
           write(*,*) 'Intensor Simulation Concluded'

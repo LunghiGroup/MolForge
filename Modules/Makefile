@@ -215,7 +215,7 @@ def_ff_training.f90 : def_nets.o def_function.o def_atoms.o def_general_types.o 
 
 def_mlmodel_training.f90 : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_mlmodel.o
 
-def_sh_mlmodel_training.f90 : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_mlmodel.o def_mlmodel_training.o def_sh_mlmodel_training.o
+def_sh_mlmodel_training.f90 : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_mlmodel.o def_mlmodel_training.o 
 
 def_spinham_map.f90 : def_lapack.o def_angmom.o def_stevens.o def_swarm.o def_orthonorm.o def_hilbert_dist.o 
 

@@ -49,8 +49,6 @@
 
           this%output=loc_prop
 
-!          if(this%norm_out) this%output=this%sigma_out*this%output+this%mean_out
-
          return
          end subroutine get_model_output
 
@@ -73,12 +71,9 @@
           inps=desc
 
           call this%NN%get_output(inps,loc_prop)
-!          call this%NN%get_grad_nn(grad)
           call this%NN%backprop(grad)
           this%output=loc_prop
           this%grad=grad          
-
-!          if(this%norm_out) this%output=this%sigma_out*this%output+this%mean_out
 
          return
          end subroutine get_model_grad
