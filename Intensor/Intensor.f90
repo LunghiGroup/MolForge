@@ -125,7 +125,7 @@
           enddo
 
           call model%get_sph_1(vec0=geo0,step=0.0025d0)
-          call model%get_sph_2(vec0=geo0,step=0.0025d0)
+!          call model%get_sph_2(vec0=geo0,step=0.0025d0)
 
           call system_clock(t2_tot)
           write(*,*) 'Intensor Simulation Concluded'
