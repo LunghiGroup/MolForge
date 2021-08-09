@@ -7,7 +7,7 @@
           double precision               :: bias
           double precision               :: output
           double precision               :: grad_act
-          character(len=10)              :: activ='sigma'
+          character(len=10)              :: activ='relu'
           contains 
           procedure                      :: get_activity
          end type neuron

@@ -125,10 +125,10 @@ def_swarm.o : def_function.o def_random_numbers.o def_swarm.f90
 def_ff_training.o : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_forcefields.o def_ff_training.f90
 	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
 
-def_mlmodel_training.o : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_mlmodel.o def_mlmodel_training.f90
+def_mlmodel_training.o : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_mlmodel.o def_descriptors.o def_mlmodel_training.f90
 	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
 
-def_sh_mlmodel_training.o : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_mlmodel.o def_mlmodel_training.o def_sh_mlmodel_training.f90 
+def_sh_mlmodel_training.o : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_descriptors.o def_mlmodel.o def_mlmodel_training.o def_sh_mlmodel_training.f90 
 	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
 
 def_spinham_map.o : def_lapack.o def_angmom.o def_stevens.o def_swarm.o def_orthonorm.o def_hilbert_dist.o def_spinham_map.f90
@@ -213,9 +213,9 @@ def_swarm.f90 : def_function.o def_random_numbers.o
 
 def_ff_training.f90 : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_forcefields.o
 
-def_mlmodel_training.f90 : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_mlmodel.o
+def_mlmodel_training.f90 : def_nets.o def_function.o def_atoms.o def_general_types.o def_descriptors.o def_random_numbers.o def_mlmodel.o
 
-def_sh_mlmodel_training.f90 : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_mlmodel.o def_mlmodel_training.o 
+def_sh_mlmodel_training.f90 : def_nets.o def_function.o def_atoms.o def_general_types.o def_random_numbers.o def_descriptors.o def_mlmodel.o def_mlmodel_training.o 
 
 def_spinham_map.f90 : def_lapack.o def_angmom.o def_stevens.o def_swarm.o def_orthonorm.o def_hilbert_dist.o 
 

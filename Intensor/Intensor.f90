@@ -13,6 +13,7 @@
         type(particles_swarm)           :: swarm
         type(adam)                      :: grad
         type(sh_mlmodel_trainer), pointer  :: model
+!        type(mlmodel_trainer), pointer  :: model
 
         integer                         :: ninp,nlayers
         type(vector_int)                :: topo
@@ -76,6 +77,9 @@
 !          call model%set_L2(L2id=L2id,L2val=L2val)
 
 !          call model%set_L2(L2=0.00001d0)
+
+          call model%set_reference(filename='geo0.xyz')
+          call model%set_rot()
           call model%std_sets()
 
           call system_clock(t2)
@@ -124,8 +128,8 @@
            v=v+3
           enddo
 
-          call model%get_sph_1(vec0=geo0,step=0.0025d0)
-!          call model%get_sph_2(vec0=geo0,step=0.0025d0)
+          call model%get_sph_1(vec0=geo0,step=0.005d0)
+          call model%get_sph_2(vec0=geo0,step=0.005d0)
 
           call system_clock(t2_tot)
           write(*,*) 'Intensor Simulation Concluded'
