@@ -21,6 +21,7 @@
  mpif90 -g -O2 -c def_bispectrum.f90
  mpif90 -g -O2 -c def_descriptors.f90
  mpif90 -g -O2 -c def_forcefields.f90
+ mpif90 -g -O2 -c def_mlmodel.f90
  mpif90 -g -O2 -c def_lattice.f90        
  mpif90 -g -O2 -c def_atoms.f90   
  mpif90 -g -O2 -fcheck=all -c def_proj_disp.f90      
@@ -36,6 +37,7 @@
  mpif90 -g -O2 -c def_function.f90
  mpif90 -g -O2 -c def_grad.f90
  mpif90 -g -O2 -c def_swarm.f90
+ mpif90 -g -O2 -c def_mlmodel_training.f90
  mpif90 -g -O2 -c def_ff_training.f90
  mpif90 -g -O2 -c def_spinham_map.f90  
 

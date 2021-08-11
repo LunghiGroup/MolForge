@@ -82,9 +82,9 @@
 
           iter=1
 
-          do while (iter.le.this%max_iter)          
+          do while (iter.le.this%max_iter)
 
-           call this%target_f%get_fgrad(this%val,this%ener,this%grad) 
+           call this%target_f%get_fgrad(this%val,this%ener,this%grad)
 
            gradnorm=0.0d0
            do i=1,size(this%grad)

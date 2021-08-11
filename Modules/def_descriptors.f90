@@ -4,8 +4,8 @@
 
          type descriptor 
           double precision, allocatable :: desc(:)
-          double precision              :: rot(3,3)
           integer                       :: size_desc
+          double precision              :: rot(3,3)
          end type descriptor
 
          type, extends(descriptor) :: coul_mat
