@@ -42,6 +42,7 @@
 
          character(len=100)            :: fc2_file,fc3_file
          double precision              :: max_phonon_ener=4000
+         double precision              :: min_phonon_ener=0.0d0
          double precision              :: euler(3)=0.0d0
 
         contains
@@ -76,6 +77,7 @@
          call mpi_bcast(s2print,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(dist_max,1,mpi_double_precision,0,mpi_comm_world,err)
          call mpi_bcast(max_phonon_ener,1,mpi_double_precision,0,mpi_comm_world,err)
+         call mpi_bcast(min_phonon_ener,1,mpi_double_precision,0,mpi_comm_world,err)
          call mpi_bcast(fc2_file,100,mpi_character,0,mpi_comm_world,err)
          call mpi_bcast(fc3_file,100,mpi_character,0,mpi_comm_world,err)
 
@@ -333,12 +335,12 @@
            if(spindy%make_Rmat .or. spindy%make_R2mat) then
             if(spindy%make_SA) then
              if(spindy%make_PT2)then
-               call spindy%make_R2(lattice,phondy,step_min,step_nmult,max_phonon_ener,euler)
+               call spindy%make_R2(lattice,phondy,step_min,step_nmult,max_phonon_ener,min_phonon_ener,euler)
               else
-               call spindy%make_R(lattice,phondy,step_min,step_nmult,max_phonon_ener,euler)
+               call spindy%make_R(lattice,phondy,step_min,step_nmult,max_phonon_ener,min_phonon_ener,euler)
              endif
             else
-             call spindy%make_RL(lattice,phondy,step_min,step_nmult,max_phonon_ener,euler)
+             call spindy%make_RL(lattice,phondy,step_min,step_nmult,max_phonon_ener,min_phonon_ener,euler)
             endif
            endif
 

@@ -256,7 +256,7 @@
         return
         end subroutine get_ph_lt
 
-        subroutine make_R02L_H(this,sys,phondy,step_min,mult_fact,max_ener,R0,euler)
+        subroutine make_R02L_H(this,sys,phondy,step_min,mult_fact,max_ener,min_ener,R0,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -276,7 +276,7 @@
         type(dist_cmplx_mat)         :: AA,BB,CC
         type(dist_cmplx_mat)         :: R0,R0inv
         double precision             :: Gf,DEner,step_min,coeff(3),DEner2
-        double precision             :: val,norm,max_ener,avg_sph,val2
+        double precision             :: val,norm,max_ener,avg_sph,val2,min_ener
         double precision             :: euler(3)
         complex(8)                   :: valc,nodiag_sum,diag_sum,kcons,valc2
         complex(8), allocatable      :: Vmat(:,:)
@@ -356,8 +356,8 @@
 
            if (ph.eq.1 .and. bn.le.3) cycle
            if (ph2.eq.1 .and. bn2.le.3) cycle
-           if (phondy%list(ph)%freq(bn).lt.0.0d0) cycle
-           if (phondy%list(ph2)%freq(bn2).lt.0.0d0) cycle
+           if (phondy%list(ph)%freq(bn).lt.min_ener) cycle
+           if (phondy%list(ph2)%freq(bn2).lt.min_ener) cycle
            if (phondy%list(ph)%freq(bn).gt.max_ener) cycle
            if (phondy%list(ph2)%freq(bn2).gt.max_ener) cycle
            DEner=abs(phondy%list(ph)%freq(bn)-phondy%list(ph2)%freq(bn2))
@@ -742,7 +742,7 @@
         return
         end subroutine make_R02L_H
 
-        subroutine make_R01L_H(this,sys,phondy,step_min,mult_fact,max_ener,R0,euler)
+        subroutine make_R01L_H(this,sys,phondy,step_min,mult_fact,max_ener,min_ener,R0,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -762,7 +762,7 @@
         type(dist_cmplx_mat)         :: AA,BB,CC
         type(dist_cmplx_mat)         :: R0,R0inv
         double precision             :: Gf,DEner,step_min,coeff(3)
-        double precision             :: val,norm,max_ener,avg_sph,val2,alpha,beta,gamma
+        double precision             :: val,norm,max_ener,avg_sph,val2,alpha,beta,gamma,min_ener
         complex(8)                   :: valc,nodiag_sum,diag_sum,kcons,valc2,kcons2
         complex(8), allocatable      :: Vmat(:,:)
         double precision             :: euler(3)
@@ -823,7 +823,7 @@
       ! check spectrum overlap
 
            if (ph.eq.1 .and. bn.le.3) cycle
-           if (phondy%list(ph)%freq(bn).lt.0.0d0) cycle
+           if (phondy%list(ph)%freq(bn).lt.min_ener) cycle
            if (phondy%list(ph)%freq(bn).gt.max_ener) cycle
 !           if (this%dos2pm%get_val(phondy%list(ph)%freq(bn)).lt.1.0d-6) cycle
 
@@ -1192,7 +1192,7 @@
         return
         end subroutine make_R01L_H
 
-        subroutine make_RL_H(this,sys,phondy,step_min,mult_fact,max_ener,euler)
+        subroutine make_RL_H(this,sys,phondy,step_min,mult_fact,max_ener,min_ener,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -1212,7 +1212,7 @@
         type(dist_cmplx_mat)          :: AA,BB,CC
         type(dist_cmplx_mat)          :: R0,R0inv,R02
         double precision              :: Gf,DEner,step_min,coeff(3)
-        double precision              :: val,norm,max_ener,avg_sph,val2
+        double precision              :: val,norm,max_ener,avg_sph,val2,min_ener
         double precision, allocatable :: rates(:)
         double precision              :: euler(3)
         complex(8)                    :: valc,nodiag_sum,diag_sum,kcons,valc2
@@ -1241,9 +1241,9 @@
          call R0%set(this%Ldim,this%Ldim,NB,MB)
          R0%mat=(0.0d0,0.0d0)
 
-         if(this%make_Rmat) call this%make_R01L(sys,phondy,step_min,mult_fact,max_ener,R0,euler)
+         if(this%make_Rmat) call this%make_R01L(sys,phondy,step_min,mult_fact,max_ener,min_ener,R0,euler)
          if(this%make_R2mat)then
-          call this%make_R02L(sys,phondy,step_min,mult_fact,max_ener,R02,euler)
+          call this%make_R02L(sys,phondy,step_min,mult_fact,max_ener,min_ener,R02,euler)
           R0%mat=R0%mat+R02%mat
           call R02%dealloc()
          endif       
@@ -1310,7 +1310,7 @@
         return
         end subroutine make_RL_H
 
-        subroutine make_R_H(this,sys,phondy,step_min,mult_fact,max_ener,euler)
+        subroutine make_R_H(this,sys,phondy,step_min,mult_fact,max_ener,min_ener,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -1330,7 +1330,7 @@
         type(dist_dbl_mat)            :: R0,R0inv
         double precision              :: Gf,DEner,step_min,coeff(3)
         double precision              :: alpha,beta,gamma
-        double precision              :: val,norm,max_ener,avg_sph,Gp,Gm
+        double precision              :: val,norm,max_ener,avg_sph,Gp,Gm,min_ener
         complex(8),allocatable        :: Vii(:)
         double precision, allocatable :: rates(:)
         double precision              :: euler(3)
@@ -1391,7 +1391,7 @@
       ! check spectrum overlap
 
            if (ph.eq.1 .and. bn.le.3) cycle
-           if (phondy%list(ph)%freq(bn).lt.0.0d0) cycle
+           if (phondy%list(ph)%freq(bn).lt.min_ener) cycle
            if (phondy%list(ph)%freq(bn).gt.max_ener) cycle
 !           if (this%dos2pm%get_val(phondy%list(ph)%freq(bn)).lt.1.0d-6) cycle
 
@@ -1751,7 +1751,7 @@
         return
         end subroutine make_R_H
 
-        subroutine make_R2_H(this,sys,phondy,step_min,mult_fact,max_ener,euler)
+        subroutine make_R2_H(this,sys,phondy,step_min,mult_fact,max_ener,min_ener,euler)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -1770,7 +1770,7 @@
         type(dist_cmplx_mat)          :: AA,BB,CC,AA2
         type(dist_dbl_mat)            :: R0,R0inv
         double precision              :: Gf,DEner,DEner2,step_min,coeff(3)
-        double precision              :: val,norm,max_ener,avg_sph,Gpp,Gmm,Gpm,Gmp
+        double precision              :: val,norm,max_ener,avg_sph,Gpp,Gmm,Gpm,Gmp,min_ener
         double precision, allocatable :: rates(:)
         double precision              :: euler(3)
         complex(8),allocatable        :: Vii(:),R0mtmp(:),R0ptmp(:)
@@ -1845,8 +1845,8 @@
 
            if (ph.eq.1 .and. bn.le.3) cycle
            if (ph2.eq.1 .and. bn2.le.3) cycle
-           if (phondy%list(ph)%freq(bn).lt.0.0d0) cycle
-           if (phondy%list(ph2)%freq(bn2).lt.0.0d0) cycle
+           if (phondy%list(ph)%freq(bn).lt.min_ener) cycle
+           if (phondy%list(ph2)%freq(bn2).lt.min_ener) cycle
            if (phondy%list(ph)%freq(bn).gt.max_ener) cycle
            if (phondy%list(ph2)%freq(bn2).gt.max_ener) cycle
 

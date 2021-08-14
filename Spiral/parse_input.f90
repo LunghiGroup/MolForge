@@ -668,6 +668,10 @@
             call get_word(line,word,2)
             read(word,*)  max_phonon_ener
 
+           case('MIN_ENER')
+            call get_word(line,word,2)
+            read(word,*)  min_phonon_ener
+
            case('EFFECTIVE_LT')
             phondy%effective_lt=.true.
             write(*,*) 'Effective phonon linewidth on'
