@@ -98,8 +98,8 @@
          enddo   
 
          write(15,*) nats
-         writE(15,*) 
-         do i=1,nats
+         writE(15,*) mol%rot(:,1),mol%rot(:,2),mol%rot(:,3)
+         do i=1,nats 
           write(15,*) label(i),(mol%cart_rot(i,s),s=1,3)
          enddo       
 
