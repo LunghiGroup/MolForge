@@ -1,6 +1,6 @@
 #! /bin/bash
  
- export CF_DIR=XXXSETDIRXXX
+ export CF_DIR=XXXSETDIRXXX/bin
  export orca_output=$1
  export Nj=$2
  export lmax=$3
