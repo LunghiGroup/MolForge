@@ -31,7 +31,7 @@ export MOLFORGE_INC_FLAG = -I$(MOLFORGE_INC_DIR)
 export MOLFORGE_LINK_FLAG = -L$(MOLFORGE_LIB_DIR) $(MOLFORGE_LIBS)
 
 
-all : libMolForge Spiral PhonDy Tools
+all : libMolForge Spiral PhonDy Tools Intensor
 
 
 libMolForge :
