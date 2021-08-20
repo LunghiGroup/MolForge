@@ -120,6 +120,7 @@
          integer, optional             :: max_iter,start_iter
          double precision              :: gradnorm
          double precision, allocatable :: gradres(:),gradres2(:)
+         integer t1,rate,t2
 
           iter0=0
           if(present(start_iter)) iter0=start_iter
@@ -136,6 +137,8 @@
           iter=1
 
           do while (iter.le.this%max_iter)          
+
+           call system_clock(t1,rate)
            
            call this%target_f%get_fgrad(this%val,this%ener,this%grad)
 
@@ -151,7 +154,9 @@
            if(this%print_val) write(this%print_val_io,*) this%val
            if(this%print_grad) write(this%print_grad_io,*) this%grad
 
-           write(*,*) 'Grad Iter: ',iter+iter0,sqrt(gradnorm/size(this%grad)),this%ener
+           call system_clock(t2)
+
+           write(*,*) 'Grad Iter: ',iter+iter0,sqrt(gradnorm/size(this%grad)),this%ener,real(t2-t1)/real(rate)
 
            if(allocated(this%loc_lr))then
             this%val=this%val-this%lr*(gradres/(1-this%beta1**(iter+1)))& 

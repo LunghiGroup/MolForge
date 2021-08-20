@@ -302,7 +302,6 @@
          double precision, allocatable  :: vec(:),vec_loc(:),rij(:,:)
          double precision, allocatable  :: grad(:),grad_loc(:,:),grad2(:)
 
-
           call this%ML%set_params(vec)
           if(allocated(grad)) deallocate(grad)
           allocate(grad(this%ML%nparams))
@@ -340,6 +339,7 @@
           endif
 
           val=sqrt(val)
+
 
          return
          end subroutine get_chi2_grad
