@@ -1769,13 +1769,13 @@
         class(atoms_group)            :: sys
         type(dist_cmplx_mat)          :: AA,BB,CC,AA2
         type(dist_dbl_mat)            :: R0,R0inv
-        double precision              :: Gf,DEner,DEner2,step_min,coeff(3)
+        double precision              :: Gf,DEner,DEner2,step_min,coeff(3),DEner1
         double precision              :: val,norm,max_ener,avg_sph,Gpp,Gmm,Gpm,Gmp,min_ener
         double precision, allocatable :: rates(:)
         double precision              :: euler(3)
-        complex(8),allocatable        :: Vii(:),R0mtmp(:),R0ptmp(:)
+        complex(8),allocatable        :: Vii(:)
         complex(8)                    :: valc,nodiag_sum,diag_sum,kcons
-        complex(8)                    :: R0p,R0m
+        complex(8)                    :: R0pp,R0mm,R0pm
         integer                       :: ph,bn,ii,jj,l,l2,size_block,i1,ii_1,i       
         integer                       :: k,ia,ib,ka,kb,nphonons,v,spin_id,spin_id2
         integer                       :: l3,l4,kk1,kk2,bn2,ph2,phx,ic,id,kc,kd
@@ -1796,9 +1796,6 @@
           write(*,*) '     The diagonal approximation to the secular Redfield equations will be used'
           flush(6)
          endif
-
-!         allocate(R0mtmp(this%Hdim))
-!         allocate(R0ptmp(this%Hdim))
 
          call R0%set(this%Hdim,this%Hdim,NB,MB)
          R0%mat=0.0d0
@@ -1840,6 +1837,7 @@
 
           do bn=1,size(phondy%list(ph)%freq)
           do bn2=1,size(phondy%list(ph2)%freq)
+
 
       ! check spectrum overlap
 
@@ -1923,7 +1921,7 @@
             endif           
 
             if(this%make_Heig)then
-            call this%to_eigenbasis(AA2)
+             call this%to_eigenbasis(AA2)
             endif
                       
             do l=1,this%Hdim
@@ -1931,6 +1929,7 @@
             enddo
  
        ! Make Rij
+
 
             do ii=1,size(R0%mat,1)
              do jj=1,size(R0%mat,2)
@@ -1954,10 +1953,9 @@
                endif
               enddo
 
-              R0p=(0.0d0,0.0d0)
-              R0m=(0.0d0,0.0d0)
-!              R0mtmp=(0.0d0,0.0d0)
-!              R0ptmp=(0.0d0,0.0d0)
+              R0pp=(0.0d0,0.0d0)
+              R0mm=(0.0d0,0.0d0)
+              R0pm=(0.0d0,0.0d0)
  
               do kk1=1,size(R0%mat,1)
                do kk2=1,size(R0%mat,2)
@@ -1982,119 +1980,48 @@
                    exit
                   endif
                  enddo
-              
+                               
 
-                 if(this%ener(kc)%v(ic).gt.this%Ener(kb)%v(ib))then  
-                  R0m=R0m+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+                 R0pm=R0pm+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
                    /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph2)%freq(bn2)&
-                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
 
-!                  R0mtmp(ic)=AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
-!                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph2)%freq(bn2)&
-!                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
-                 else
-                  R0p=R0p+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+                 R0pm=R0pm+AA2%mat(ii,kk2)*AA%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph)%freq(bn)&
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
+
+                
+                 R0pp=R0pp+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
                    /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2)&
-                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
 
-!                  R0ptmp(ic)=AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
-!                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2)&
-!                        +cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
-                 endif
+                  R0mm=R0mm+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph)%freq(bn)&
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
 
                 endif              
 
                enddo ! kk1
               enddo ! kk2
-              
-              Gf=0.0d0 
-              Gmp=0.0d0
-              Gpp=0.0d0
+                
+              DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
+              Gf=bose(temp(1),phondy%list(ph2)%Freq(bn2))*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
+                 delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+             
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pm*conjg(R0pm))*Gf
 
-              if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib) .and. &
-                 phondy%list(ph2)%freq(bn2).gt.phondy%list(ph)%freq(bn)  )then
-                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
-                  Gf=bose(temp(1),phondy%list(ph2)%Freq(bn2))*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
-                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-!                  Gmp=Gf
-              endif
+              DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
+              Gf=bose(temp(1),phondy%list(ph2)%Freq(bn2))*bose(temp(1),phondy%list(ph)%Freq(bn))*&
+                 delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+             
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf
 
-              if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib) .and. &
-                 phondy%list(ph2)%freq(bn2).lt.phondy%list(ph)%freq(bn)  )then  
-                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
-                  Gf=Gf+bose(temp(1),phondy%list(ph2)%Freq(bn2))*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
-                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gmp=Gf
-              endif
-
-              if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib))then
-                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
-                  Gf=Gf+bose(temp(1),phondy%list(ph2)%Freq(bn2))*bose(temp(1),phondy%list(ph)%Freq(bn))*&
-                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gpp=Gf-Gmp
-              endif
-
-              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0m*conjg(R0m))*Gf
+              DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
+              Gf=(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
+                 delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+             
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf
         
- !             if(Gf.gt.1.0d-8)then
-!               if(ii.eq.1 .and. jj.eq.2)then
-!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
-!                do kk1=1,this%Hdim
-!                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
-!                enddo
-!               endif
-!               if(ii.eq.2 .and. jj.eq.1)then
-!               write(*,*) ii,jj,'-+,++',Gmp,Gpp,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
-!               do kk1=1,this%Hdim
-!                write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
-!               enddo
-!               endif
-!              endif
-
-              Gf=0.0d0
-              Gpm=0.0d0
-              Gmm=0.0d0
- 
-              if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib))then
-                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
-                  Gf=(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
-                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gmm=Gf
-              endif
-
-              if(this%ener(ka)%v(ia).lt.this%Ener(kb)%v(ib) .and. &
-                 phondy%list(ph2)%freq(bn2).gt.phondy%list(ph)%freq(bn)  )then  
-                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
-                  Gf=Gf+(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*bose(temp(1),phondy%list(ph)%Freq(bn))*&
-                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gpm=Gf-Gmm
-              endif
-
-              if(this%ener(ka)%v(ia).gt.this%Ener(kb)%v(ib) .and. &
-                 phondy%list(ph2)%freq(bn2).lt.phondy%list(ph)%freq(bn)  )then  
-                  DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
-                  Gf=Gf+(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*bose(temp(1),phondy%list(ph)%Freq(bn))*&
-                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                  Gpm=Gf-Gmm
-              endif
- 
-              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0p*conjg(R0p))*Gf
-
-!              if(Gf.gt.1.0d-8)then
-!               if(ii.eq.1 .and. jj.eq.2)then
-!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
-!                do kk1=1,this%Hdim
-!                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
-!                enddo
-!               endif
-!               if(ii.eq.2 .and. jj.eq.1)then
-!                write(*,*) ii,jj,'--,+-',Gmm,Gpm,phondy%list(ph)%freq(bn),phondy%list(ph2)%freq(bn2)
-!                do kk1=1,this%Hdim
-!                 write(*,*) '-','+',kk1,dble(conjg(R0mtmp(kk1))*R0mtmp(kk1)),dble(conjg(R0ptmp(kk1))*R0ptmp(kk1))
-!                enddo
-!               endif
-!              endif
-
              enddo ! jj
             enddo ! ii
 
@@ -2199,6 +2126,15 @@
          BB%mat=AA%mat
          call pzgeinv(this%Hdim,BB)
 
+         !!!!! Lapack version
+
+!         AA%mat=cmplx(R0%mat,0.0d0,8)
+!         call new_diag2(this%Hdim,AA%mat,this%Rval)
+!         BB%mat=AA%mat
+!         call mat_inv(BB%mat,this%Hdim) 
+
+         !!!!!
+
          if(mpi_id.eq.0) open(15,file='Reig.dat')
          do l=1,this%Hdim
           do l2=1,this%Hdim         
@@ -2209,15 +2145,6 @@
          enddo
          if(mpi_id.eq.0) close(15)
 
-
-         !!!!! Lapack version
-
-!         AA%mat=cmplx(R0%mat,0.0d0,8)
-!         call new_diag2(this%Hdim,AA%mat,this%Rval)
-!         BB%mat=AA%mat
-!         call mat_inv(BB%mat,this%Hdim) 
-
-         !!!!!
 
          call CC%set(this%Hdim,this%Hdim,NB,MB)
          CC%mat=(0.0d0,0.0d0)
