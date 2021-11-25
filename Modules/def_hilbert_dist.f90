@@ -1838,7 +1838,6 @@
           do bn=1,size(phondy%list(ph)%freq)
           do bn2=1,size(phondy%list(ph2)%freq)
 
-
       ! check spectrum overlap
 
            if (ph.eq.1 .and. bn.le.3) cycle
@@ -2020,13 +2019,21 @@
               Gf=bose(temp(1),phondy%list(ph2)%Freq(bn2))*bose(temp(1),phondy%list(ph)%Freq(bn))*&
                  delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
              
-              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf
+              if(ph.eq.ph2 .and. bn.eq.bn2)then
+               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf
+              else
+               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf/2.0d0
+              endif
 
               DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
               Gf=(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
                  delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
              
-              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf
+              if(ph.eq.ph2 .and. bn.eq.bn2)then
+               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf
+              else
+               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf/2.0d0
+              endif
         
              enddo ! jj
             enddo ! ii
