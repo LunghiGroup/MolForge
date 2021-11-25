@@ -1980,24 +1980,30 @@
                    exit
                   endif
                  enddo
-                               
-
-                 R0pm=R0pm+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
-                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph2)%freq(bn2)&
-                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
-
-                 R0pm=R0pm+AA2%mat(ii,kk2)*AA%mat(kk1,jj)&
-                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph)%freq(bn)&
-                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
-
                 
-                 R0pp=R0pp+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
-                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2)&
+                  R0pm=R0pm+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph2)%freq(bn2) &
                         -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
 
+                  R0pm=R0pm+AA2%mat(ii,kk2)*AA%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph)%freq(bn) &
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph)%width(bn,1))
+                
+                  R0pp=R0pp+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2) &
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1)
+
+                  R0pp=R0pp+AA2%mat(ii,kk2)*AA%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph)%freq(bn)  &
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph)%width(bn,1))
+                                        
                   R0mm=R0mm+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
-                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph)%freq(bn)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph2)%freq(bn2) &
                         -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
+
+                  R0mm=R0mm+AA2%mat(ii,kk2)*AA%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph)%freq(bn) &
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph)%width(bn,1))
 
                 endif              
 
