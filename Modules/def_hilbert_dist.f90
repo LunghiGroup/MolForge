@@ -1775,7 +1775,7 @@
         double precision              :: euler(3)
         complex(8),allocatable        :: Vii(:)
         complex(8)                    :: valc,nodiag_sum,diag_sum,kcons
-        complex(8)                    :: R0pp,R0mm,R0pm
+        complex(8)                    :: R0pp,R0mm,R0pm,R0mp
         integer                       :: ph,bn,ii,jj,l,l2,size_block,i1,ii_1,i       
         integer                       :: k,ia,ib,ka,kb,nphonons,v,spin_id,spin_id2
         integer                       :: l3,l4,kk1,kk2,bn2,ph2,phx,ic,id,kc,kd
@@ -1840,6 +1840,8 @@
 
       ! check spectrum overlap
 
+           if ( (ph-1)*size(phondy%list(ph)%freq)+bn .gt. &
+                (ph2-1)*size(phondy%list(ph2)%freq)+bn2 ) cycle 
            if (ph.eq.1 .and. bn.le.3) cycle
            if (ph2.eq.1 .and. bn2.le.3) cycle
            if (phondy%list(ph)%freq(bn).lt.min_ener) cycle
@@ -1955,6 +1957,7 @@
               R0pp=(0.0d0,0.0d0)
               R0mm=(0.0d0,0.0d0)
               R0pm=(0.0d0,0.0d0)
+              R0mp=(0.0d0,0.0d0)
  
               do kk1=1,size(R0%mat,1)
                do kk2=1,size(R0%mat,2)
@@ -1987,6 +1990,14 @@
                   R0pm=R0pm+AA2%mat(ii,kk2)*AA%mat(kk1,jj)&
                    /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph)%freq(bn) &
                         -cmplx(0.0d0,1.0d0,8)*phondy%list(ph)%width(bn,1))
+
+                  R0mp=R0mp+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2) &
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph2)%width(bn2,1))
+
+                  R0mp=R0mp+AA2%mat(ii,kk2)*AA%mat(kk1,jj)&
+                   /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)-phondy%list(ph)%freq(bn) &
+                        -cmplx(0.0d0,1.0d0,8)*phondy%list(ph)%width(bn,1))
                 
                   R0pp=R0pp+AA%mat(ii,kk2)*AA2%mat(kk1,jj)&
                    /(this%Ener(kc)%v(ic)-this%Ener(kb)%v(ib)+phondy%list(ph2)%freq(bn2) &
@@ -2015,25 +2026,23 @@
              
               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pm*conjg(R0pm))*Gf
 
+              DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
+              Gf=(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*bose(temp(1),phondy%list(ph)%Freq(bn))*&
+                 delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+             
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mp*conjg(R0mp))*Gf
+
               DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph2)%Freq(bn2)-phondy%list(ph)%Freq(bn)
               Gf=bose(temp(1),phondy%list(ph2)%Freq(bn2))*bose(temp(1),phondy%list(ph)%Freq(bn))*&
                  delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
              
-              if(ph.eq.ph2 .and. bn.eq.bn2)then
-               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf
-              else
-               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf/2.0d0
-              endif
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf
 
               DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
               Gf=(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
                  delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
              
-              if(ph.eq.ph2 .and. bn.eq.bn2)then
-               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf
-              else
-               R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf/2.0d0
-              endif
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf
         
              enddo ! jj
             enddo ! ii
