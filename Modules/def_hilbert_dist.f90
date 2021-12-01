@@ -1420,7 +1420,7 @@
         double precision              :: Gf,DEner,DEner2,step_min,coeff(3),DEner1
         double precision              :: val,norm,max_ener,avg_sph,Gpp,Gmm,Gpm,Gmp,min_ener
         double precision, allocatable :: rates(:)
-        double precision              :: euler(3)
+        double precision              :: euler(3),Cab
         complex(8),allocatable        :: Vii(:)
         complex(8)                    :: valc,nodiag_sum,diag_sum,kcons
         complex(8)                    :: R0pp,R0mm,R0pm,R0mp
@@ -1488,8 +1488,17 @@
 
       ! check spectrum overlap
 
-           if ( (ph-1)*size(phondy%list(ph)%freq)+bn .gt. &
+           if ( (ph-1)*size(phondy%list(ph)%freq)+bn .ge. &
                 (ph2-1)*size(phondy%list(ph2)%freq)+bn2 ) cycle 
+
+            
+           if ( (ph-1)*size(phondy%list(ph)%freq)+bn .eq. &
+                (ph2-1)*size(phondy%list(ph2)%freq)+bn2 ) then
+                Cab=0.25d0
+           else
+                Cab=1.00d0
+           endif
+
            if (ph.eq.1 .and. bn.le.3) cycle
            if (ph2.eq.1 .and. bn2.le.3) cycle
            if (phondy%list(ph)%freq(bn).lt.min_ener) cycle
@@ -1684,13 +1693,13 @@
               Gf=bose(temp(1),phondy%list(ph2)%Freq(bn2))*bose(temp(1),phondy%list(ph)%Freq(bn))*&
                  delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
              
-              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf*Cab
 
               DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph2)%Freq(bn2)+phondy%list(ph)%Freq(bn)
               Gf=(bose(temp(1),phondy%list(ph2)%Freq(bn2))+1)*(bose(temp(1),phondy%list(ph)%Freq(bn))+1)*&
                  delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
              
-              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf
+              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf*Cab
         
              enddo ! jj
             enddo ! ii
