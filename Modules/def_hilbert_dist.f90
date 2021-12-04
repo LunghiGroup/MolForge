@@ -363,11 +363,11 @@
 
       ! Build SPH per phonon
 
-           call this%SPH2%cart2brill2(this%rcell,sys,phondy,ph,bn,ph2,bn2)
-
            do spin_id=1,this%nspins_pr
            do spin_id2=spin_id,this%nspins
 
+            call this%SPH2%cart2brill2(this%rcell,sys,phondy,ph,bn,ph2,bn2)
+            if (any( abs(euler).gt.1.0d-4 )) call this%SPH2%rot(euler)
       ! Make Vij per spin    
 
             AA%mat=(0.0d0,0.0d0)
