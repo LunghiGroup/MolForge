@@ -1,6 +1,6 @@
 .SUFFIXES:
 
-targets = CF abc2cell cell2abc Bispectrums C62LJ Distribution Distribution2D FindMols Correlation Eckart getFC Mat2Euler get_topo FT1d SuperCellGen fitcharges 
+targets = CF abc2cell cell2abc Bispectrums C62LJ Distribution Distribution2D FindMols Correlation Eckart getFC Mat2Euler get_topo FT1d SuperCellGen fitcharges O2D
 
 all : $(addprefix Tool_,$(targets)) 
 
