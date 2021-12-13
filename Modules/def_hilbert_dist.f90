@@ -340,7 +340,7 @@
           do bn=1,size(phondy%list(ph)%freq)
           do bn2=1,size(phondy%list(ph2)%freq)
 
-           if( ((ph2-1)*size(phondy%list(ph2)%freq)+bn2) .lt. &
+           if( ((ph2-1)*size(phondy%list(ph2)%freq)+bn2) .le. &
                ((ph-1)*size(phondy%list(ph)%freq)+bn) ) cycle
 
       ! check spectrum overlap
@@ -459,11 +459,14 @@
                  bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
                  delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
-              DEner=this%Ener(kb)%v(ib)-this%Ener(kd)%v(id)  &
-                         +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
-              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
-                     bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+              if( ((ph2-1)*size(phondy%list(ph2)%freq)+bn2) .ne. &
+                ((ph-1)*size(phondy%list(ph)%freq)+bn) ) then
+
+               DEner=this%Ener(kb)%v(ib)-this%Ener(kd)%v(id)  &
+                          +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
+                Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
+                      bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
+                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
               DEner=this%Ener(kb)%v(ib)-this%Ener(kd)%v(id)  &
                          -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
@@ -471,6 +474,8 @@
                     (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
+              endif
+
               DEner=this%Ener(kb)%v(ib)-this%Ener(kd)%v(id)  &
                          +phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
@@ -487,18 +492,23 @@
                  bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
                  delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
-              DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)  &
-                         +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
-              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
-                     bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
-                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+              if( ((ph2-1)*size(phondy%list(ph2)%freq)+bn2) .ne. &
+                ((ph-1)*size(phondy%list(ph)%freq)+bn) ) then
+
+               DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)  &
+                          +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
+               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
+                      bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
+                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+  
+               DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)  &
+                          -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
+               Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
+                     (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
+                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
  
-              DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)  &
-                         -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
-              Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
-                    (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                     delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
- 
+              endif
+
               DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)  &
                          +phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
@@ -521,17 +531,22 @@
                    bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
                    delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
-                DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)  &
-                           +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
-                Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
-                       bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
+                if( ((ph2-1)*size(phondy%list(ph2)%freq)+bn2) .ne. &
+                  ((ph-1)*size(phondy%list(ph)%freq)+bn) ) then
+
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)  &
+                            +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
+                  Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
+                        bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
+                        delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)  &
+                            -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
+                  Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
+                       (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
                        delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
-                DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)  &
-                           -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
-                Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
-                      (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                endif
 
                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)  &
                            +phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
@@ -560,17 +575,22 @@
                    bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
                    delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
-                DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)  &
+                if( ((ph2-1)*size(phondy%list(ph2)%freq)+bn2) .ne. &
+                  ((ph-1)*size(phondy%list(ph)%freq)+bn) ) then
+
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)  &
                            +phondy%list(ph)%Freq(bn)-phondy%list(ph2)%Freq(bn2)
-                Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
-                       bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
+                  Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*&
+                        bose(temp(1),phondy%list(ph2)%Freq(bn2))*&
+                        delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)  &
+                            -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
+                  Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
+                       (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
                        delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
 
-                DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)  &
-                           -phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
-                Gf=Gf+bose(temp(1),phondy%list(ph)%Freq(bn))*&
-                      (bose(temp(1),phondy%list(ph2)%Freq(bn2))+1.0d0)*&
-                      delta(type_smear,DEner,phondy%list(ph)%width(bn,1)+phondy%list(ph2)%width(bn2,1))
+                endif
 
                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)  &
                            +phondy%list(ph)%Freq(bn)+phondy%list(ph2)%Freq(bn2)
