@@ -836,17 +836,23 @@
               if( abs(DEner).lt.1.0e-6 )then              
 
               Gf=0.0d0
-              DEner=this%Ener(kb)%v(ib)-this%Ener(kd)%v(id)-phondy%list(ph)%Freq(bn)
-              Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-              DEner=this%Ener(kb)%v(ib)-this%Ener(kd)%v(id)+phondy%list(ph)%Freq(bn)
-              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              if( (this%Ener(kb)%v(ib)-this%Ener(kd)%v(id)).gt.0.0d0) then
+               DEner=this%Ener(kb)%v(ib)-this%Ener(kd)%v(id)-phondy%list(ph)%Freq(bn)
+               Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              else
+               DEner=this%Ener(kb)%v(ib)-this%Ener(kd)%v(id)+phondy%list(ph)%Freq(bn)
+               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              endif
               R0%mat(ii,jj)=R0%mat(ii,jj)+Vmat(la,l2a)*conjg(Vmat(lb,l2b))*Gf
  
               Gf=0.0d0
-              DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)-phondy%list(ph)%Freq(bn)
-              Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-              DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)+phondy%list(ph)%Freq(bn)
-              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              if( (this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)).gt.0.0d0) then
+               DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)-phondy%list(ph)%Freq(bn)
+               Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              else
+               DEner=this%Ener(ka)%v(ia)-this%Ener(kc)%v(ic)+phondy%list(ph)%Freq(bn)
+               Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+              endif
               R0%mat(ii,jj)=R0%mat(ii,jj)+Vmat(la,l2a)*conjg(Vmat(lb,l2b))*Gf
 
               if(l2b.eq.lb)then
@@ -855,10 +861,13 @@
                 do jj_1=1,(this%kblc(ii_1+1)-this%kblc(ii_1))
                  vv=vv+1 
                  Gf=0.0d0
-                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)-phondy%list(ph)%Freq(bn)
-                 Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)+phondy%list(ph)%Freq(bn)
-                 Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 if( (this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)).gt.0.0d0) then
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)-phondy%list(ph)%Freq(bn)
+                  Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 else
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kc)%v(ic)+phondy%list(ph)%Freq(bn)
+                  Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 endif
                  R0%mat(ii,jj)=R0%mat(ii,jj)-Vmat(la,vv)*conjg(Vmat(l2a,vv))*Gf
                 enddo
                enddo
@@ -872,10 +881,13 @@
                 do jj_1=1,(this%kblc(ii_1+1)-this%kblc(ii_1))
                  vv=vv+1 
                  Gf=0.0d0
-                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)-phondy%list(ph)%Freq(bn)
-                 Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-                 DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)+phondy%list(ph)%Freq(bn)
-                 Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 if( (this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)).gt.0.0d0) then
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)-phondy%list(ph)%Freq(bn)
+                  Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 else
+                  DEner=this%Ener(ii_1)%v(jj_1)-this%Ener(kd)%v(id)+phondy%list(ph)%Freq(bn)
+                  Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+                 endif
                  R0%mat(ii,jj)=R0%mat(ii,jj)-Vmat(l2b,vv)*conjg(Vmat(lb,vv))*Gf
                 enddo
                enddo
@@ -1207,11 +1219,13 @@
              enddo
 
              Gf=0.0d0 
-             DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph)%Freq(bn)
-             Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-             DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph)%Freq(bn)
-             Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
-
+             if (this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib).ge.0.0d0) then
+              DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)-phondy%list(ph)%Freq(bn)
+              Gf=bose(temp(1),phondy%list(ph)%Freq(bn))*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+             else
+              DEner=this%Ener(ka)%v(ia)-this%Ener(kb)%v(ib)+phondy%list(ph)%Freq(bn)
+              Gf=Gf+(bose(temp(1),phondy%list(ph)%Freq(bn))+1.0d0)*delta(type_smear,DEner,phondy%list(ph)%width(bn,1))
+             endif
              R0%mat(ii,jj)=R0%mat(ii,jj)+dble(AA%mat(ii,jj)*conjg(AA%mat(ii,jj)))*Gf
 
             enddo
