@@ -31,7 +31,7 @@ export MOLFORGE_INC_FLAG = -I$(MOLFORGE_INC_DIR)
 export MOLFORGE_LINK_FLAG = -L$(MOLFORGE_LIB_DIR) $(MOLFORGE_LIBS)
 
 
-all : libMolForge Spiral PhonDy Tools Intensor
+all : libMolForge Spiral PhonDy Tools
 
 
 libMolForge :
@@ -46,16 +46,12 @@ PhonDy : libMolForge
 	mkdir -p $(MOLFORGE_DIR)/bin
 	cd $(PHONDY_DIR) && $(MAKE) $@
 
-Intensor : libMolForge
-	mkdir -p $(MOLFORGE_DIR)/bin
-	cd $(INTENSOR_DIR) && $(MAKE) $@
-
 Tools : libMolForge
 	mkdir -p $(MOLFORGE_DIR)/bin
 	cd $(TOOLS_DIR) && $(MAKE) all
 
 
-clean : clean_MolForge clean_Spiral clean_PhonDy clean_Tools clean_Intensor
+clean : clean_MolForge clean_Spiral clean_PhonDy clean_Tools 
 
 clean_MolForge :
 	rm -f $(MODULES_DIR)/*.o
@@ -71,11 +67,6 @@ clean_PhonDy :
 	rm -f $(PHONDY_DIR)/*.o
 	rm -f $(PHONDY_DIR)/*.mod
 	rm -f $(EXE_DIR)/PhonDy.x
-
-clean_Intensor : 
-	rm -f $(INTENSOR_DIR)/*.o
-	rm -f $(INTENSOR_DIR)/*.mod
-	rm -f $(EXE_DIR)/Intensor.x
 
 clean_Tools :
 	cd $(TOOLS_DIR) && $(MAKE) clean
