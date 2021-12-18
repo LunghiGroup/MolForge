@@ -1342,6 +1342,7 @@
 
          if(mpi_id.eq.0) open(15,file='Reig.dat')
          do l=1,this%Hdim
+          if(mpi_id.eq.0) write(15,*) 'Eigenval: ',l,abs(dble(this%Rval(l)))
           do l2=1,this%Hdim         
            call pzelget('A',' ',valc,AA%mat,l2,l,AA%desc)
            if(mpi_id.eq.0) write(15,*) l2,l,dble(valc),aimag(valc)
@@ -1845,6 +1846,7 @@
 
          if(mpi_id.eq.0) open(15,file='Reig.dat')
          do l=1,this%Hdim
+          if(mpi_id.eq.0) write(15,*) 'Eigenval: ',l,abs(dble(this%Rval(l)))
           do l2=1,this%Hdim         
            call pzelget('A',' ',valc,AA%mat,l2,l,AA%desc)
            if(mpi_id.eq.0) write(15,*) l2,l,dble(valc),aimag(valc)
