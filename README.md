@@ -20,7 +20,11 @@ You should have received a copy of the GNU General Public License along with thi
 
 ## How to Cite MolForge
 
-When using  MolForge or any of its components, please always cite:
+When using  MolForge or any of its components, please always cite: 
+
+- Towards exact predictions of spin-phonon relaxation times: an ab initio implementation of open quantum system theory,	arXiv:2112.09236 [cond-mat.mtrl-sci], 2021
+
+Additional works that contributed towards the formalism implemented in MolForge are:
 
 - How do phonons relax molecular spins? Science Advances, 5 (9), eaax7163, 2019
 

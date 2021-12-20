@@ -1927,6 +1927,12 @@
           flush(6)
          endif
 
+         if(mpi_id.eq.0)then
+          write(*,*) '    Warning!! Dynamics of coherence terms not implemented yet!!!'
+          write(*,*) '    Magnetization dynamics not reliable!!!'
+          flush(6)
+         endif
+
         return
         end subroutine make_R2_H
 
