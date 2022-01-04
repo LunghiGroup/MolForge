@@ -127,7 +127,9 @@
 
          endif
          
-!         call gen_vars_bcast
+          call mpi_bcast(do_brillouin_mesh,1,mpi_logical,0,MPI_COMM_WORLD,err)
+          call mpi_bcast(do_brillouin_path,1,mpi_logical,0,MPI_COMM_WORLD,err)
+          call mpi_bcast(read_dipole,1,mpi_logical,0,MPI_COMM_WORLD,err)
 
          if(do_brillouin_mesh)then
           call mpi_bcast(nx,1,mpi_integer,0,MPI_COMM_WORLD,err)

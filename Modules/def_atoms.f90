@@ -1091,6 +1091,7 @@
          endif
 
          read(11,*) this%nx,this%ny,this%nz
+         this%ntot=this%nx*this%ny*this%nz
          write(*,*) '     Detected Real-Space Supercell:',this%nx,this%ny,this%nz 
          write(*,*) 
          write(*,*)
