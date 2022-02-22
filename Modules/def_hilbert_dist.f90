@@ -93,7 +93,7 @@
 
         contains
 
-        subroutine get_sph_dists(this,sys,phondy,max_ener)
+        subroutine get_sph_dists(this,sys,phondy,max_ener,sigma)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -112,7 +112,7 @@
          file_name='sph_dist'
          step=0.1d0
          nsteps=nint(3500.0/0.1)
-         sigma=1.0d0
+!         sigma=smear
 
          call this%SPH%alloc_dists(sigma,step,nsteps)
 
@@ -710,7 +710,7 @@
          nphonons=0
          avg_sph=0.0d0
 
-         call get_sph_dists(this,sys,phondy,max_ener)
+         call get_sph_dists(this,sys,phondy,max_ener,smear)
 
          ! make lists of phonons to be included and distribute them on
          ! processes        
