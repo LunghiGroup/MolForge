@@ -655,6 +655,18 @@
 
          call AA%dealloc()
 
+         if(this%printRmat)then
+          if(mpi_id.eq.0) open(15,file='R.dat')
+          do l=1,this%Ldim
+           do l2=1,this%Ldim         
+            call pzelget('A',' ',valc,R0%mat,l2,l,R0%desc)
+            if(mpi_id.eq.0) write(15,*) l2,l,dble(valc),aimag(valc)
+           enddo
+           if(mpi_id.eq.0) write(15,*)
+          enddo
+          if(mpi_id.eq.0) close(15)
+         endif
+
          if(mpi_id.eq.0)then
           call system_clock(t2)
           write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'

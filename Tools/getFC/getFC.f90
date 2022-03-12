@@ -3,7 +3,7 @@
         use atoms_class
         implicit none
         type(atoms_group)              :: sys
-        integer                        :: nats,nx,ny,nz,err,l1,s1,icell1,i2,s2,k2
+        integer                        :: nats,nx,ny,nz,err,l1,s1,icell1,i2,s2,k2,l2
         integer                        :: i,s,k,j,l,v,icell,k1,v0,v1,v2,kx,ky,kz
         double precision               :: step,cell(3,3),sum
         double precision               :: mux,muy,muz,dDip(3)
@@ -95,6 +95,29 @@
 
          if(gen_disps_2)then
 
+          allocate(x0(sys%ntot*sys%nats,3))
+          allocate(x(sys%ntot*sys%nats,3))
+
+          call sys%cart2frac()
+
+          k=1
+          do kz=1,sys%nz
+           do ky=1,sys%ny
+            do kx=1,sys%nx
+             do i=1,sys%nats
+              j=(k-1)*sys%nats+i
+              x0(j,1)=sys%x(i,1)+kx
+              x0(j,2)=sys%x(i,2)+ky
+              x0(j,3)=sys%x(i,3)+kz            
+              x0(j,:)=matmul(sys%J,x0(j,:))
+              enddo
+             k=k+1
+            enddo
+           enddo
+          enddo
+
+          call sys%frac2cart()
+
           j=1
           do i=1,sys%nats
            do s=1,3
@@ -111,8 +134,12 @@
 
              write(10,*) sys%nats*sys%ntot
              write(10,*)  
-             do l=1,sys%nats*sys%ntot
-              write(10,*) label(l),x(l,:)     
+             l = 1
+             do l1=1,sys%ntot
+              do l2=1,sys%nats              
+               write(10,*) sys%label(sys%kind(l2)),x(l,:)     
+               l=l+1
+              enddo
              enddo
 
              close(10)
