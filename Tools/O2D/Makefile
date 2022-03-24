@@ -13,3 +13,7 @@ O2D.o : O2D.f90
 
 O2D.f90 : 
 
+clean :
+	rm -f *.o
+	rm -f *.mod
+	rm -f $(EXE_DIR)/O2D.x

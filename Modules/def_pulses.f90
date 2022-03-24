@@ -31,14 +31,14 @@
         class(general_pulse)    :: this
         integer                 :: nspins
 
-         call mpi_bcast(this%sx,1,mpi_logical,0,mpi_blacs_world,err)
-         call mpi_bcast(this%dx,1,mpi_logical,0,mpi_blacs_world,err)
-         call mpi_bcast(this%weight,1,mpi_double_precision,0,mpi_blacs_world,err)
-         call mpi_bcast(this%n(1),1,mpi_double_precision,0,mpi_blacs_world,err)
-         call mpi_bcast(this%n(2),1,mpi_double_precision,0,mpi_blacs_world,err)
-         call mpi_bcast(this%n(3),1,mpi_double_precision,0,mpi_blacs_world,err)
-         call mpi_bcast(this%spin,1,mpi_integer,0,mpi_blacs_world,err)
-         call mpi_bcast(this%beta,1,mpi_double_precision,0,mpi_blacs_world,err)
+         call mpi_bcast(this%sx,1,mpi_logical,0,mpi_comm_world,err)
+         call mpi_bcast(this%dx,1,mpi_logical,0,mpi_comm_world,err)
+         call mpi_bcast(this%weight,1,mpi_double_precision,0,mpi_comm_world,err)
+         call mpi_bcast(this%n(1),1,mpi_double_precision,0,mpi_comm_world,err)
+         call mpi_bcast(this%n(2),1,mpi_double_precision,0,mpi_comm_world,err)
+         call mpi_bcast(this%n(3),1,mpi_double_precision,0,mpi_comm_world,err)
+         call mpi_bcast(this%spin,1,mpi_integer,0,mpi_comm_world,err)
+         call mpi_bcast(this%beta,1,mpi_double_precision,0,mpi_comm_world,err)
 
         return
         end subroutine pulse_bcast
