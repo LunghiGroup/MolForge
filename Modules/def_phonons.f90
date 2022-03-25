@@ -410,13 +410,16 @@
 
         subroutine calc_bands(this,sys)
         use mpi
-        use mpi_utils
+        use mpi_utils         
+        use units_parms
         use lattice_class
         use atoms_class
         implicit none
         class(brillouin)       :: this
         type(atoms_group)      :: sys
-        integer                :: i,k,j,rest
+        integer                :: i,k,j,rest,l,s,t,ntemps
+        double precision       :: coeff,mass1,Cv_tmp,temp,ratio
+        double precision, allocatable :: Cv(:)
 
          call MPI_COMM_SIZE(mpi_comm_world,mpi_nproc,err)
          call MPI_COMM_RANK(mpi_comm_world,mpi_id,err)
@@ -452,6 +455,44 @@
 
 !         call this%smooth_bands()        
          this%list(1)%freq(1:3)=0.0d0           
+
+         ! calc CV
+
+         ntemps=300
+         allocate(Cv(ntemps))
+         Cv=0.0d0
+
+         do t=1,ntemps
+
+          temp=t
+
+          j=this%k_start
+          Cv_tmp=0.0d0
+
+          do i=1,this%nloc
+           do l=1,size(this%list(j)%freq)
+            if(i.eq.1 .and. l.le.3) cycle
+            ratio=this%list(j)%freq(l)/temp/kboltz
+            Cv_tmp=Cv_tmp+kboltz*(ratio**2)*exp(ratio)/(exp(ratio)-1)**2
+           enddo
+           j=j+1
+          enddo
+
+          call mpi_allreduce(Cv_tmp,Cv(t),1,&
+               mpi_double_precision,mpi_sum,mpi_comm_world,err)
+ 
+         enddo
+
+         Cv=Cv*0.0119627
+
+         if(mpi_id.eq.0)then     
+          open(133,file='Cv.dat')
+          write(133,*) 0.0d0,0.0d0
+          do i=1,size(Cv)
+           write(133,*) i,Cv(i)  
+          enddo
+          close(133)
+         endif
 
         return
         end subroutine calc_bands
