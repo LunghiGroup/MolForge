@@ -483,13 +483,13 @@
  
          enddo
 
-         Cv=Cv*0.0119627
+         Cv=Cv*0.0119627/this%ntot  !! results in kJ/mol/K (mol of unit cells) 
 
          if(mpi_id.eq.0)then     
           open(133,file='Cv.dat')
           write(133,*) 0.0d0,0.0d0
           do i=1,size(Cv)
-           write(133,*) i,Cv(i)  
+           write(133,*) i,Cv(i)
           enddo
           close(133)
          endif
