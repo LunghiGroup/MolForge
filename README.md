@@ -22,7 +22,7 @@ You should have received a copy of the GNU General Public License along with thi
 
 When using  MolForge or any of its components, please always cite: 
 
-- Towards exact predictions of spin-phonon relaxation times: an ab initio implementation of open quantum system theory,	arXiv:2112.09236 [cond-mat.mtrl-sci], 2021
+- Toward exact predictions of spin-phonon relaxation times: An ab initio implementation of open quantum system theory, Science Advances 8(31), eabn7889, 2022
 
 Additional works that contributed towards the formalism implemented in MolForge are:
 
