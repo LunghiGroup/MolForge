@@ -1141,7 +1141,12 @@
           l2=this%map_s2a(i,3)
           v2=this%map_s2a(i,4)
           coeff2=cmplx(0.0d0,1.0d0,8)*2*acos(-1.0d0)*DOT_PRODUCT(k2,rcell(v2,:))
-          Jtmp%J=Jtmp%J+this%Jcart(i)%J*hess(l)*exp(coeff)*hess2(l2)*exp(coeff2)
+          if(l.eq.l2)then
+           Jtmp%J=Jtmp%J+this%Jcart(i)%J*hess(l)*exp(coeff)*hess2(l2)*exp(coeff2)
+          else
+           Jtmp%J=Jtmp%J+this%Jcart(i)%J*hess(l)*exp(coeff)*hess2(l2)*exp(coeff2)+&
+                         this%Jcart(i)%J*hess(l2)*exp(coeff)*hess2(l)*exp(coeff2)
+          endif
          enddo
 
         return
@@ -1198,12 +1203,23 @@
           l2=this%map_s2a(i,3)
           v2=this%map_s2a(i,4)
           coeff2=cmplx(0.0d0,1.0d0,8)*2*acos(-1.0d0)*DOT_PRODUCT(k2,rcell(v2,:))
-          do s=1,3
-           do t=1,3
-            dDtmp%D(s,t)=dDtmp%D(s,t)+this%dDcart(i)%D(s,t)*hess(l)*exp(coeff)*&
+          if(l.eq.l2)then
+           do s=1,3
+            do t=1,3
+             dDtmp%D(s,t)=dDtmp%D(s,t)+this%dDcart(i)%D(s,t)*hess(l)*exp(coeff)*&
                           hess2(l2)*exp(coeff2)
+            enddo
            enddo
-          enddo
+          else
+           do s=1,3
+            do t=1,3
+             dDtmp%D(s,t)=dDtmp%D(s,t)+this%dDcart(i)%D(s,t)*hess(l)*exp(coeff)* &
+                          hess2(l2)*exp(coeff2)+ &
+                          this%dDcart(i)%D(s,t)*hess(l2)*exp(coeff)* &
+                          hess2(l)*exp(coeff2)
+            enddo
+           enddo
+          endif
          enddo
 
         return
@@ -1258,12 +1274,23 @@
           l2=this%map_s2a(i,3)
           v2=this%map_s2a(i,4)
           coeff2=cmplx(0.0d0,1.0d0,8)*2*acos(-1.0d0)*DOT_PRODUCT(k2,rcell(v2,:))
-          do s=1,3
-           do t=1,3
-            D2Stmp%D(s,t)=D2Stmp%D(s,t)+this%Dcart(i)%D(s,t)*hess(l)*exp(coeff)*&
-                          hess2(l2)*exp(coeff2)
+          if(l.eq.l2)then
+           do s=1,3
+            do t=1,3
+             D2Stmp%D(s,t)=D2Stmp%D(s,t)+this%Dcart(i)%D(s,t)*hess(l)*exp(coeff)*&
+                           hess2(l2)*exp(coeff2)
+            enddo
            enddo
-          enddo
+          else
+           do s=1,3
+            do t=1,3
+             D2Stmp%D(s,t)=D2Stmp%D(s,t)+this%Dcart(i)%D(s,t)*hess(l)*exp(coeff)*&
+                           hess2(l2)*exp(coeff2)+&
+                           this%Dcart(i)%D(s,t)*hess(l2)*exp(coeff)*&
+                           hess2(l)*exp(coeff2)
+            enddo
+           enddo
+          endif
          enddo
 
         return
@@ -1318,12 +1345,23 @@
           l2=this%map_s2a(i,3)
           v2=this%map_s2a(i,4)
           coeff=cmplx(0.0d0,1.0d0,8)*2*acos(-1.0d0)*DOT_PRODUCT(k2,rcell(v2,:))
-          do s=1,3
-           do t=1,3
-            DSItmp%D(s,t)=DSItmp%D(s,t)+this%Dcart(i)%D(s,t)*hess(l)*exp(coeff)*&
-                                        hess2(l2)*exp(coeff2)
+          if(l.eq.l2)then
+           do s=1,3
+            do t=1,3
+             DSItmp%D(s,t)=DSItmp%D(s,t)+this%Dcart(i)%D(s,t)*hess(l)*exp(coeff)*&
+                                         hess2(l2)*exp(coeff2)
+            enddo
            enddo
-          enddo
+          else
+           do s=1,3
+            do t=1,3
+             DSItmp%D(s,t)=DSItmp%D(s,t)+this%Dcart(i)%D(s,t)*hess(l)*exp(coeff)*&
+                                         hess2(l2)*exp(coeff2)+&
+                                         this%Dcart(i)%D(s,t)*hess(l2)*exp(coeff)*&
+                                         hess2(l)*exp(coeff2)
+            enddo
+           enddo
+          endif
          enddo
 
         return
@@ -1379,12 +1417,23 @@
           l2=this%map_s2a(i,3)
           v2=this%map_s2a(i,4)          
           coeff2=cmplx(0.0d0,1.0d0,8)*2.0d0*acos(-1.0d0)*DOT_PRODUCT(k2,rcell(v2,:))
-          do s=1,3
-           do t=1,3
-            Gtmp%G(s,t)=Gtmp%G(s,t)+&
-              this%Gcart(i)%G(s,t)*hess(l)*exp(coeff)*hess2(l2)*exp(coeff2)
+          if(l.eq.l2)then
+           do s=1,3
+            do t=1,3
+             gtmp%g(s,t)=gtmp%g(s,t)+&
+               this%gcart(i)%g(s,t)*hess(l)*exp(coeff)*hess2(l2)*exp(coeff2)
+            enddo
            enddo
-          enddo
+          else
+           do s=1,3
+            do t=1,3
+             gtmp%g(s,t)=gtmp%g(s,t)+&
+               this%gcart(i)%g(s,t)*hess(l)*exp(coeff)*hess2(l2)*exp(coeff2)+&
+               this%gcart(i)%g(s,t)*hess(l2)*exp(coeff)*hess2(l)*exp(coeff2)
+            enddo
+           enddo
+          endif
+
          enddo
 
         return
@@ -1452,10 +1501,19 @@
           l2=this%map_s2a(i,3)
           v2=this%map_s2a(i,4)
           coeff2=cmplx(0.0d0,1.0d0,8)*2*acos(-1.0d0)*DOT_PRODUCT(k2,rcell(v2,:))
-          do t=1,2*Otmp%k+1
-           Otmp%B(t)=Otmp%B(t)+this%Ocart(i)%B(t)*hess(l)*exp(coeff)*&
-                        hess2(l2)*exp(coeff2)
-          enddo
+          if(l.eq.l2)then
+           do t=1,2*Otmp%k+1
+            Otmp%B(t)=Otmp%B(t)+this%Ocart(i)%B(t)*hess(l)*exp(coeff)*&
+                         hess2(l2)*exp(coeff2)
+           enddo
+          else
+           do t=1,2*Otmp%k+1
+            Otmp%B(t)=Otmp%B(t)+this%Ocart(i)%B(t)*hess(l)*exp(coeff)*&
+                         hess2(l2)*exp(coeff2)+&
+                         this%Ocart(i)%B(t)*hess(l2)*exp(coeff)*&
+                         hess2(l)*exp(coeff2)
+           enddo
+          endif
          enddo
 
         return
