@@ -132,12 +132,26 @@
          write(*,*) '#################################################'
          write(*,*) '#################################################'
 
+         open(11,file='SOC_EIGVEC_R.dat')
+         open(12,file='SOC_EIGVEC_C.dat')
+         open(13,file='SOC_EIGVAL.dat')
+
+         do i=1,Nj
+          write(11,*) (dble(SOC(i,j)),j=1,Nj)
+          write(12,*) (aimag(SOC(i,j)),j=1,Nj)
+          write(13,*) EIG(i)
+         enddo
+
+         close(11)
+         close(12)
+         close(13)
+
          do i=1,Nj
           EIG2(i)=(EIG(i)-EIG(1))*219474.63
           write(*,*) 'EIG: ',i,' ENER: ',EIG2(i)
          enddo
 
-         EIG=EIG2
+!         EIG=EIG2
         
          Jz=(0.0d0,0.0d0)
          Jx=(0.0d0,0.0d0)
@@ -247,9 +261,9 @@
 !         enddo
 
          if(rotate_CF)then
-          call projH(lmax,Nj,EIG,Jz,O,alpha,beta,gamma)
+          call projH(lmax,Nj,EIG2,Jz,O,alpha,beta,gamma)
          else
-          call projH(lmax,Nj,EIG,Jz,O)
+          call projH(lmax,Nj,EIG2,Jz,O)
          endif
 
          call diagH(Nj,lmax,O,JMax)
