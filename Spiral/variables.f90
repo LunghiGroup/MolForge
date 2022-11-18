@@ -45,6 +45,9 @@
          double precision              :: min_phonon_ener=0.0d0
          double precision              :: euler(3)=0.0d0
 
+         character(len=100)            :: filename
+         integer                       :: scomp
+
         contains
 
         subroutine bcast_method(spindy)
@@ -187,6 +190,15 @@
         return
         end subroutine bcast_rho0
 
+        subroutine bcast_read
+        use mpi
+        use mpi_utils
+        implicit none
+
+         call mpi_bcast(filename,100,mpi_character,0,mpi_comm_world,err) 
+
+        return
+        end subroutine bcast_read
 
         subroutine bcast_propagator
         use mpi
@@ -351,17 +363,65 @@
            call bcast_propagate()
            call spindy%propagate(start_step,time,nsteps,step,dump_freq)
 
+          case ('PRINT_H0')
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Printing Hamiltonian Matrix......................................................'
+           if(mpi_id.eq.0) write(6,*) ''
+           call bcast_read()
+           if (.not. spindy%H0(1)%alloc) call spindy%H0(1)%set(spindy%Hdim,spindy%Hdim,NB,MB)
+           call spindy%H0(1)%print_mat(filename)
+
+          case ('READ_RHO')
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Reading Density Matrix...........................................................'
+           if(mpi_id.eq.0) write(6,*) ''
+           call bcast_read()
+           if (.not. spindy%rho%alloc) call spindy%rho%set(spindy%Hdim,spindy%Hdim,NB,MB)
+           call spindy%rho%read_mat(filename)
+
+          case ('PRINT_RHO')
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'PRINTING Density Matrix...........................................................'
+           if(mpi_id.eq.0) write(6,*) ''
+           call bcast_read()
+           if(.not. spindy%rho%alloc) call spindy%rho%set(spindy%Hdim,spindy%Hdim,NB,MB)
+           call spindy%rho%print_mat(filename)
+
+          case ('PRINT_SX')
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Printing Spin-X Matrix ...........................................................'
+           if(mpi_id.eq.0) write(6,*) ''
+           call bcast_read()
+           if (.not. spindy%Sx(1)%alloc) call spindy%Sx(1)%set(spindy%Hdim,spindy%Hdim,NB,MB)
+           call spindy%Sx(1)%print_mat(filename)
+
+          case ('PRINT_SY')
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Printing Spin-Y Matrix ...........................................................'
+           if(mpi_id.eq.0) write(6,*) ''
+           call bcast_read()
+           if (.not. spindy%Sy(1)%alloc) call spindy%Sy(1)%set(spindy%Hdim,spindy%Hdim,NB,MB)
+           call spindy%Sy(1)%print_mat(filename)
+
+          case ('PRINT_SZ')
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Printing Spin-Z Matrix ...........................................................'
+           if(mpi_id.eq.0) write(6,*) ''
+           call bcast_read()
+           if (.not. spindy%Sz(1)%alloc) call spindy%Sz(1)%set(spindy%Hdim,spindy%Hdim,NB,MB)
+           call spindy%Sz(1)%print_mat(filename)
+
           case ('MAKE_PULSE')
            if(mpi_id.eq.0) write(6,*) ''
-           if(mpi_id.eq.0) write(6,*) 'Building the Pulse''s Matrix Representation.....................................'
+           if(mpi_id.eq.0) write(6,*) 'Building the Pulse''s Matrix Representation......................................'
            if(mpi_id.eq.0) write(6,*) ''
-            call bcast_pulse()
-            call spindy%make_rot(pulse)
-            call spindy%rot_rho(pulse)
+           call bcast_pulse()
+           call spindy%make_rot(pulse)
+           call spindy%rot_rho(pulse)
 
           case ('MAKE_ECHO')
            if(mpi_id.eq.0) write(6,*) ''
-           if(mpi_id.eq.0) write(6,*) 'Calculating the Hahn Spin Echo Decay............................................'
+           if(mpi_id.eq.0) write(6,*) 'Calculating the Hahn Spin Echo Decay.............................................'
            if(mpi_id.eq.0) write(6,*) ''
             call bcast_echo()           
             type_pulse='PI2'

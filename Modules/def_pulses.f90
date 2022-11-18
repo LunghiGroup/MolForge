@@ -10,7 +10,9 @@
          double precision                 :: n(3)
          integer                          :: spin
          double precision                 :: beta
-         type(dist_cmplx_mat)             :: rot
+         type(dist_cmplx_mat)             :: rot         
+         character(len=30)                :: filename
+         logical                          :: readext
          contains
          procedure              :: bcast => pulse_bcast         
         end type general_pulse
@@ -31,6 +33,7 @@
         class(general_pulse)    :: this
         integer                 :: nspins
 
+
          call mpi_bcast(this%sx,1,mpi_logical,0,mpi_comm_world,err)
          call mpi_bcast(this%dx,1,mpi_logical,0,mpi_comm_world,err)
          call mpi_bcast(this%weight,1,mpi_double_precision,0,mpi_comm_world,err)
@@ -39,6 +42,8 @@
          call mpi_bcast(this%n(3),1,mpi_double_precision,0,mpi_comm_world,err)
          call mpi_bcast(this%spin,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(this%beta,1,mpi_double_precision,0,mpi_comm_world,err)
+         call mpi_bcast(this%readext,1,mpi_logical,0,mpi_comm_world,err)
+         if(this%readext) call mpi_bcast(this%filename,100,mpi_character,0,mpi_comm_world,err)                   
 
         return
         end subroutine pulse_bcast
@@ -129,6 +134,8 @@
             arrow%n=val%n
             arrow%spin=val%spin
             arrow%beta=val%beta
+            arrow%filename=val%filename
+            arrow%readext=val%readext
            end select
 
           end select
@@ -154,6 +161,8 @@
             pulse%spin=bho%spin
             pulse%beta=bho%beta
             pulse%n=bho%n
+            pulse%readext=bho%readext
+            pulse%filename=bho%filename
          end select
 
         return

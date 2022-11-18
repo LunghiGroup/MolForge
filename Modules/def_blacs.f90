@@ -14,6 +14,8 @@
 
          type :: dist_mat
           integer                 :: desc(9)
+          integer                 :: N,M
+          logical                 :: alloc=.false.
          end type dist_mat
 
          type,extends(dist_mat) :: dist_dbl_mat
@@ -32,6 +34,9 @@
           procedure               :: dealloc =>  dealloc_cmplx
           procedure               :: get_nze => get_nze_cmplx
           procedure               :: raze => raze_cmplx
+          procedure               :: print_mat => print_mat_cmplx
+          procedure               :: set_val => set_val_cmplx
+          procedure               :: read_mat => read_mat_cmplx
          end type  dist_cmplx_mat
 
          type ,extends(dist_mat):: dist_cmplx_vec
@@ -58,6 +63,73 @@
 
 
         contains
+
+         subroutine set_val_cmplx(this,i,j,val)
+         use mpi
+         use mpi_utils
+         implicit none
+         class(dist_cmplx_mat) :: this
+         integer               :: i,j
+         double complex        :: val
+
+          call pzelset(this%mat,i,j,this%desc,val)
+
+         return
+         end subroutine set_val_cmplx
+
+         subroutine read_mat_cmplx(this,filename)
+         use mpi
+         use mpi_utils
+         implicit none
+         class(dist_cmplx_mat)   :: this
+         integer                 :: l,i,j,Nelem
+         double complex          :: val
+         double precision        :: valr,valc
+         character(len=30)       :: filename
+
+          if(mpi_id.eq.0) open(15,file=trim(filename))
+          if(mpi_id.eq.0) read(15,*) Nelem
+          
+          this%mat=(0.0d0,0.0d0)
+
+          do l=1,Nelem
+           if(mpi_id.eq.0) read(15,*) i,j,valr,valc
+           if(mpi_id.eq.0) val=cmplx(valr,valc,8)          
+           call mpi_bcast(val,1,mpi_double_complex,0,mpi_blacs_world,err)
+           call mpi_bcast(i,1,mpi_integer,0,mpi_blacs_world,err)
+           call mpi_bcast(j,1,mpi_integer,0,mpi_blacs_world,err)
+           call pzelset(this%mat,i,j,this%desc,val)
+          enddo
+
+          if(mpi_id.eq.0) close(15)
+
+         return
+         end subroutine read_mat_cmplx
+
+         subroutine print_mat_cmplx(this,filename)
+         use mpi
+         use mpi_utils
+         implicit none
+         class(dist_cmplx_mat)   :: this
+         integer                 :: l,j
+         double complex          :: val
+         character(len=30)       :: filename
+
+          if(mpi_id.eq.0) open(15,file=trim(filename))
+          if(mpi_id.eq.0) write(15,*) this%N*this%M
+
+          do l=1,this%N
+           do j=1,this%M
+            call pzelget('A',' ',val,this%mat,l,j,this%desc)
+            if(mpi_id.eq.0) write(15,*) l,j,dble(val),aimag(val)
+           enddo
+          enddo
+
+          if(mpi_id.eq.0) flush(15)
+          if(mpi_id.eq.0) close(15)
+
+         return
+         end subroutine print_mat_cmplx
 
          function get_nze_dbl(this,thr) result(nze)
          use mpi
@@ -232,6 +304,8 @@
          integer                        :: myrow_loc,mycol_loc
          integer                        :: nprow_loc,npcol_loc
 
+          this%N=N
+          this%M=M
           do i=1,size(context)
            call blacs_gridinfo(context(i),nprow_loc,npcol_loc,myrow_loc,mycol_loc)
            if(myrow_loc.ne.-1)then
@@ -241,6 +315,9 @@
             call descinit(this%desc,N,M,NBl,MBl,0,0,context(i),Nloc_row,info)
            endif
           enddo
+
+          this%mat=0
+          this%alloc=.true.
 
          return
          end subroutine setup_blacs_int_matrix
@@ -253,6 +330,8 @@
          integer                        :: myrow_loc,mycol_loc
          integer                        :: nprow_loc,npcol_loc
          
+          this%N=N
+          this%M=M
           do i=1,size(context)
            call blacs_gridinfo(context(i),nprow_loc,npcol_loc,myrow_loc,mycol_loc)
            if(myrow_loc.ne.-1)then
@@ -262,6 +341,9 @@
             call descinit(this%desc,N,M,NBl,MBl,0,0,context(i),Nloc_row,info)
            endif
           enddo
+
+          this%mat=.false.
+          this%alloc=.true.
 
          return
          end subroutine setup_blacs_logical_matrix
@@ -274,6 +356,8 @@
          integer                        :: myrow_loc,mycol_loc
          integer                        :: nprow_loc,npcol_loc
 
+          this%N=N
+          this%M=M
           do i=1,size(context)
            call blacs_gridinfo(context(i),nprow_loc,npcol_loc,myrow_loc,mycol_loc)
            if(myrow_loc.ne.-1)then
@@ -283,6 +367,9 @@
             call descinit(this%desc,N,M,NBl,MBl,0,0,context(i),Nloc_row,info)
            endif
           enddo
+
+          this%mat=(0.0d0,0.0d0)
+          this%alloc=.true.
 
          return
          end subroutine setup_blacs_cmplx_matrix
@@ -315,6 +402,8 @@
          integer                        :: myrow_loc,mycol_loc
          integer                        :: nprow_loc,npcol_loc
 
+          this%N=N
+          this%M=M
           do i=1,size(context)
            call blacs_gridinfo(context(i),nprow_loc,npcol_loc,myrow_loc,mycol_loc)
            if(myrow_loc.ne.-1)then
@@ -324,6 +413,9 @@
             call descinit(this%desc,N,M,NBl,MBl,0,0,context(i),Nloc_row,info)
            endif
           enddo
+
+          this%mat=0.0d0
+          this%alloc=.true.
 
          return
          end subroutine setup_blacs_dbl_matrix

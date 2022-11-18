@@ -5394,24 +5394,32 @@
           call pulse(i)%rot%set(this%Hdim,this%Hdim,NB,MB)
           pulse(i)%rot%mat=(0.0d0,0.0d0)
 
-          do k=1,this%s2print
-           if(this%print_si(k).eq.pulse(i)%spin)then
-            spin=k
-            exit
-           endif
-          enddo
+          if(pulse(i)%readext)then
 
-          pulse(i)%n=pulse(i)%n/  &
-                sqrt(pulse(i)%n(1)**2+pulse(i)%n(2)**2+pulse(i)%n(3)**2)
+           call pulse(i)%rot%read_mat(trim(pulse(i)%filename))
 
-          Sn%mat=this%Sx(spin)%mat*pulse(i)%n(1)+     &
-                 this%Sy(spin)%mat*pulse(i)%n(2)+     &
-                 this%Sz(spin)%mat*pulse(i)%n(3)
+          else
 
-          angle=cmplx(pulse(i)%beta,0.0d0,8)
+           do k=1,this%s2print
+            if(this%print_si(k).eq.pulse(i)%spin)then
+             spin=k
+             exit
+            endif
+           enddo
 
-          call exp_taylor(this%Hdim,Sn,pulse(i)%rot,angle,100) 
-          call Sn%dealloc()
+           pulse(i)%n=pulse(i)%n/  &
+                 sqrt(pulse(i)%n(1)**2+pulse(i)%n(2)**2+pulse(i)%n(3)**2)
+
+           Sn%mat=this%Sx(spin)%mat*pulse(i)%n(1)+     &
+                  this%Sy(spin)%mat*pulse(i)%n(2)+     &
+                  this%Sz(spin)%mat*pulse(i)%n(3)
+
+           angle=cmplx(pulse(i)%beta,0.0d0,8)
+
+           call exp_taylor(this%Hdim,Sn,pulse(i)%rot,angle,100) 
+           call Sn%dealloc()
+
+          endif
 
           ii=pulse(i)%rot%get_nze(1.0d-9)
           if(mpi_id.eq.0) write(*,*) '     Pulse Sparsity:',100*(1-ii/dble(this%Hdim**2)),'%'

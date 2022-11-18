@@ -87,6 +87,48 @@
             operation='PROPAGATE'
             exit
 
+           case('PRINT_H0')
+
+            call get_word(line,word,2)
+            read(word,*) filename
+            operation='PRINT_H0'
+            exit
+
+           case('READ_RHO')
+
+            call get_word(line,word,2)
+            read(word,*) filename
+            operation='READ_RHO'
+            exit
+
+           case('PRINT_RHO')
+
+            call get_word(line,word,2)
+            read(word,*) filename
+            operation='PRINT_RHO'
+            exit
+
+           case('PRINT_SX')
+
+            call get_word(line,word,2)
+            read(word,*) filename
+            operation='PRINT_SX'
+            exit
+
+           case('PRINT_SY')
+
+            call get_word(line,word,2)
+            read(word,*) filename
+            operation='PRINT_SY'
+            exit
+
+           case('PRINT_SZ')
+
+            call get_word(line,word,2)
+            read(word,*) filename
+            operation='PRINT_SZ'
+            exit
+
            case('BUILD_PROPAGATOR')
 
             call get_word(line,word,2)
@@ -869,6 +911,10 @@
            case('MAX_DIST')
             call get_word(line,word,2)
             read(word,*) dist_max
+
+           case('HSIZE')
+            call get_word(line,word,2)
+            read(word,*) spindy%Hdim
 
            case('MAX_DIST_KIND')
             call get_word(line,word,2)
@@ -1854,7 +1900,8 @@
          rot%beta=acos(-1.0d0)/2.0d0
          rot%n(1)=0.0d0
          rot%n(2)=1.0d0
-         rot%n(3)=0.0d0
+         rot%n(3)=0.0d0         
+         rot%readext=.false.
 
          do
 
@@ -1879,6 +1926,11 @@
            case('WEIGHT')
             call get_word(line,word,2)
             read(word,*) rot%weight
+
+           case('READ_ROT')
+            call get_word(line,word,2)
+            read(word,*) rot%filename
+            rot%readext=.true.
 
            case('S')
 

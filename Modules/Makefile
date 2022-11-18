@@ -28,13 +28,13 @@ def_angmom.o : def_angmom.f90
 def_general_types.o : def_general_types.f90
 	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
 
-def_mpi.o : 
+def_mpi.o : def_mpi.f90
 	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
 
-def_lapack.o : 
+def_lapack.o : def_lapack.f90
 	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
 
-def_blacs.o : def_mpi.o 
+def_blacs.o : def_mpi.o def_blacs.f90
 	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
 
 def_orthonorm.o : def_lapack.o def_orthonorm.f90
@@ -220,3 +220,4 @@ def_sh_mlmodel_training.f90 : def_nets.o def_function.o def_atoms.o def_general_
 def_spinham_map.f90 : def_lapack.o def_angmom.o def_stevens.o def_swarm.o def_orthonorm.o def_hilbert_dist.o 
 
 def_pulses.f90 : def_mpi.o def_blacs.o def_lists.o 
+
