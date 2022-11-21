@@ -21,6 +21,19 @@
          type(OSItensor), allocatable   :: Os(:)
          double precision, optional     :: alpha,beta,gamma
          end subroutine projH
+         subroutine projdH(lmax,Nj,DHSOC,Jz,alpha,beta,gamma)
+         use stevens_class
+         use spinham_class 
+         implicit none
+         integer                        :: lmax,Odim,Nj
+         integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf,ll
+         double complex, allocatable    :: DHSOC(:,:)
+         double precision               :: JMax,q1,q2,avg_ener
+         double complex, allocatable    :: Jz(:,:),B(:),A(:,:),work(:)
+         double complex                 :: mat_elem
+         type(OSItensor), allocatable   :: Os(:)
+         double precision, optional     :: alpha,beta,gamma
+         end subroutine projdH
          subroutine diagH(Hdim,lmax,O,JMax)
          use lapack_diag_simm
          use stevens_class
@@ -32,11 +45,13 @@
          end subroutine diagH
         end interface
         double precision, allocatable :: SOCR(:,:),SOCI(:,:),EIG(:),Mat(:,:),Mj(:),EIG2(:),coeff(:,:) 
-        double precision              :: norm,phi,alpha,beta,gamma,JMax
+        double precision              :: norm,phi,alpha,beta,gamma,JMax,Bz
         double complex, allocatable   :: SOC(:,:),Lz(:,:),Sz(:,:),Jz(:,:),O(:),Sx(:,:),Lx(:,:),Jx(:,:),Jx2(:,:)
+        double complex, allocatable   :: DHSOC(:,:)
+        double precision,allocatable  :: valr(:),valc(:)
         character(len=100)            :: filename,word
         integer                       :: i,j,k,N,Nj,k1,k2,lmax
-        logical                       :: rotate_CF=.false.,spin_only=.false.
+        logical                       :: rotate_CF=.false.,spin_only=.false.,read_dH=.false.,add_field=.false.
 
         double precision, allocatable :: D(:),E(:)
         double complex, allocatable   :: Tau(:),work(:)
@@ -49,6 +64,8 @@
           write(*,*) '-lmax      : Max Order of CF operators'               
           write(*,*) '-rot       : ZYZ Euler angoles (rad) for CF rotation'               
           write(*,*) '-spin_only : Assume <L>=0'               
+          write(*,*) '-read_dH   : read the Vibronic coupling operator DH.dat'               
+          write(*,*) '-Bz        : Apply a Magnetic Field along z'               
           stop
          endif
 
@@ -71,6 +88,11 @@
                  call getarg(i+1,word)
                  read(word,*) lmax
 
+             case ('-Bz')
+                 call getarg(i+1,word)
+                 read(word,*) Bz
+                 add_field=.true.
+
              case ('-rot')
                  call getarg(i+1,word)
                  read(word,*) alpha
@@ -82,6 +104,9 @@
 
              case ('-spin_only')
                  spin_only=.true.
+
+             case ('-read_dH')
+                 read_dH=.true.
 
           end select
 
@@ -124,6 +149,14 @@
          Mat=Mat*0.5d0
          Sx=cmplx(Mat,0.0d0,8)
 
+         if(add_field)then
+          if(spin_only)then
+           SOC=SOC+Bz*0.5d0*2.0023*Sz
+          else
+           SOC=SOC+Bz*0.5d0*(Lz+2.0023*Sz)
+          endif
+         endif
+
          call new_diag(N,SOC,EIG)
 
          write(*,*) '#################################################'
@@ -136,9 +169,9 @@
          open(12,file='SOC_EIGVEC_C.dat')
          open(13,file='SOC_EIGVAL.dat')
 
-         do i=1,Nj
-          write(11,*) (dble(SOC(i,j)),j=1,Nj)
-          write(12,*) (aimag(SOC(i,j)),j=1,Nj)
+         do i=1,N
+          write(11,*) (dble(SOC(i,j)),j=1,N)
+          write(12,*) (aimag(SOC(i,j)),j=1,N)
           write(13,*) EIG(i)
          enddo
 
@@ -260,10 +293,35 @@
 !          Jz(i,16)=cmplx(coeff(4,1),coeff(4,2),8)
 !         enddo
 
-         if(rotate_CF)then
+         if(read_dH)then
+
+          open(11,file='DH.dat')
+          open(12,file='DHSOC.dat')
+
+          allocate(DHSOC(N,N))
+          allocate(valr(N))
+          allocate(valc(N))
+          DHSOC=(0.0d0,0.0d0)
+
+          do i=1,N
+           read(11,*) (valr(j),valc(j),j=1,N)
+           do j=1,N
+            DHSOC(i,j)=cmplx(valr(j),valc(j),8)
+           enddo
+           write(12,*) (dble(DHSOC(i,j)),aimag(DHSOC(i,j)),j=1,N)
+          enddo
+
+          close(11)
+          close(12)
+         
+         endif
+
+         if(rotate_CF)then                 
           call projH(lmax,Nj,EIG2,Jz,O,alpha,beta,gamma)
+          if(read_dH) call projdH(lmax,Nj,DHSOC,Jz,alpha,beta,gamma)
          else
           call projH(lmax,Nj,EIG2,Jz,O)
+          if(read_dH) call projdH(lmax,Nj,DHSOC,Jz)
          endif
 
          call diagH(Nj,lmax,O,JMax)
@@ -352,6 +410,117 @@
          
         return
         end subroutine diagH
+
+        subroutine projdH(lmax,Nj,DHSOC,Jz,alpha,beta,gamma)
+        use stevens_class
+        use spinham_class 
+        implicit none
+        integer                        :: lmax,Odim,Nj
+        integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf,ll
+        double complex, allocatable    :: DHSOC(:,:)
+        double precision               :: JMax,q1,q2,avg_ener
+        double complex, allocatable    :: Jz(:,:),B(:),A(:,:),work(:)
+        double complex                 :: mat_elem
+        type(OSItensor), allocatable   :: Os(:)
+        double precision, optional     :: alpha,beta,gamma
+
+         JMax=(Nj-1)/2.0d0
+
+         Odim=0
+         do i=2,lmax,2
+          Odim=Odim+(2*i+1)
+         enddo
+
+         allocate(B(Nj*Nj))
+         allocate(A(Nj*Nj,Odim))
+
+         A=(0.0d0,0.0d0)        
+         B=(0.0d0,0.0d0)        
+
+         k=1
+         do i1=1,Nj
+          do i2=1,Nj
+          
+           do v=1,Nj
+            do l=1,Nj
+             B(k)=B(k)+DHSOC(l,v)*conjg(Jz(i2,v))*Jz(i1,l)
+            enddo
+           enddo
+
+           q1=i1-((Nj-1)/2.0d0)-1
+           q2=i2-((Nj-1)/2.0d0)-1
+           s=1
+           do l=2,lmax,2
+            do j=-l,l
+             call stevens_mat_elem(l,j,JMax,q1,JMax,q2,mat_elem)
+             A(k,s)=mat_elem
+             s=s+1
+            enddo
+           enddo
+
+           k=k+1
+          enddo
+         enddo
+
+         lwork=Nj*Nj+64*Nj*Nj+1000
+         allocate(work(lwork))
+
+         call zgels('N',Nj*Nj,Odim,1,A,Nj*Nj,B,Nj*Nj,WORK,LWORK,inf)
+         if(inf.ne.0)then
+          write(*,*) 'zgels failed',inf
+          stop
+         endif
+
+         write(*,*) '#################################################'
+         write(*,*) '#################################################'
+         write(*,*) 'Derivatives of the Crystal Field Parameters:'
+         write(*,*) '#################################################'
+         write(*,*) '#################################################'
+
+         s=1
+         do l=2,lmax,2
+          do j=-l,l
+           write(*,*) l,j,dble(B(s))!,aimag(B(s))
+           s=s+1
+          enddo
+         enddo
+
+         if(present(alpha))then
+
+          allocate(Os(lmax/2))
+
+          write(*,*) '#################################################'
+          write(*,*) '#################################################'
+          write(*,*) 'Rotated Derivatives of the CF Parameters:'
+          write(*,*) '#################################################'
+          write(*,*) '#################################################'
+
+          s=1
+          ll=1
+          do l=2,lmax,2
+           Os(ll)%k=l
+           allocate(Os(ll)%B(2*l+1))
+           allocate(Os(ll)%q(2*l+1))
+           v=1
+           do j=-l,l
+            Os(ll)%B(v)=B(s)
+            Os(ll)%q(v)=j
+            s=s+1
+            v=v+1
+           enddo
+           call Os(ll)%rot(alpha,beta,gamma)
+           v=1
+           do j=-l,l
+            write(*,*) Os(ll)%k,Os(ll)%q(v),dble(Os(ll)%B(v))
+            v=v+1
+           enddo
+           ll=ll+1
+          enddo
+
+         endif
+
+        return
+        end subroutine projdH
 
         subroutine projH(lmax,Nj,Ener,Jz,O,alpha,beta,gamma)
         use stevens_class

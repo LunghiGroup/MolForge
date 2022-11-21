@@ -4,10 +4,11 @@
  export orca_output=$1
  export Nj=$2
  export lmax=$3
+ export field=$4
 
- export alpha=$4
- export beta=$5
- export gamma=$6
+ export alpha=$5
+ export beta=$6
+ export gamma=$7
 
 
  export soc_size=$( grep 'Dim(SO)' ${orca_output} | awk '{print $3}' | tail -n 1 ) 
@@ -42,11 +43,11 @@
  if [ ${alpha:-1000} -eq "1000" ] 
  then
 
-  ${CF_DIR}/CF.x -JMult ${Nj} -lmax ${lmax} -CISIZE ${soc_size} 
+  ${CF_DIR}/CF.x -JMult ${Nj} -lmax ${lmax} -CISIZE ${soc_size} -Bz ${field}
 
  else
 
-  ${CF_DIR}/CF.x -JMult ${Nj} -lmax ${lmax} -CISIZE ${soc_size} -rot ${alpha} ${beta} ${gamma}
+  ${CF_DIR}/CF.x -JMult ${Nj} -lmax ${lmax} -CISIZE ${soc_size} -rot ${alpha} ${beta} ${gamma} -Bz ${field}
 
  fi
 
