@@ -48,7 +48,7 @@
         double precision              :: norm,phi,alpha,beta,gamma,JMax,Bz
         double complex, allocatable   :: SOC(:,:),Lz(:,:),Sz(:,:),Jz(:,:),O(:),Sx(:,:),Lx(:,:),Jx(:,:),Jx2(:,:)
         double complex, allocatable   :: DHSOC(:,:)
-        double precision,allocatable  :: valr(:),valc(:)
+        double precision,allocatable  :: valr(:),valc(:),phase(:)
         character(len=100)            :: filename,word
         integer                       :: i,j,k,N,Nj,k1,k2,lmax
         logical                       :: rotate_CF=.false.,spin_only=.false.,read_dH=.false.,add_field=.false.
@@ -113,6 +113,7 @@
          enddo
 
          allocate(SOC(N,N))
+         allocate(phase(N))
          allocate(EIG(N))
          allocate(EIG2(N))
          allocate(Jz(Nj,Nj))
@@ -125,6 +126,13 @@
          allocate(Tau(Nj))
          lwork=10000
          allocate(work(lwork))
+
+         filename='PHASE.dat'
+         open(11,file=filename)
+         do i=1,N
+          read(11,*) phase(i)
+         enddo
+         close(11)
 
          filename='SOCR.dat'
          call read_orca_mat(N,SOCR,filename)
@@ -150,10 +158,13 @@
          Sx=cmplx(Mat,0.0d0,8)
 
          if(add_field)then
+
+          write(*,*) "Applying a Magnetic Field of ", Bz
+
           if(spin_only)then
-           SOC=SOC+Bz*0.5d0*2.0023*Sz
+           SOC=SOC-2.002318*Sz*2.1271898d-4*Bz
           else
-           SOC=SOC+Bz*0.5d0*(Lz+2.0023*Sz)
+           SOC=SOC-(Lz+2.002318*Sz)*2.1271898d-4*Bz
           endif
          endif
 
