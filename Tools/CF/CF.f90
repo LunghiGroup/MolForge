@@ -168,6 +168,12 @@
           endif
          endif
 
+         do i=1,N
+          do j=1,N
+           SOC(i,j)=SOC(i,j)*phase(i)*phase(j)
+          enddo
+         enddo
+
          call new_diag(N,SOC,EIG)
 
          write(*,*) '#################################################'
