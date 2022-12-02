@@ -8,14 +8,14 @@
          character(len=100)            :: filename,skip
          double precision, allocatable :: MAT(:,:)
          end subroutine read_orca_mat
-         subroutine projH(lmax,Nj,Ener,Jz,O,alpha,beta,gamma)
+         subroutine projH(lmax,Nj,Ener,Jz,Bz,O,alpha,beta,gamma)
          use stevens_class
          use spinham_class 
          implicit none
          integer                        :: lmax,Odim,Nj
          integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf,ll
          double precision, allocatable  :: Ener(:)
-         double precision               :: JMax,q1,q2,avg_ener
+         double precision               :: JMax,q1,q2,avg_ener,Bz,Bfield(3)
          double complex, allocatable    :: Jz(:,:),B(:),A(:,:),O(:),work(:)
          double complex                 :: mat_elem
          type(OSItensor), allocatable   :: Os(:)
@@ -56,6 +56,7 @@
         double precision, allocatable :: D(:),E(:)
         double complex, allocatable   :: Tau(:),work(:)
         integer                       :: info,lwork
+        double precision              :: bohr_mag=-0.466867723
 
          if( iargc().eq.0)then
           write(*,*) 'CF Usage:'               
@@ -162,9 +163,9 @@
           write(*,*) "Applying a Magnetic Field of ", Bz
 
           if(spin_only)then
-           SOC=SOC-2.002318*Sz*2.1271898d-4*Bz
+           SOC=SOC+2.002319304362*Sz*2.12719108d-6*Bz
           else
-           SOC=SOC-(Lz+2.002318*Sz)*2.1271898d-4*Bz
+           SOC=SOC+(Lz+2.002319304362*Sz)*2.12719108d-6*Bz
           endif
          endif
 
@@ -334,10 +335,10 @@
          endif
 
          if(rotate_CF)then                 
-          call projH(lmax,Nj,EIG2,Jz,O,alpha,beta,gamma)
+          call projH(lmax,Nj,EIG2,Jz,Bz,O,alpha,beta,gamma)
           if(read_dH) call projdH(lmax,Nj,DHSOC,Jz,alpha,beta,gamma)
          else
-          call projH(lmax,Nj,EIG2,Jz,O)
+          call projH(lmax,Nj,EIG2,Jz,Bz,O)
           if(read_dH) call projdH(lmax,Nj,DHSOC,Jz)
          endif
 
@@ -466,6 +467,7 @@
 
            q1=i1-((Nj-1)/2.0d0)-1
            q2=i2-((Nj-1)/2.0d0)-1
+
            s=1
            do l=2,lmax,2
             do j=-l,l
@@ -539,18 +541,21 @@
         return
         end subroutine projdH
 
-        subroutine projH(lmax,Nj,Ener,Jz,O,alpha,beta,gamma)
+        subroutine projH(lmax,Nj,Ener,Jz,Bz,O,alpha,beta,gamma)
         use stevens_class
         use spinham_class 
         implicit none
         integer                        :: lmax,Odim,Nj
         integer                        :: i,j,l,s,k,i1,i2,v,lwork,inf,ll
         double precision, allocatable  :: Ener(:)
-        double precision               :: JMax,q1,q2,avg_ener
+        double precision               :: JMax,q1,q2,avg_ener,Bz,Bfield(3)
         double complex, allocatable    :: Jz(:,:),B(:),A(:,:),O(:),work(:)
-        double complex                 :: mat_elem
+        double complex                 :: mat_elem,gtens_loc
         type(OSItensor), allocatable   :: Os(:)
         double precision, optional     :: alpha,beta,gamma
+
+         Bfield=0.0d0
+         Bfield(3)=Bz
 
          JMax=(Nj-1)/2.0d0
 
@@ -567,7 +572,7 @@
 
          allocate(O(Odim))
          allocate(B(Nj*Nj))
-         allocate(A(Nj*Nj,Odim))
+         allocate(A(Nj*Nj,Odim+1))
 
          A=(0.0d0,0.0d0)        
          B=(0.0d0,0.0d0)        
@@ -583,10 +588,19 @@
 
            q1=i1-((Nj-1)/2.0d0)-1
            q2=i2-((Nj-1)/2.0d0)-1
+
            s=1
            do l=2,lmax,2
             do j=-l,l
              call stevens_mat_elem(l,j,JMax,q1,JMax,q2,mat_elem)
+             A(k,s)=mat_elem
+             s=s+1
+            enddo
+           enddo
+
+           do l=3,3
+            do j=3,3
+             mat_elem=gtens_loc(q1,q2,Jmax,Bfield,l,j)
              A(k,s)=mat_elem
              s=s+1
             enddo
@@ -599,7 +613,7 @@
          lwork=Nj*Nj+64*Nj*Nj+1000
          allocate(work(lwork))
 
-         call zgels('N',Nj*Nj,Odim,1,A,Nj*Nj,B,Nj*Nj,WORK,LWORK,inf)
+         call zgels('N',Nj*Nj,Odim+1,1,A,Nj*Nj,B,Nj*Nj,WORK,LWORK,inf)
          if(inf.ne.0)then
           write(*,*) 'zgels failed',inf
           stop
@@ -616,6 +630,19 @@
           do j=-l,l
            write(*,*) l,j,dble(B(s))!,aimag(B(s))
            O(s)=B(s)
+           s=s+1
+          enddo
+         enddo
+         
+         write(*,*) '#################################################'
+         write(*,*) '#################################################'
+         write(*,*) 'G-tensor Parameters:'
+         write(*,*) '#################################################'
+         write(*,*) '#################################################'
+
+         do l=3,3
+          do j=3,3
+           write(*,*) l,j,dble(B(s))!,aimag(B(s))
            s=s+1
           enddo
          enddo
@@ -703,3 +730,53 @@
 
         return
         end subroutine read_orca_mat
+
+        function gtens_loc(a1,b1,spin,B,i,j) result(val)
+        implicit none
+        double complex                          :: val,C
+        integer                                 :: i,j
+        double precision                        :: bohr_mag=-0.466867723
+        double precision                        :: mapp(2),B(3),G(3,3),spin,a1,b1
+
+         val=(0.0d0,0.0d0)
+         G=0.0d0
+         G(i,j)=1.0d0         
+         mapp(1)=a1
+         mapp(2)=b1
+
+       !S-
+         if(abs(mapp(1)-mapp(2)+1).lt.1.0E-06)then
+          C=(0.0d0,0.0d0)
+          C=0.5d0*G(1,1)*B(1)*dsqrt((spin+mapp(2))*(spin-mapp(2)+1))
+          C=C+0.5d0*G(2,1)*B(2)*dsqrt((spin+mapp(2))*(spin-mapp(2)+1))
+          C=C+0.5d0*G(3,1)*B(3)*dsqrt((spin+mapp(2))*(spin-mapp(2)+1))
+          val=val+C
+          C=(0.0d0,0.0d0)
+          C=0.5d0*G(1,2)*B(1)*dsqrt((spin+mapp(2))*(spin-mapp(2)+1))
+          C=C+0.5d0*G(2,2)*B(2)*dsqrt((spin+mapp(2))*(spin-mapp(2)+1))
+          C=C+0.5d0*G(3,2)*B(3)*dsqrt((spin+mapp(2))*(spin-mapp(2)+1))
+          val=val+C*CMPLX(0.0d0,1.0d0,8)
+         endif
+        !S+
+         if(abs(mapp(1)-mapp(2)-1).lt.1.0E-06)then
+          C=(0.0d0,0.0d0)
+          C=0.5d0*G(1,1)*B(1)*dsqrt((spin-mapp(2))*(spin+mapp(2)+1))
+          C=C+0.5d0*G(2,1)*B(2)*dsqrt((spin-mapp(2))*(spin+mapp(2)+1))
+          C=C+0.5d0*G(3,1)*B(3)*dsqrt((spin-mapp(2))*(spin+mapp(2)+1))
+          val=val+C!CMPLX(C,0,8)
+          C=(0.0d0,0.0d0)
+          C=0.5d0*G(1,2)*B(1)*dsqrt((spin-mapp(2))*(spin+mapp(2)+1))
+          C=C+0.5d0*G(2,2)*B(2)*dsqrt((spin-mapp(2))*(spin+mapp(2)+1))
+          C=C+0.5d0*G(3,2)*B(3)*dsqrt((spin-mapp(2))*(spin+mapp(2)+1))
+          val=val+C*CMPLX(0.d0,-1.0d0,8)
+         endif
+        !Sz
+         if(abs(mapp(1)-mapp(2)).lt.1.0E-06)then
+           val=val+G(1,3)*B(1)*mapp(2)+G(2,3)*B(2)   &
+                  *mapp(2)+G(3,3)*B(3)*mapp(2)
+         endif
+
+         val=-1.0d0*val*bohr_mag ! bohr magneton in cm-1/T
+
+        return 
+        end function gtens_loc
