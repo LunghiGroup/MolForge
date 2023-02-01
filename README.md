@@ -6,7 +6,7 @@ interface with electronic structure codes and makes it possible to predict spin 
 
 MolForge: a multipurpose FORTRAN2003 and MPI suite of codes for the simulation of quantum spin dynamics at the atomistic level. 
 
-Copyright (c) 2021 Trinity College Dublin
+Copyright (c) 2023 Trinity College Dublin
 
 Developed by Alessandro Lunghi, School of Physics, AMBER and CRANN Institute, Trinity College, Dublin 2, Ireland
 
