@@ -3,7 +3,6 @@
 
         contains
 
-
          subroutine schmidt_ort(N,Amat)
          implicit none
          double precision                     :: Amat(N,N),Bmat(N,N)
@@ -71,28 +70,27 @@
          subroutine lowdin_S(N,basis)
          use lapack_diag_simm
          implicit none
-         double precision, allocatable :: basis(:,:)
-         double precision, allocatable :: Smat(:,:),Smat_inv(:,:),Seig(:)
+         double complex, allocatable   :: basis(:,:),Smat(:,:),Smat_inv(:,:)
+         double precision, allocatable :: Seig(:)
          integer                       :: N,i
 
-         allocate(basis(N,N))
          allocate(Smat(N,N))
          allocate(Smat_inv(N,N))
          allocate(Seig(N))
 
-         Smat=matmul(transpose(basis),basis)
+         Smat=matmul(transpose(conjg(basis)),basis)
 
          call new_diag(N,Smat,Seig)
 
-         Smat_inv=0.0d0        
+         Smat_inv=(0.0d0,0.0d0)        
          do i=1,N
           Smat_inv(i,i)=1.0d0/sqrt(Seig(i))
          enddo
 
          Smat_inv=matmul(Smat,Smat_inv)
-         Smat_inv=matmul(Smat_inv,transpose(Smat))        
+         Smat_inv=matmul(Smat_inv,transpose(conjg(Smat)))        
 
-         basis=matmul(basis,transpose(Smat_inv))
+         basis=matmul(basis,transpose(conjg(Smat_inv)))
 
          return
          end subroutine lowdin_S
