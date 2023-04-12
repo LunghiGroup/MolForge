@@ -88,6 +88,10 @@
          enddo
 
          allocate(SOC(N,N))
+         allocate(Lz(N,N))
+         allocate(Lx(N,N))
+         allocate(Sz(N,N))
+         allocate(Sx(N,N))
          allocate(EIG(N))
          allocate(EIG2(N))
          allocate(Jz(Nj,Nj))
