@@ -65,6 +65,11 @@
          procedure           :: make_D   => make_D_dipolar
         end type Ddipolar
         
+        type :: Hmat
+         double complex, allocatable  :: H(:,:)
+         integer                      :: Hdim
+        end type Hmat
+
         type :: OSItensor
          integer                  :: k
          integer,allocatable      :: q(:)
@@ -99,6 +104,8 @@
         end type Gtensor
 
         type :: SpinHamiltonian
+         integer                      :: nH=0
+         type(Hmat),allocatable       :: H(:)
          integer                      :: nO=0
          type(OSItensor),allocatable  :: O(:)
          integer                      :: nJ=0
@@ -153,6 +160,7 @@
         class(SpinHamiltonian)  :: this
         integer                 :: i,l,v
 
+         call mpi_bcast(this%nH,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(this%nO,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(this%nJ,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(this%nG,1,mpi_integer,0,mpi_comm_world,err)
@@ -161,6 +169,18 @@
          call mpi_bcast(this%make_dipolar,1,mpi_logical,0,mpi_comm_world,err)
          call mpi_bcast(this%dipolar_thr,1,mpi_double_precision,0,mpi_comm_world,err)
          
+         if(this%nH.gt.0)then
+          if(.not.allocated(this%H)) allocate(this%H(this%nH))
+          do i=1,this%nH
+           call mpi_bcast(this%H(i)%Hdim,1,mpi_integer,0,mpi_comm_world,err)
+           do l=1,this%H(i)%Hdim
+            do v=1,this%H(i)%Hdim
+             call mpi_bcast(this%H(i)%H(v,l),1,mpi_complex,0,mpi_comm_world,err)
+            enddo
+           enddo
+          enddo
+         endif
+
          if(this%nJ.gt.0)then
           if(.not.allocated(this%J)) allocate(this%J(this%nJ))
           do i=1,this%nJ

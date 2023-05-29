@@ -40,6 +40,13 @@
          integer                        :: norder
         end type sph_thermos
 
+        type, extends(sph_thermos) :: Hthermos                
+         type(Hmat), allocatable            :: Hcart(:)
+         integer                            :: Hdim
+         contains
+         procedure     :: cart2brill => cart2brill_H
+        end type Hthermos
+
         type, extends(sph_thermos) :: Jthermos
          type(Jiso), allocatable  :: Jcart(:)
          integer                  :: kind(2)
@@ -96,6 +103,7 @@
         end type dDthermos
 
         type, extends(SpinHamiltonian) :: SpinPhononHamiltonian
+         type(Hthermos),allocatable     :: H_t(:)
          type(Othermos),allocatable     :: O_t(:)
          type(Jthermos),allocatable     :: J_t(:)
          type(Gthermos),allocatable     :: G_t(:)
@@ -793,8 +801,9 @@
         use blacs_utils
         implicit none
         class(SpinPhononHamiltonian)  :: this
-        integer                       :: i,l,j,nmapp
+        integer                       :: i,l,j,nmapp,v
 
+         call mpi_bcast(this%nH,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(this%nO,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(this%nJ,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(this%nG,1,mpi_integer,0,mpi_comm_world,err)
@@ -802,6 +811,7 @@
          call mpi_bcast(this%nD2S,1,mpi_integer,0,mpi_comm_world,err)
          call mpi_bcast(this%make_dipolar,1,mpi_logical,0,mpi_comm_world,err)
          call mpi_bcast(this%dipolar_thr,1,mpi_double_precision,0,mpi_comm_world,err)
+
          if(this%make_dipolar .and. mpi_id.eq.0) nmapp=size(this%mapp)
          if(this%make_dipolar) &
           call mpi_bcast(nmapp,1,mpi_integer,0,mpi_comm_world,err)
@@ -809,6 +819,28 @@
          if(this%make_dipolar) &
          call mpi_bcast(this%mapp,nmapp,mpi_integer,0,mpi_comm_world,err)
          
+         if(this%nH.gt.0)then
+          if(.not.allocated(this%H)) allocate(this%H(this%nH))
+          if(.not.allocated(this%H_t)) allocate(this%H_t(this%nH))
+          do i=1,this%nH
+           call mpi_bcast(this%H_t(i)%nderiv,1,mpi_integer,0,mpi_comm_world,err)
+           call mpi_bcast(this%H_t(i)%norder,1,mpi_integer,0,mpi_comm_world,err)
+           if(.not.allocated(this%H_t(i)%Hcart)) allocate(this%H_t(i)%Hcart(this%H_t(i)%nderiv))
+           if(.not.allocated(this%H_t(i)%map_s2a)) allocate(this%H_t(i)%map_s2a(this%H_t(i)%nderiv,2*this%H_t(i)%norder))
+           do j=1,this%H_t(i)%nderiv
+            call mpi_bcast(this%H_t(i)%map_s2a(j,:),this%H_t(i)%norder*2,mpi_integer,0,mpi_comm_world,err)
+            call mpi_bcast(this%H_t(i)%Hcart(j)%Hdim,1,mpi_integer,0,mpi_comm_world,err)            
+            if(.not.allocated(this%H_t(i)%Hcart(j)%H)) &
+            allocate(this%H_t(i)%Hcart(j)%H(this%H_t(i)%Hcart(j)%Hdim,this%H_t(i)%Hcart(j)%Hdim)) 
+            do l=1,this%H_t(i)%Hcart(j)%Hdim
+             do v=1,this%H_t(i)%Hcart(j)%Hdim
+              call mpi_bcast(this%H_t(i)%Hcart(j)%H(l,v),1,mpi_double_complex,0,mpi_comm_world,err)
+             enddo
+            enddo
+           enddo
+          enddo
+         endif
+
          if(this%nJ.gt.0)then
           if(.not.allocated(this%J)) allocate(this%J(this%nJ))
           if(.not.allocated(this%J_t)) allocate(this%J_t(this%nJ))
@@ -998,6 +1030,10 @@
 
          endif
 
+         do l=1,this%nH
+          call this%H_t(l)%cart2brill(hess,phondy%list(ki)%k,rcell,this%H(l))
+         enddo
+
          do l=1,this%nJ
           call this%J_t(l)%cart2brill(hess,phondy%list(ki)%k,rcell,this%J(l))
          enddo
@@ -1095,6 +1131,35 @@
 
         return
         end subroutine cart2brill2
+
+        subroutine cart2brill_H(this,hess,k,rcell,Htmp)
+        use spinham_class
+        implicit none
+        class(Hthermos)                          :: this
+        type(Hmat)                               :: Htmp       
+        integer                                  :: i,l,t,s,v
+        complex(8), allocatable                  :: hess(:)
+        complex(8)                               :: coeff
+        double precision                         :: k(3)
+        double precision, allocatable            :: rcell(:,:)
+                         
+         Htmp%Hdim=this%Hdim
+         allocate(Htmp%H(Htmp%Hdim,Htmp%Hdim))
+         Htmp%H=(0.0d0,0.0d0)
+
+         do i=1,size(this%Hcart)
+          l=this%map_s2a(i,1)
+          v=this%map_s2a(i,2)
+          coeff=cmplx(0.0d0,1.0d0,8)*2*acos(-1.0d0)*DOT_PRODUCT(k,rcell(v,:))
+          do s=1,Htmp%Hdim
+           do t=1,Htmp%Hdim           
+            Htmp%H(s,t)=Htmp%H(s,t)+this%Hcart(i)%H(s,t)*hess(l)*exp(coeff)
+           enddo
+          enddo
+         enddo
+
+        return
+        end subroutine cart2brill_H
 
         subroutine cart2brill_J(this,hess,k,rcell,Jtmp)
         use spinham_class

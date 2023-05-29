@@ -235,6 +235,30 @@
            case('&PHONDY')
             call parse_phondy(phondy,lattice)
 
+
+           case('&H_BATH')
+
+            spindy%SPH%nH=spindy%SPH%nH+1
+
+            if(spindy%SPH%nH.gt.1)then
+             write(*,*) "Multiple H baths not yet implemented, aborting"
+             stop
+            endif
+
+            allocate(spindy%SPH%H(1))
+            call get_word(line,word,2)
+            read(word,*) spindy%SPH%H(1)%Hdim
+            call get_word(line,word,3)
+            call parse_Hbath(spindy%SPH%H_t(1))
+
+            if (spindy%SPH%H_t(1)%norder.eq.1)then
+             spindy%make_Rmat=.true.
+            endif
+            if (spindy%SPH%H_t(1)%norder.eq.2)then
+             write(*,*) "second order dH not implemented yet, aborting"
+             stop
+            endif
+
            case('&G_BATH')
             call get_word(line,word,2)
             read(word,*) Gtmp%kind
@@ -412,6 +436,60 @@
         stop
         end subroutine parse_sph
 
+        subroutine parse_Hbath(Hbath)
+        use spin_phonon_class
+        use parser_class
+        implicit none
+        class(Hthermos)                  :: Hbath
+        character(len=:), allocatable    :: line,word
+        integer                          :: l,s,t
+        double precision                 :: valc,valr
+        logical                          :: eof=.false.
+
+         if(allocated(Hbath%Hcart)) deallocate(Hbath%Hcart)
+         if(allocated(Hbath%map_s2a)) deallocate(Hbath%map_s2a)
+
+         do
+
+          call get_line(10,line,eof)
+
+          call get_word(line,word,1)
+          call To_upper(word)
+
+          select case (word)
+
+           case('FILENAME')
+            call get_word(line,word,2)
+            open(12,file=trim(word))
+
+           case('NORDER')
+            call get_word(line,word,2)
+            read(word,*) Hbath%norder
+
+           case('&END')
+
+           read(12,*) Hbath%nderiv
+           allocate(Hbath%Hcart(Hbath%nderiv))
+           allocate(Hbath%map_s2a(Hbath%nderiv,Hbath%norder*2))
+           do l=1,Hbath%nderiv
+            read(12,*) Hbath%map_s2a(l,:)
+            allocate(Hbath%Hcart(l)%H(Hbath%Hdim,Hbath%Hdim))
+            do s=1,Hbath%Hdim
+             do t=1,Hbath%Hdim              
+              read(12,*) valr,valc
+              Hbath%Hcart(l)%H(s,t)=cmplx(valr,valc,8)
+             enddo
+            enddo
+           enddo
+           close(12)
+           return
+
+          end select
+
+         enddo
+
+        stop
+        end subroutine parse_Hbath
 
         subroutine parse_DSIbath(DSI)
         use spin_phonon_class
@@ -1130,7 +1208,8 @@
         implicit none
         class(spins_group)   :: spindy
         character(len=:),allocatable   :: line,word
-        integer              :: l,i
+        integer              :: l,i,jj
+        double precision     :: valr,valc
         logical              :: eof=.false.
         type(Jiso_list)      :: J 
         type(DSItensor_list) :: DSI
@@ -1160,6 +1239,28 @@
 
 
           select case(word)
+
+           case('&DEF_H')
+            spindy%SH%nH=spindy%SH%nH+1
+
+            if(spindy%SH%nH.gt.1)then
+             write(*,*) "Multiple def_h not yet implemented, aborting"
+             stop
+            endif
+
+            allocate(spindy%SH%H(1))
+            call get_word(line,word,2)
+            read(word,*) spindy%SH%H(1)%Hdim
+            call get_word(line,word,3)
+
+            open(142,file=trim(word))
+            do i=1,spindy%SH%H(1)%Hdim
+             do jj=1,spindy%SH%H(1)%Hdim
+              read(142,*) valr,valc
+              spindy%SH%H(1)%H(i,jj)=cmplx(valr,valc,8)
+             enddo
+            enddo
+            close(142)
 
            case('&DEF_G')
             spindy%SH%nG=spindy%SH%nG+1

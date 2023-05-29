@@ -383,6 +383,10 @@
 
             enddo ! l
 
+            do l=1,this%SPH2%nH
+             AA%mat=AA%mat+this%SPH2%H(l)%H
+            enddo
+
       ! Rotate Vij
 
             if(this%ntot.gt.1)then
@@ -776,7 +780,11 @@
             
              AA%mat(ii,jj)=this%get_Hij_2(this%Hnodes(l,1:4))
 
-            enddo ! l
+            enddo ! l           
+
+            do l=1,this%SPH%nH
+             AA%mat=AA%mat+this%SPH%H(l)%H
+            enddo
 
       ! Rotate Vij
 
@@ -1196,6 +1204,10 @@
 
            enddo ! l
 
+           do l=1,this%SPH%nH
+            AA%mat=AA%mat+this%SPH%H(l)%H
+           enddo
+
       ! Rotate Vij
 
            if(this%make_Heig)then
@@ -1588,6 +1600,10 @@
 
             enddo ! l
 
+            do l=1,this%SPH%nH
+             AA%mat=AA%mat+this%SPH%H(l)%H
+            enddo
+
       ! Rotate Vij
 
             if(this%ntot.gt.1)then
@@ -1619,6 +1635,10 @@
              AA2%mat(ii,jj)=this%get_Hij_2(this%Hnodes(l,1:4))
 
             enddo ! l
+
+            do l=1,this%SPH%nH
+             AA2%mat=AA2%mat+this%SPH%H(l)%H
+            enddo
 
       ! Rotate Vij for second phonon
 
@@ -4406,6 +4426,10 @@
           AA%mat(ii,jj)=this%get_Hij_2(this%Hnodes(l,1:4))
 
          enddo ! l
+
+         do l=1,this%SH%nH
+          AA%mat=AA%mat+this%SH%H(l)%H
+         enddo
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
