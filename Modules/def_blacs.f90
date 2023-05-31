@@ -34,9 +34,9 @@
           procedure               :: dealloc =>  dealloc_cmplx
           procedure               :: get_nze => get_nze_cmplx
           procedure               :: raze => raze_cmplx
-          procedure               :: print_mat => print_mat_cmplx
           procedure               :: set_val => set_val_cmplx
           procedure               :: read_mat => read_mat_cmplx
+          procedure               :: print_mat => print_mat_cmplx
          end type  dist_cmplx_mat
 
          type ,extends(dist_mat):: dist_cmplx_vec
