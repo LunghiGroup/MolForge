@@ -26,7 +26,20 @@
 
         type :: mat_cmplx
          complex(8), allocatable :: mat(:,:)
+         contains
+         procedure      :: delete => delete_cmplx_mat
         end type mat_cmplx
+
+        contains
+
+        subroutine delete_cmplx_mat(this)
+        implicit none
+        class(mat_cmplx)  :: this
+
+         if(allocated(this%mat)) deallocate(this%mat)
+
+        return
+        end subroutine delete_cmplx_mat
 
 
         end module  general_types_class

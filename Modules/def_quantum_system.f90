@@ -1,6 +1,7 @@
         module quantum_systems_class
         use mpi
         use blacs_utils
+        use general_types_class
         use atoms_class
         use spins_dist_rs_class         
         use phonons_class
@@ -30,7 +31,19 @@
         end type open_quantum_system
 
         type, extends(open_quantum_system) :: spin_quantum_system
-         type(spins_group)     :: spins
+         type(spins_group)                     :: spins
+         double precision, allocatable         :: basis(:,:)
+         integer, allocatable                  :: Hnodes(:,:)
+         type(mat_cmplx), allocatable          :: SHrep(:,:)
+         contains
+         procedure   ::  make_spin_basis
+         procedure   ::  make_SH_rep         
+         procedure   ::  make_Hmat_nodes
+         procedure   ::  get_Hij
+         procedure   ::  make_Hmat
+         procedure   ::  make_Smat
+!         procedure   ::  make_rot
+!         procedure   ::  set_dipolar
         end type spin_quantum_system
 
         contains
@@ -191,7 +204,7 @@
 
          ! compute R21
 
-           call make_R21(this,Vmat,this%temp,freq,this%smear,this%type_smear)
+           call this%make_R21(Vmat,this%temp,freq,this%smear,this%type_smear)
 
           enddo 
           ph=ph+1
@@ -272,7 +285,7 @@
               enddo
              enddo                   
 
-             call make_R22(this,Vmat,this%temp,freq,freq2,this%smear,this%smear,this%type_smear)
+             call this%make_R22(Vmat,this%temp,freq,freq2,this%smear,this%smear,this%type_smear)
 
             enddo ! bn2
            enddo ! ph2
@@ -371,7 +384,7 @@
               enddo
              enddo                   
 
-             call make_R41(this,Vmat,V2mat,this%temp,freq,freq2,this%smear,this%smear,this%type_smear)
+             call this%make_R41(Vmat,V2mat,this%temp,freq,freq2,this%smear,this%smear,this%type_smear)
 
             enddo ! bn2
            enddo ! ph2
@@ -387,5 +400,746 @@
 
         return
         end subroutine make_R41_limbladian
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   BUILD THE SPIN BASIS SET
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_spin_basis(this)
+        implicit none
+        class(spin_quantum_system)      :: this
+        integer                         :: i,id,si
+        integer                         :: t1,t2,rate
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)        
+          write(*,*) '' 
+          write(*,*) '     Building Basis Set'
+          flush(6)
+         endif
+
+         this%Hdim=1
+         do i=1,this%spins%nspins
+          this%Hdim=this%Hdim*(nint(2*this%spins%spin(this%spins%kind(i)))+1)
+         enddo       
+         allocate(this%basis(this%Hdim,this%spins%nspins))
+
+         id=1
+         si=1
+         call build_spin_basis(this,id,si)
+
+         if(mpi_id.eq.0)then
+          write(*,*) '     Total Hilbert space size: ',this%Hdim
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return
+        end subroutine make_spin_basis
+
+        recursive subroutine build_spin_basis(this,id,si)
+        implicit none
+        class(spin_quantum_system)      :: this
+        integer                         :: id,si,sj,i
+
+ !        if ( id.eq.1 .and. si.eq.1 ) then
+ !         do j=si+1,this%spins%nspins
+ !          basis_tmp(j)=-nint(2*this%spins%spin(this%spins%kind(j)))
+ !         enddo
+ !        endif
+
+         if(si.lt.this%spins%nspins)then
+
+          do i=-nint(2*this%spins%spin(this%spins%kind(si))),nint(2*this%spins%spin(this%spins%kind(si))),2
+
+           this%basis(id,si)=i
+
+!           do j=si+1,this%spins%nspins
+!            this%basis(id,j)=-nint(2*this%spins%spin(this%spins%kind(j)))
+!           enddo
+
+           sj=si+1  
+           call build_spin_basis(this,id,sj)
+
+          enddo
+
+         else
+
+          do i=-nint(2*this%spins%spin(this%spins%kind(si))),nint(2*this%spins%spin(this%spins%kind(si))),2
+           this%basis(id,si)=i
+           id=id+1
+          enddo
+
+         endif
+       
+        return
+        end subroutine build_spin_basis
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   COMPUTE MATRIX RAPRESENTATION OF EACH TERM OF THE SPIN HAMILTONIAN
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_SH_rep(this,SH,spin_id,spin_id2)
+        use spinham_class
+        implicit none
+        class(spin_quantum_system) :: this
+        class(SpinHamiltonian)     :: SH
+        integer                    :: i,j,l2,l,s1,s2,l1
+        integer                    :: ii,jj,ii1,ii2,jj1,jj2
+        integer                    :: t1,t2,rate,a,b,c,d,spin_id,spin_id2
+        double precision           :: spin2(2),psi2(2,2)
+        double precision           :: spin1,psi1(2)
+
+         if(allocated(this%SHrep))then
+          do i=1,size(this%SHrep,1)
+           do j=1,size(this%SHrep,2)
+            call this%SHrep(i,j)%delete()
+           enddo
+          enddo
+          deallocate(this%SHrep)
+         endif
+
+         ! allocate
+
+         if(.not.allocated(this%SHrep))then
+          allocate(this%SHrep(this%spins%nspins_pr,this%spins%nspins))
+         endif
+
+         do s1=1,this%spins%nspins_pr  
+          if(allocated(this%SHrep(s1,s1)%mat)) deallocate(this%SHrep(s1,s1)%mat)
+          ii=nint(2*this%spins%spin(this%spins%kind(s1)))+1
+          allocate(this%SHrep(s1,s1)%mat(ii,ii))
+          this%SHrep(s1,s1)%mat=(0.0d0,0.0d0)
+         enddo
+
+         do s1=1,this%spins%nspins_pr
+          do s2=s1+1,this%spins%nspins
+           if(allocated(this%SHrep(s1,s2)%mat)) deallocate(this%SHrep(s1,s2)%mat)
+           ii=nint(2*this%spins%spin(this%spins%kind(s1)))+1
+           ii=ii*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)
+           allocate(this%SHrep(s1,s2)%mat(ii,ii))
+           this%SHrep(s1,s2)%mat=(0.0d0,0.0d0)
+          enddo
+         enddo
+
+         !
+
+         do s1=1,this%spins%nspins_pr  
+          if(spin_id.ne.spin_id2) cycle
+          if(spin_id.ne.-1 .and. spin_id.ne.s1) cycle
+
+          if(allocated(this%SHrep(s1,s1)%mat)) deallocate(this%SHrep(s1,s1)%mat)
+          ii=nint(2*this%spins%spin(this%spins%kind(s1)))+1
+          allocate(this%SHrep(s1,s1)%mat(ii,ii))
+          this%SHrep(s1,s1)%mat=(0.0d0,0.0d0)
+
+          do ii=1,nint(2*this%spins%spin(this%spins%kind(s1)))+1
+           do jj=1,nint(2*this%spins%spin(this%spins%kind(s1)))+1
+
+            psi1(1)=ii-this%spins%spin(this%spins%kind(s1))-1
+            psi1(2)=jj-this%spins%spin(this%spins%kind(s1))-1
+            spin1=this%spins%spin(this%spins%kind(s1))
+
+        !  Stevens operators matrix elements
+                   
+            do i=1,SH%nO
+             if(this%spins%kind(s1).eq.SH%O(i)%kind)then
+              this%SHrep(s1,s1)%mat(ii,jj)=this%SHrep(s1,s1)%mat(ii,jj)&
+                +SH%O(i)%mat_elem(psi1,spin1)
+             endif
+            enddo
+
+        !  Zeeman Stevens operators matrix elements
+
+            do i=1,SH%nG
+             if(this%spins%kind(s1).eq.SH%G(i)%kind)then
+              this%SHrep(s1,s1)%mat(ii,jj)=this%SHrep(s1,s1)%mat(ii,jj)&
+                +SH%G(i)%mat_elem(psi1,spin1,this%spins%Bfield,this%spins%bohr_mag(this%spins%kind(s1)))
+             endif
+            enddo
+
+        !  Single Ion Anisotropy operators matrix elements
+
+            do i=1,SH%nDSI
+             if(this%spins%kind(s1).eq.SH%DSI(i)%kind)then
+              this%SHrep(s1,s1)%mat(ii,jj)=this%SHrep(s1,s1)%mat(ii,jj)&
+                +SH%DSI(i)%mat_elem(psi1,spin1)
+             endif
+            enddo
+
+
+           enddo ! 1 spin basis
+          enddo ! 1 spin basis
+
+         enddo ! spins
+
+         do s1=1,this%spins%nspins_pr
+          if(spin_id.ne.-1 .and. spin_id.ne.s1) cycle
+          do s2=s1+1,this%spins%nspins
+           if(spin_id2.ne.-1 .and. spin_id2.ne.s2) cycle
+
+           if(allocated(this%SHrep(s1,s2)%mat)) deallocate(this%SHrep(s1,s2)%mat)
+           ii=nint(2*this%spins%spin(this%spins%kind(s1)))+1
+           ii=ii*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)
+           allocate(this%SHrep(s1,s2)%mat(ii,ii))
+           this%SHrep(s1,s2)%mat=(0.0d0,0.0d0)
+
+           ii=1
+           do ii1=1,nint(2*this%spins%spin(this%spins%kind(s1)))+1
+            do ii2=1,nint(2*this%spins%spin(this%spins%kind(s2)))+1
+
+             jj=1
+             do jj1=1,nint(2*this%spins%spin(this%spins%kind(s1)))+1
+              do jj2=1,nint(2*this%spins%spin(this%spins%kind(s2)))+1
+
+               psi2(1,1)=ii1-this%spins%spin(this%spins%kind(s1))-1
+               psi2(1,2)=ii2-this%spins%spin(this%spins%kind(s2))-1
+               psi2(2,1)=jj1-this%spins%spin(this%spins%kind(s1))-1
+               psi2(2,2)=jj2-this%spins%spin(this%spins%kind(s2))-1
+               spin2(1)=this%spins%spin(this%spins%kind(s1))
+               spin2(2)=this%spins%spin(this%spins%kind(s2))
+
+        !  Isotropic exchange operators matrix elements
+
+               do i=1,SH%nJ
+                if(this%spins%kind(s1).eq.SH%J(i)%kind(1) .and. this%spins%kind(s2).eq.SH%J(i)%kind(2) )then
+                 if(this%spins%ntot.gt.1 .and. s2.gt.this%spins%nspins_pr)then
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%J(i)%mat_elem(psi2,spin2)*0.5d0
+                 else
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%J(i)%mat_elem(psi2,spin2)
+                 endif
+                endif
+                if(this%spins%kind(s1).eq.SH%J(i)%kind(2) .and. this%spins%kind(s2).eq.SH%J(i)%kind(1) .and. & 
+                   SH%J(i)%kind(1).ne.SH%J(i)%kind(2) ) then
+                 if(this%spins%ntot.gt.1 .and. s2.gt.this%spins%nspins_pr)then
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%J(i)%mat_elem(psi2,spin2)*0.5d0
+                 else
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%J(i)%mat_elem(psi2,spin2)
+                 endif
+                endif
+               enddo
+
+        !  Exchange Anisotry operators matrix elements
+
+               do i=1,SH%nD2S
+
+                b=MOD((s2-1),this%spins%nspins_pr)+1
+                d=INT((s2-1)/this%spins%nspins_pr)+1
+
+                if(this%spins%kind(s1).eq.SH%D2S(i)%kind(1) .and. this%spins%kind(s2).eq.SH%D2S(i)%kind(2)) then
+                 if(this%spins%ntot.gt.1 .and. s2.gt.this%spins%nspins_pr)then
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%D2S(i)%mat_elem(psi2,spin2)*0.5d0
+                 else
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%D2S(i)%mat_elem(psi2,spin2)
+                 endif
+                endif
+                if(this%spins%kind(s1).eq.SH%D2S(i)%kind(2) .and. this%spins%kind(s2).eq.SH%D2S(i)%kind(1) .and. & 
+                   SH%D2S(i)%kind(1).ne.SH%D2S(i)%kind(2) ) then
+                 if(this%spins%ntot.gt.1 .and. s2.gt.this%spins%nspins_pr)then
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%D2S(i)%mat_elem(psi2,spin2)*0.5d0
+                 else
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%D2S(i)%mat_elem(psi2,spin2)
+                 endif
+                endif              
+
+               enddo
+
+        !  Dipolar Exchange operators matrix elements
+
+               do i=1,SH%nDdip
+                if( s1.eq.SH%Ddip(i)%kind(1) .and. s2.eq.SH%Ddip(i)%kind(2) ) then
+                 if(this%spins%ntot.gt.1 .and. s2.gt.this%spins%nspins_pr)then
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%Ddip(i)%mat_elem(psi2,spin2)*0.5d0
+                 else
+                  this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
+                        +SH%Ddip(i)%mat_elem(psi2,spin2)
+                 endif
+                endif
+      
+               enddo
+
+               jj=jj+1
+              enddo
+             enddo
+
+             ii=ii+1
+            enddo
+           enddo
+
+          enddo ! s2           
+         enddo ! s1
+
+        return
+        end subroutine make_SH_rep
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   IDENTIFY POTENTIALLY NON-ZERO MATRIX ELEMENTS OF THE HAMILTONIAN
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_Hmat_nodes(this)
+        use lists_class   
+        use blacs_utils
+        implicit none
+        class(spin_quantum_system) :: this
+        integer                    :: l,l2,ii,jj,s1,s2,indxl2g,i
+        integer                    :: Nloc_row,Nloc_col,numroc
+        integer                    :: spin(2),ndiff
+        integer                    :: t1,t2,rate
+        logical                    :: save_it
+        type(list)                 :: nodes(4)
+
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)        
+          write(*,*) '' 
+          write(*,*) '     Calculation of non-zero elements of H0'
+          flush(6)
+         endif
+         
+         call nodes(1)%init()
+         call nodes(2)%init()
+         call nodes(3)%init()
+         call nodes(4)%init()
+
+         Nloc_row = NUMROC(this%Hdim,NB,myrow,0,nprow)
+         Nloc_col = NUMROC(this%Hdim,MB,mycol,0,npcol)
+
+         do ii=1,Nloc_row
+          do jj=1,Nloc_col
+
+           l=indxl2g(ii,NB,myrow,0,nprow)
+           l2=indxl2g(jj,MB,mycol,0,npcol)
+         
+           ndiff=0
+           save_it=.true.
+           spin=0
+
+           do s1=1,this%spins%nspins
+            if(ABS(this%basis(l,s1)-this%basis(l2,s1)).gt.1.0d-8)then
+             ndiff=ndiff+1
+             if(ndiff.gt.2)then
+              save_it=.false.
+              exit
+             endif
+             spin(ndiff)=s1
+            endif
+           enddo
+
+           if(save_it)then               
+             
+            s1=min(spin(1),spin(2))
+            s2=max(spin(1),spin(2))
+
+            if(s1.gt.this%spins%nspins_pr) goto 12
+
+            call nodes(1)%add_node(ii)
+            call nodes(2)%add_node(jj)
+            call nodes(3)%add_node(s1)
+            call nodes(4)%add_node(s2)
+
+           endif
+
+12         continue           
+
+          enddo
+         enddo
+
+         allocate(this%Hnodes(nodes(1)%nelem,4))
+
+         call nodes(1)%reboot()
+         call nodes(2)%reboot()
+         call nodes(3)%reboot()
+         call nodes(4)%reboot()
+
+         do ii=1,nodes(1)%nelem
+          call nodes(1)%rd_val(this%Hnodes(ii,1))
+          call nodes(2)%rd_val(this%Hnodes(ii,2))
+          call nodes(3)%rd_val(this%Hnodes(ii,3))
+          call nodes(4)%rd_val(this%Hnodes(ii,4))
+          call nodes(1)%skip()
+          call nodes(2)%skip()
+          call nodes(3)%skip()
+          call nodes(4)%skip()
+         enddo 
+
+         call nodes(1)%delete()
+         call nodes(2)%delete()
+         call nodes(3)%delete()
+         call nodes(4)%delete()
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return
+        end subroutine make_Hmat_nodes
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   COMPUTE A MATRIX ELEMENT OF THE HAMILTONIAN
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        function get_Hij(this,node) result(val)
+        implicit none
+        class(spin_quantum_system) :: this
+        integer                    :: s1,s2,l,l2,i,j
+        integer                    :: ii,jj,indxl2g
+        complex(8)                 :: val
+        integer                    :: node(4)
+        
+         l=indxl2g(node(1),NB,myrow,0,nprow)
+         l2=indxl2g(node(2),MB,mycol,0,npcol)
+
+         val=(0.0d0,0.0d0)
+
+         if(node(3).ne.0 .and. node(4).ne.0)then
+
+          s1=node(3)
+          s2=node(4)
+
+          i=nint(this%basis(l,s1)+this%spins%spin(this%spins%kind(s1))+1)
+          j=nint(this%basis(l,s2)+this%spins%spin(this%spins%kind(s2))+1)
+          ii=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)+j
+          i=nint(this%basis(l2,s1)+this%spins%spin(this%spins%kind(s1))+1)
+          j=nint(this%basis(l2,s2)+this%spins%spin(this%spins%kind(s2))+1)
+          jj=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)+j
+
+          val=val+this%SHrep(s1,s2)%mat(ii,jj)
+
+         endif
+
+         if(node(3).eq.0 .and. node(4).ne.0)then
+
+          s2=node(4)
+          if(s2.gt.this%spins%nspins_pr)then
+           do s1=1,this%spins%nspins_pr
+            if(s1.lt.s2)then
+             i=nint(this%basis(l,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             j=nint(this%basis(l,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             ii=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)+j
+             i=nint(this%basis(l2,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             j=nint(this%basis(l2,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             jj=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)+j
+             val=val+this%SHrep(s1,s2)%mat(ii,jj)
+            endif
+            if(s1.gt.s2)then
+             i=nint(this%basis(l,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             j=nint(this%basis(l,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             ii=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s1)))+1)+j
+             i=nint(this%basis(l2,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             j=nint(this%basis(l2,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             jj=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s1)))+1)+j
+             val=val+this%SHrep(s2,s1)%mat(ii,jj)
+            endif
+            if(s1.eq.s2)then
+             ii=nint(this%basis(l,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             jj=nint(this%basis(l2,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             val=val+this%SHrep(s1,s2)%mat(ii,jj)
+            endif
+           enddo
+          else
+           do s1=1,this%spins%nspins
+            if(s1.lt.s2)then
+             i=nint(this%basis(l,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             j=nint(this%basis(l,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             ii=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)+j
+             i=nint(this%basis(l2,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             j=nint(this%basis(l2,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             jj=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)+j
+             val=val+this%SHrep(s1,s2)%mat(ii,jj)
+            endif
+            if(s1.gt.s2)then
+             i=nint(this%basis(l,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             j=nint(this%basis(l,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             ii=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s1)))+1)+j
+             i=nint(this%basis(l2,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             j=nint(this%basis(l2,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             jj=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s1)))+1)+j
+             val=val+this%SHrep(s2,s1)%mat(ii,jj)
+            endif
+            if(s1.eq.s2)then
+             ii=nint(this%basis(l,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             jj=nint(this%basis(l2,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             val=val+this%SHrep(s1,s2)%mat(ii,jj)
+            endif
+           enddo
+          endif
+
+         endif
+        
+         
+         if(node(3).eq.0 .and. node(4).eq.0)then
+
+          do s1=1,this%spins%nspins_pr
+           do s2=s1,this%spins%nspins
+            if(s1.ne.s2)then
+             i=nint(this%basis(l,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             j=nint(this%basis(l,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             ii=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)+j
+             i=nint(this%basis(l2,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             j=nint(this%basis(l2,s2)+this%spins%spin(this%spins%kind(s2))+1)
+             jj=(i-1)*(nint(2*this%spins%spin(this%spins%kind(s2)))+1)+j
+            else
+             ii=nint(this%basis(l,s1)+this%spins%spin(this%spins%kind(s1))+1)
+             jj=nint(this%basis(l2,s2)+this%spins%spin(this%spins%kind(s2))+1)
+            endif
+            val=val+this%SHrep(s1,s2)%mat(ii,jj)
+           enddo
+          enddo
+
+         endif
+
+        return
+        end function get_Hij
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   COMPUTE ALL MATRIX ELEMENTS OF THE HAMILTONIAN
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_Hmat(this)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        use spinham_class
+        implicit none
+        class(spin_quantum_system) :: this
+        integer                    :: l,ii,jj
+        integer                    :: t1,t2,rate
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)        
+          write(*,*) '     Building Hamiltonian Matrix'
+          flush(6)
+         endif
+      
+         call this%H0%set(this%Hdim,this%Hdim,NB,MB)  
+
+         do l=1,size(this%Hnodes,1)
+             
+          ii=this%Hnodes(l,1)
+          jj=this%Hnodes(l,2)
+           
+          this%H0%mat(ii,jj)=this%get_Hij(this%Hnodes(l,1:4))
+
+         enddo ! l
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return
+        end subroutine make_Hmat
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   COMPUTE THE MATRIX ELEMENTS OF THE SPIN OPERATORS
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_Smat(this,print_si)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        implicit none
+        class(spin_quantum_system)          :: this
+        type(dist_cmplx_mat), allocatable   :: Sz(:),Sy(:),Sx(:)
+        logical,allocatable                 :: a(:),skip
+        integer, allocatable                :: print_si(:)
+        integer                             :: i,j,v,k,s,t,ii,jj
+        integer                             :: t1,t2,rate,s2print,indxl2g
+        double precision                    :: aaa
+        complex(8), allocatable             :: Mtmp(:)
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)        
+          write(*,*) '' 
+          write(*,*) '     Calculation of the Spin operators matrix elements'
+          flush(6)
+         endif
+
+         s2print=size(print_si)
+         allocate(Sz(s2print))
+         allocate(Sy(s2print))
+         allocate(Sx(s2print))
+
+
+         do i=1,s2print
+          call Sx(i)%set(this%Hdim,this%Hdim,NB,MB)
+          call Sy(i)%set(this%Hdim,this%Hdim,NB,MB)
+          call Sz(i)%set(this%Hdim,this%Hdim,NB,MB)
+          Sx(i)%mat=(0.0d0,0.0d0)
+          Sy(i)%mat=(0.0d0,0.0d0)
+          Sz(i)%mat=(0.0d0,0.0d0)
+         enddo
+                    
+         allocate(a(this%spins%nspins))
+
+         allocate(Mtmp(3))
+         Mtmp=(0.0d0,0.0d0)
+
+         do ii=1,size(Sz(1)%mat,1)
+          do jj=1,size(Sz(1)%mat,2)
+           s=indxl2g(ii,NB,myrow,0,nprow)
+           t=indxl2g(jj,MB,mycol,0,npcol)
+           if (s.eq.t) then                   
+            do v=1,this%spins%nspins
+
+             do k=1,s2print
+              if(print_si(k).eq.v)then
+               Sz(k)%mat(ii,jj)=this%basis(s,v)
+              endif
+              if(print_si(k).eq.-1)then
+               Sz(k)%mat(ii,jj)=Sz(k)%mat(ii,jj)+this%basis(s,v)
+              endif
+             enddo
+ 
+            enddo
+           endif
+          enddo
+         enddo
+          
+         do ii=1,size(Sx(1)%mat,1)
+          do jj=1,size(Sx(1)%mat,2)
+
+           s=indxl2g(ii,NB,myrow,0,nprow)
+           t=indxl2g(jj,MB,mycol,0,npcol)
+
+           do v=1,this%spins%nspins
+
+            skip=.true.
+            do k=1,s2print
+             if(print_si(k).eq.v) skip=.false.
+             if(print_si(k).eq.-1) skip=.false.
+            enddo
+
+            if(skip) cycle
+
+            a=.true.
+            do k=1,this%spins%nspins
+             if(k.ne.v)then
+              if(ABS(this%basis(s,k)-this%basis(t,k)).gt.1.0d-8)then
+               a(k)=.false.
+               exit
+              endif
+             endif
+            enddo
+
+            if(ALL(a))then
+
+! S+
+             if(abs(this%basis(s,v)-this%basis(t,v)-1).lt.1.0E-06)then
+
+              aaa=dsqrt((this%spins%spin(this%spins%kind(v))-this%basis(t,v))* &
+                        (this%spins%spin(this%spins%kind(v))+this%basis(t,v)+1) )
+              aaa=aaa/2.0d0
+
+              Mtmp(1)=cmplx(aaa,0.0d0,8)
+              Mtmp(2)=cmplx(0.0d0,-1.0d0*aaa,8)
+
+              do k=1,s2print
+               if(print_si(k).eq.v)then
+                Sx(k)%mat(ii,jj)=Mtmp(1)
+                Sy(k)%mat(ii,jj)=Mtmp(2)
+               endif
+               if(print_si(k).eq.-1)then
+                Sx(k)%mat(ii,jj)=Sx(k)%mat(ii,jj)+Mtmp(1)
+                Sy(k)%mat(ii,jj)=Sy(k)%mat(ii,jj)+Mtmp(2)
+               endif
+              enddo
+
+             endif
+
+! S-
+             if(abs(this%basis(s,v)-this%basis(t,v)+1).lt.1.0E-06)then
+
+              aaa=dsqrt((this%spins%spin(this%spins%kind(v))+this%basis(t,v))* &
+                        (this%spins%spin(this%spins%kind(v))-this%basis(t,v)+1) )
+              aaa=aaa/2.0d0
+
+              Mtmp(1)=cmplx(aaa,0.0d0,8)
+              Mtmp(2)=cmplx(0.0d0,aaa,8)
+
+              do k=1,s2print
+               if(print_si(k).eq.v)then
+                Sx(k)%mat(ii,jj)=Mtmp(1)
+                Sy(k)%mat(ii,jj)=Mtmp(2)
+               endif
+               if(print_si(k).eq.-1)then
+                Sx(k)%mat(ii,jj)=Sx(k)%mat(ii,jj)+Mtmp(1)
+                Sy(k)%mat(ii,jj)=Sy(k)%mat(ii,jj)+Mtmp(2)
+               endif
+              enddo
+
+             endif
+
+            endif
+
+           enddo
+          enddo
+         enddo
+
+         do s=1,s2print
+          call this%to_eigenbasis(Sx(s))
+          call this%to_eigenbasis(Sy(s))
+          call this%to_eigenbasis(Sz(s))
+         enddo
+
+         if(allocated(this%QMOP))then
+          do i=1,size(this%QMOP)
+           deallocate(this%QMOP(i)%mat)           
+          enddo
+          deallocate(this%QMOP)           
+         endif
+         allocate(this%QMOP(3*s2print))
+
+         do s=1,s2print
+          this%QMOP(3*(s-1)+1)%mat=Sx(s)%mat
+          this%QMOP(3*(s-1)+2)%mat=Sy(s)%mat
+          this%QMOP(3*(s-1)+3)%mat=Sz(s)%mat
+          deallocate(Sx(s)%mat)
+          deallocate(Sy(s)%mat)
+          deallocate(Sz(s)%mat)
+         enddo
+                
+         deallocate(Sx)
+         deallocate(Sy)
+         deallocate(Sz)
+         deallocate(Mtmp)
+         deallocate(a)
+         
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return 
+        end subroutine make_Smat
+
 
         end module quantum_systems_class

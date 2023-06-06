@@ -27,6 +27,7 @@
          procedure   ::  propagate
          procedure   ::  make_expval
          procedure   ::  dump_expvals
+         procedure   ::  rot_rho
         end type liuville_space
 
         contains
@@ -770,6 +771,29 @@
 
         return
         end subroutine dump_expvals
+
+        subroutine rot_rho(this,rot)
+        use mpi_utils
+        use blacs_utils
+        implicit none
+        class(liuville_space)            :: this
+        type(dist_cmplx_mat)             :: BB,rot
+
+         call BB%set(this%Hdim,this%Hdim,NB,MB)
+         BB%mat=(0.0d0,0.0d0)
+
+         call pzgemm('N','N',this%Hdim,this%Hdim,this%Hdim,&
+                       (1.0d0,0.0d0),rot%mat,1,1,rot%desc,this%rho%mat,&
+                       1,1,this%rho%desc,(0.0d0,0.0d0),BB%mat,1,1,BB%desc)  
+           
+         call pzgemm('N','C',this%Hdim,this%Hdim,this%Hdim,&
+                       (1.0d0,0.0d0),BB%mat,1,1,BB%desc,rot%mat,1,1,rot%desc,&
+                       (0.0d0,0.0d0),this%rho%mat,1,1,this%rho%desc)
+
+         call BB%dealloc()
+
+        return
+        end subroutine rot_rho
 
         end module liuville_class
 
