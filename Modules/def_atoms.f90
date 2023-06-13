@@ -413,7 +413,7 @@
           i=(celli-1)*this%nats+v1
 
           CN%AI(i+1)=CN%AI(i)
-
+        
           do v2=1,this%nats
           do cellj=1,this%ntot
            j=(cellj-1)*this%nats+v2
