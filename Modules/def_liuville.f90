@@ -20,6 +20,7 @@
          procedure   ::  to_eigenbasis
          procedure   ::  make_unitary_propagator
          procedure   ::  make_basis_L
+         procedure   ::  make_rho
          procedure   ::  diag_limbladian
          procedure   ::  make_R21
          procedure   ::  make_R22
@@ -168,7 +169,7 @@
          allocate(this%Lbasis(this%Ldim,2))
 
          k=1
-         do i=1,this%hdim
+         do i=1,this%Hdim
           this%Lbasis(k,1)=i
           this%Lbasis(k,2)=i
           k=k+1
@@ -183,10 +184,103 @@
          enddo
 
          call this%R%set(this%Ldim,this%Ldim,NB,MB)
-         this%R%mat=(0.0d0,0.0d0)
 
         return
         end subroutine make_basis_L
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   MAKE DENSITY MATRIX
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_rho(this,type_rho0,temp,rho_restart_file)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        use sparse_class
+        use units_parms 
+        implicit none
+        class(liuville_space)     :: this
+        type(dist_cmplx_mat)      :: rho
+        type(csr_mat_cmplx)       :: sprho
+        double precision          :: temp,part_funct,valre,valim
+        complex(8)                :: sum,val
+        complex(8),allocatable    :: rho_i(:,:)
+        integer                   :: i,ii,jj,j,k,v,l
+        integer                   :: indxl2g,kpt,size_block
+        integer                   :: t1,t2,rate
+        character(len=100)        :: type_rho0
+        character(len=20)         :: rho_restart_file
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)        
+          write(*,*) '     Building starting density matrix'
+          flush(6)
+         endif
+
+         if(allocated(this%rho%mat)) call this%rho%dealloc()
+         call this%rho%set(this%Hdim,this%Hdim,NB,MB)
+         this%rho%mat=(0.0d0,0.0d0)
+
+         select case (type_rho0)
+
+          case ('READ_FILE')
+        
+           if(mpi_id.eq.0) open(121,file=rho_restart_file)
+           do i=1,this%Hdim
+            do j=1,this%Hdim            
+             if(mpi_id.eq.0) read(121,*) ii,jj,valre,valim
+             if(mpi_id.eq.0) val=cmplx(valre,valim,8)
+             call mpi_bcast(val,1,mpi_double_complex,0,mpi_blacs_world,err)
+             call pzelset(this%rho%mat,i,j,this%rho%desc,val)
+            enddo
+           enddo
+           if(mpi_id.eq.0) close(121)
+
+          case ('THERMAL_POPULATION') 
+                      
+           do i=1,this%Hdim
+            call pzelset(this%rho%mat,i,i,this%rho%desc, &
+                      cmplx(exp(-this%Ener(i)/(temp*kboltz)),0.0d0,8))
+           enddo
+
+           part_funct=0.0d0
+
+           do ii=1,size(this%rho%mat,1)
+            do jj=1,size(this%rho%mat,2)
+             i=indxl2g(ii,NB,myrow,0,nprow)
+             j=indxl2g(jj,MB,mycol,0,npcol)
+             if(i.eq.j) part_funct=part_funct+this%rho%mat(ii,jj)
+            enddo
+           enddo
+
+           call mpi_allreduce(part_funct,part_funct,1,mpi_double_precision,mpi_sum,mpi_blacs_world,err)
+
+           this%rho%mat=this%rho%mat/part_funct
+
+          case ('FULLY_POLARIZED')
+
+           do ii=1,size(this%rho%mat,1)
+            do jj=1,size(this%rho%mat,2)
+             i=indxl2g(ii,NB,myrow,0,nprow)
+             j=indxl2g(jj,MB,mycol,0,npcol)
+             if(i.eq.1 .and. j.eq.1) this%rho%mat(ii,jj)=(1.0d0,0.0d0)
+            enddo
+           enddo
+
+           call this%to_eigenbasis(this%rho)
+
+         end select
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return
+        end subroutine make_rho
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
@@ -194,7 +288,7 @@
 !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        subroutine diag_limbladian(this)
+        subroutine diag_limbladian(this,step)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -218,17 +312,19 @@
           flush(6)
          endif
 
-         call AA%set(this%Ldim,this%Ldim,NB,MB)          
-         AA%mat=(0.0d0,0.0d0)
+         filename="R.dat"
+         call this%R%print_mat(filename)
 
+         call AA%set(this%Ldim,this%Ldim,NB,MB)          
          call BB%set(this%Ldim,this%Ldim,NB,MB)
-         BB%mat=(0.0d0,0.0d0)
 
          allocate(Rval(this%Ldim))
 
          call pzdiag2(this%Ldim,this%R,Rval,AA,BB)
          BB%mat=AA%mat
          call pzgeinv(this%Ldim,BB)
+         filename="Reig.dat"
+         call BB%print_mat(filename)
 
          if(mpi_id.eq.0) then
 
@@ -257,16 +353,14 @@
           enddo
          enddo
 
+         call this%R%set(this%Ldim,this%Ldim,NB,MB)
          this%R%mat=(0.0d0,0.0d0)
 
          call pzgemm('N','N',this%Ldim,this%Ldim,this%Ldim,&
                      (1.0d0,0.0d0),AA%mat,1,1,AA%desc,BB%mat,&
                      1,1,BB%desc,(0.0d0,0.0d0),this%R%mat,1,1,this%R%desc)
 
-         call this%R%print_mat(filename)
-
          deallocate(Rval)
-         deallocate(rates)
          call AA%dealloc()
          call BB%dealloc()
          
@@ -293,11 +387,13 @@
         use units_parms 
         implicit none
         class(liuville_space)         :: this
-        double precision             :: Gf,DEner,freq,lw,temp,prefc
+        double precision             :: Gf,DEner,freq,lw,temp,prefc,secular
         complex(8), allocatable      :: Vmat(:,:)       
         integer                      :: t1,t2,rate,indxl2g,type_smear
         integer                      :: ii,jj,kk,l,l2,la,lb,lc,ld
- 
+
+         if (.not.allocated(this%R%mat)) call this%R%set(this%Hdim,this%Hdim,NB,MB)
+
          prefc=pi*pi/hplank 
 
          do ii=1,size(this%R%mat,1)
@@ -312,14 +408,14 @@
            lc=this%Lbasis(l2,1) 
            ld=this%Lbasis(l2,2) 
 
-           DEner=this%Ener(la)-this%Ener(lc)+this%Ener(ld)-this%Ener(lb)
+           Secular=this%Ener(la)-this%Ener(lc)+this%Ener(ld)-this%Ener(lb)
      
-           if( abs(DEner).lt.1.0d-6 )then              
+           if( abs(Secular).lt.1.0d-6 )then              
 
             Gf=0.0d0
             if( (this%Ener(lb)-this%Ener(ld)).gt.0.0d0 ) then
              DEner=this%Ener(lb)-this%Ener(ld)-freq
-             Gf=bose(temp,freq)*delta(type_smear,DEner,lw)
+             Gf=Gf+bose(temp,freq)*delta(type_smear,DEner,lw)
             else
              DEner=this%Ener(lb)-this%Ener(ld)+freq
              Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
@@ -329,7 +425,7 @@
             Gf=0.0d0
             if( (this%Ener(la)-this%Ener(lc)).gt.0.0d0) then
              DEner=this%Ener(la)-this%Ener(lc)-freq
-             Gf=bose(temp,freq)*delta(type_smear,DEner,lw)
+             Gf=Gf+bose(temp,freq)*delta(type_smear,DEner,lw)
             else
              DEner=this%Ener(la)-this%Ener(lc)+freq
              Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
@@ -341,7 +437,7 @@
               Gf=0.0d0
               if( (this%Ener(kk)-this%Ener(lc)).gt.0.0d0) then
                DEner=this%Ener(kk)-this%Ener(lc)-freq
-               Gf=bose(temp,freq)*delta(type_smear,DEner,lw)
+               Gf=Gf+bose(temp,freq)*delta(type_smear,DEner,lw)
               else
                DEner=this%Ener(kk)-this%Ener(lc)+freq
                Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
@@ -355,7 +451,7 @@
               Gf=0.0d0
               if( (this%Ener(kk)-this%Ener(ld)).gt.0.0d0) then
                DEner=this%Ener(kk)-this%Ener(ld)-freq
-               Gf=bose(temp,freq)*delta(type_smear,DEner,lw)
+               Gf=Gf+bose(temp,freq)*delta(type_smear,DEner,lw)
               else
                DEner=this%Ener(kk)-this%Ener(ld)+freq
                Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
@@ -384,12 +480,14 @@
         use blacs_utils
         use units_parms 
         implicit none
-        class(liuville_space)         :: this
+        class(liuville_space)        :: this
         double precision             :: Gf,DEner,freq1,freq2,lw,lw1,lw2,temp,prefc
         complex(8), allocatable      :: Vmat(:,:)       
         integer                      :: t1,t2,rate,indxl2g,type_smear
         integer                      :: ii,jj,kk,l,l2,la,lb,lc,ld
      
+         if (.not.allocated(this%R%mat)) call this%R%set(this%Hdim,this%Hdim,NB,MB)
+
          prefc=pi*pi/hplank/2.0d0
          lw=lw1+lw2
 
@@ -519,15 +617,17 @@
         implicit none
         class(liuville_space)         :: this
         double precision             :: Gf,DEner,freq1,freq2,lw,lw1,lw2,temp,prefc
-        double precision             :: norm,val
         double complex, allocatable  :: V1mat(:,:),V2mat(:,:)
-        double complex               :: R0pp,R0mm,R0mp,R0pm
+        double complex               :: R0pp,R0mm,R0mp,R0pm,norm,val
         integer                      :: t1,t2,rate,indxl2g,type_smear
         integer                      :: ii,jj,kk,l1,l2,la,lb
               
+         if (.not.allocated(this%R%mat)) call this%R%set(this%Hdim,this%Hdim,NB,MB)
+
         ! check prefactors! 
 
          prefc=pi*pi/hplank
+         lw=lw1+lw2
 
          do ii=1,size(this%R%mat,1)
           do jj=1,size(this%R%mat,2)
@@ -536,6 +636,7 @@
            l2=indxl2g(jj,MB,mycol,0,npcol)
 
            if (l1.gt.this%Hdim .or. l2.gt.this%Hdim) cycle ! restrict to population terms
+           if (l1.eq.l2) cycle 
 
            la=this%Lbasis(l1,1)
            lb=this%Lbasis(l2,2)
@@ -574,33 +675,36 @@
            enddo ! kk
                 
            DEner=this%Ener(la)-this%Ener(lb)-freq2+freq1
-           Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw)
+           Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
              
            this%R%mat(ii,jj)=this%R%mat(ii,jj)+dble(R0pm*conjg(R0pm))*Gf*prefc
 
+
            DEner=this%Ener(la)-this%Ener(lb)+freq2-freq1
-           Gf=(bose(temp,freq2)+1)*bose(temp,freq1)*delta(type_smear,DEner,freq1)
+           Gf=(bose(temp,freq2)+1)*bose(temp,freq1)*delta(type_smear,DEner,lw1)
              
            this%R%mat(ii,jj)=this%R%mat(ii,jj)+dble(R0mp*conjg(R0mp))*Gf*prefc
 
+
            DEner=this%Ener(la)-this%Ener(lb)-freq2-freq1
-           Gf=bose(temp,freq2)*bose(temp,freq1)*delta(type_smear,DEner,lw)
+           Gf=bose(temp,freq2)*bose(temp,freq1)*delta(type_smear,DEner,lw1)
              
            this%R%mat(ii,jj)=this%R%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf*prefc
 
+
            DEner=this%Ener(la)-this%Ener(lb)+freq2+freq1
-           Gf=(bose(temp,freq2)+1)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw)
+           Gf=(bose(temp,freq2)+1)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
              
            this%R%mat(ii,jj)=this%R%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf*prefc
-        
+
           enddo ! jj
          enddo ! ii
                
          do l1=1,this%Hdim
-          norm=0.0d0
+          norm=(0.0d0,0.0d0)
           do l2=1,this%Hdim         
           if(l1.ne.l2)then  
-            call pdelget('A',' ',val,this%R%mat,l2,l1,this%R%desc)
+            call pzelget('A',' ',val,this%R%mat,l2,l1,this%R%desc)
             norm=norm-val
            endif
           enddo
@@ -640,6 +744,13 @@
          if(start_step.eq.0)then
           call dump_expvals(this,start_step,time)
           start_step=1
+         endif
+
+         if( allocated(this%R%mat) ) then
+          call pop%set(this%Ldim,NB)
+          pop%vec=(0.0d0,0.0d0)
+          call pop_new%set(this%Ldim,NB)
+          pop_new%vec=(0.0d0,0.0d0)
          endif
 
          do i=start_step,nsteps+start_step-1
@@ -688,8 +799,10 @@
          
          start_step=start_step+nsteps
 
-         deallocate(pop%vec)
-         deallocate(pop_new%vec)
+         if( allocated(this%R%mat) ) then
+          deallocate(pop%vec)
+          deallocate(pop_new%vec)
+         endif
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
@@ -745,7 +858,9 @@
         double precision, allocatable       :: expval(:)
         double precision                    :: time
         double complex                      :: norm,val
-       
+      
+         if(.not. allocated(this%QMOP))return       
+
          norm=(0.0d0,0.0d0)
          do k=1,this%Hdim
           val=(0.0d0,0.0d0)
@@ -755,6 +870,7 @@
 
          call mpi_allreduce(norm,norm,1,mpi_double_complex,mpi_sum,mpi_blacs_world,err)
 
+         allocate(expval(size(this%QMOP)))
          do i=1,size(this%QMOP)
           call this%make_expval(this%QMOP(i),expval(i))
          enddo
@@ -768,6 +884,8 @@
           flush(11)
 
          endif
+
+         deallocate(expval)
 
         return
         end subroutine dump_expvals

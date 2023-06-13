@@ -42,6 +42,7 @@
          procedure   ::  get_Hij
          procedure   ::  make_Hmat
          procedure   ::  make_Smat
+!         procedure   ::  make_Vx
 !         procedure   ::  make_rot
 !         procedure   ::  set_dipolar
         end type spin_quantum_system
@@ -63,6 +64,8 @@
         double precision, allocatable     :: hess(:)
 
         allocate(hess(this%lattice%nats*3))
+
+        this%Vq%mat=(0.0d0,0.0d0)
 
         l=1
         do i=1,this%lattice%nats
@@ -101,6 +104,8 @@
         double precision, allocatable     :: hess(:),hess2(:)
 
         allocate(hess(this%lattice%nats*3))
+
+        this%Vq%mat=(0.0d0,0.0d0)
 
         l=1
         do i=1,this%lattice%nats
@@ -167,11 +172,12 @@
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)       
           write(*,*) '' 
-          write(*,*) '     Building the second-order Limbladian operator with linear couplig'
+          write(*,*) '     Building the second-order Limbladian operator with linear coupling'
           flush(6)
          endif
 
          allocate(Vmat(this%Hdim,this%Hdim))
+         if (.not.allocated(this%Vq%mat)) call this%Vq%set(this%Hdim,this%Hdim,NB,MB)
 
          ! run on k points and bn
 
@@ -189,10 +195,8 @@
 
            if(.not.allocated(this%phonons%list(ph)%hess) ) call this%phonons%list(ph)%diagD(this%lattice)
 
-           if ( allocated(this%Vx) ) call X2Q(this,ph,bn)
+           if ( allocated(this%Vx) ) call this%X2Q(ph,bn)
          
-           call this%to_eigenbasis(this%Vq)
-
            Vmat=(0.0d0,0.0d0)
 
            do l2=1,this%Hdim
@@ -200,7 +204,7 @@
              call pzelget('A',' ',valc,this%Vq%mat,l2,l,this%Vq%desc)
              Vmat(l2,l)=valc
             enddo
-           enddo                   
+           enddo                              
 
          ! compute R21
 
@@ -208,6 +212,15 @@
 
           enddo 
           ph=ph+1
+         enddo
+
+         do i=1,size(this%R%mat,1)
+          do j=1,size(this%R%mat,2)
+           valc=(0.0d0,0.0d0)
+           call mpi_allreduce(this%R%mat(i,j),valc,1,&
+              mpi_double_complex,mpi_sum,mpi_phonons_world,err)
+           this%R%mat(i,j)=valc
+          enddo
          enddo
 
          if(mpi_id.eq.0)then
@@ -240,11 +253,12 @@
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)       
           write(*,*) '' 
-          write(*,*) '     Building the second-order Limbladian operator with quadratic couplig'
+          write(*,*) '     Building the second-order Limbladian operator with quadratic coupling'
           flush(6)
          endif
 
          allocate(Vmat(this%Hdim,this%Hdim))
+         if (.not.allocated(this%Vq%mat)) call this%Vq%set(this%Hdim,this%Hdim,NB,MB)
 
          ! run on k points and bn
 
@@ -273,8 +287,6 @@
              if(.not.allocated(this%phonons%list(ph2)%hess) ) call this%phonons%list(ph2)%diagD(this%lattice)
 
              if ( allocated(this%Vx) ) call XY2QQ(this,ph,bn,ph2,bn2)
-         
-             call this%to_eigenbasis(this%Vq)
 
              Vmat=(0.0d0,0.0d0)
 
@@ -292,6 +304,15 @@
 
           enddo 
           ph=ph+1
+         enddo
+
+         do i=1,size(this%R%mat,1)
+          do j=1,size(this%R%mat,2)
+           valc=(0.0d0,0.0d0)
+           call mpi_allreduce(this%R%mat(i,j),valc,1,&
+              mpi_double_complex,mpi_sum,mpi_phonons_world,err)
+           this%R%mat(i,j)=valc
+          enddo
          enddo
 
          if(mpi_id.eq.0)then
@@ -325,12 +346,13 @@
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)       
           write(*,*) '' 
-          write(*,*) '     Building the fourth-order Limbladian operator with linear couplig'
+          write(*,*) '     Building the fourth-order Limbladian operator with linear coupling'
           flush(6)
          endif
 
          allocate(Vmat(this%Hdim,this%Hdim))
          allocate(V2mat(this%Hdim,this%Hdim))
+         if (.not.allocated(this%Vq%mat)) call this%Vq%set(this%Hdim,this%Hdim,NB,MB)
 
          ! run on k points and bn
 
@@ -349,8 +371,6 @@
            if(.not.allocated(this%phonons%list(ph)%hess) ) call this%phonons%list(ph)%diagD(this%lattice)
 
            if ( allocated(this%Vx) ) call X2Q(this,ph,bn)
-         
-           call this%to_eigenbasis(this%Vq)
 
            Vmat=(0.0d0,0.0d0)
 
@@ -364,6 +384,9 @@
            do ph2=1,this%phonons%ntot
             do bn2=1,size(this%phonons%list(ph2)%freq)
 
+             if ( (ph-1)*size(this%phonons%list(ph)%freq)+bn .ge. &
+                  (ph2-1)*size(this%phonons%list(ph2)%freq)+bn2 ) cycle 
+
              if (ph2.eq.1 .and. bn2.le.3) cycle
              freq2=this%phonons%list(ph2)%freq(bn2)
              if (freq2.lt.min_ener) cycle
@@ -373,8 +396,6 @@
 
              if ( allocated(this%Vx) ) call X2Q(this,ph2,bn2)
          
-             call this%to_eigenbasis(this%Vq)
-
              V2mat=(0.0d0,0.0d0)
 
              do l2=1,this%Hdim
@@ -391,6 +412,15 @@
 
           enddo 
           ph=ph+1
+         enddo
+
+         do i=1,size(this%R%mat,1)
+          do j=1,size(this%R%mat,2)
+           valc=(0.0d0,0.0d0)
+           call mpi_allreduce(this%R%mat(i,j),valc,1,&
+              mpi_double_complex,mpi_sum,mpi_phonons_world,err)
+           this%R%mat(i,j)=valc
+          enddo
          enddo
 
          if(mpi_id.eq.0)then
@@ -429,6 +459,7 @@
          id=1
          si=1
          call build_spin_basis(this,id,si)
+         this%basis=this%basis/2.0d0
 
          if(mpi_id.eq.0)then
           write(*,*) '     Total Hilbert space size: ',this%Hdim

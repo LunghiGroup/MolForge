@@ -1652,7 +1652,7 @@
             endif
                       
             do l=1,this%Hdim
-             call pzelget('A',' ',Vii(l),AA%mat,l,l,AA%desc)
+             call pzelget('A',' ',Vii(l),AA2%mat,l,l,AA2%desc)
             enddo
  
        ! Make Rij

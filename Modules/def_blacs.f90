@@ -118,10 +118,10 @@
           if(mpi_id.eq.0) open(15,file=trim(filename))
           if(mpi_id.eq.0) write(15,*) this%N*this%M
 
-          do l=1,this%N
-           do j=1,this%M
+          do j=1,this%N
+           do l=1,this%M
             call pzelget('A',' ',val,this%mat,l,j,this%desc)
-            if(mpi_id.eq.0) write(15,*) l,j,dble(val),aimag(val)
+            if(mpi_id.eq.0) write(15,*) l,j,dble(val),aimag(val),dble(val*conjg(val))
            enddo
           enddo
 
