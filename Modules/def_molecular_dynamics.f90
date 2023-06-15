@@ -1,6 +1,7 @@
         module md_class
         use potential_class
         use target_functions_class
+        use rescale
         implicit none
 
         type, extends(atoms_group) :: md
@@ -81,7 +82,7 @@
         end subroutine velocity_verlet
 
         subroutine bussi
-
+        
         end subroutine bussi
 
         end module md_class
