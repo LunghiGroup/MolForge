@@ -2,6 +2,7 @@
 
         use, intrinsic :: ISO_C_binding, only : C_double, C_ptr, C_int,C_char
         use LAMMPS
+        use kind_class
         use atoms_class
         implicit none
 
@@ -78,17 +79,30 @@
        integer                              :: nconfig, i,j,nats,ntypes
        character(len=100),allocatable       :: tmp(:,:)
        character(len=100),dimension(10)     :: tmp_cell_nkinds
+       character(len=80)                    :: err_string
        character(len=50)                    :: filename
        character(len=*)                     :: file_input
        integer,intent(in)                   :: len_file_inp
-       character(len=150)                   ::file_inp
+       character(len=150)                   :: file_inp
+       integer                              :: ierror    
+       integer                              :: status
+       character(len=80)                    :: err_msg
 
         file_inp=file_input(1:len_file_inp)
         allocate(set(nconfig))
-        open(1,file=trim(file_inp))
+        open(unit=1,file=trim(file_inp),status="old",action="read", iostat=ierror, iomsg=err_string)
+        
+        if (ierror /= 0) then
+          write(*,*) err_string
+        end if
 
         do i=1,nconfig
-         read(1,*)nats
+         read(1,*,iostat=status,iomsg=err_msg) nats
+         
+         if(status /= 0) then
+          write(*,*) err_msg
+        end if
+
          read(1,*)tmp_cell_nkinds(:)
          allocate(tmp(nats,6))
 
@@ -97,7 +111,12 @@
          end do
 
          filename="file_temporaneo"
-         open(unit=2,status="replace",file=trim(filename))
+         open(unit=2, file = trim(filename), status="replace",action="write",iostat=ierror,iomsg=err_string)
+         
+         !if (ierror /= 0) then
+          !write(*,*) err_string
+         !end if         
+         
           write(2,*)nats
           write(2,*)trim(tmp_cell_nkinds(1)),' ',trim(tmp_cell_nkinds(2)),' ',trim(tmp_cell_nkinds(3)),' '&
            ,trim(tmp_cell_nkinds(4)),' ',trim(tmp_cell_nkinds(5)),' ',trim(tmp_cell_nkinds(6)),' ',trim(tmp_cell_nkinds(7))&
