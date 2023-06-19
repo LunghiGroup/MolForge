@@ -481,7 +481,7 @@
         use units_parms 
         implicit none
         class(liuville_space)        :: this
-        double precision             :: Gf,DEner,freq1,freq2,lw,lw1,lw2,temp,prefc
+        double precision             :: Gf,DEner,freq1,freq2,lw,lw1,lw2,temp,prefc,secular
         complex(8), allocatable      :: Vmat(:,:)       
         integer                      :: t1,t2,rate,indxl2g,type_smear
         integer                      :: ii,jj,kk,l,l2,la,lb,lc,ld
@@ -503,9 +503,9 @@
            lc=this%Lbasis(l2,1)
            ld=this%Lbasis(l2,2)
 
-           DEner=this%Ener(la)-this%Ener(lc)+this%Ener(ld)-this%Ener(lb)
+           Secular=this%Ener(la)-this%Ener(lc)+this%Ener(ld)-this%Ener(lb)
 
-           if( abs(DEner).lt.1.0e-6 )then              
+           if( abs(Secular).lt.1.0e-6 )then              
 
             Gf=0.0d0
             DEner=this%Ener(l)-this%Ener(ld)-freq1-freq2
@@ -602,7 +602,6 @@
         return
         end subroutine make_R22
 
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
 !!!!!   BUILD FOURTH-ORDER LIMBLADIAN OPERATOR WITH LINEAR SYSTEM-BATH COUPLING
@@ -615,101 +614,189 @@
         use blacs_utils
         use units_parms 
         implicit none
-        class(liuville_space)         :: this
-        double precision             :: Gf,DEner,freq1,freq2,lw,lw1,lw2,temp,prefc
+        class(liuville_space)        :: this
+        double precision             :: Gf,DEner,freq1,freq2,lw,lw1,lw2,temp,prefc,secular
         double complex, allocatable  :: V1mat(:,:),V2mat(:,:)
-        double complex               :: R0pp,R0mm,R0mp,R0pm,norm,val
+        double complex, allocatable  :: Rabp(:,:),Rabm(:,:),Rbap(:,:),Rbam(:,:)
         integer                      :: t1,t2,rate,indxl2g,type_smear
-        integer                      :: ii,jj,kk,l1,l2,la,lb
+        integer                      :: ii,jj,kk,l1,l2,la,lb,lc,ld
+        double complex               :: val
               
-         if (.not.allocated(this%R%mat)) call this%R%set(this%Hdim,this%Hdim,NB,MB)
+         if (.not.allocated(this%R%mat))then
+          call this%R%set(this%Hdim,this%Hdim,NB,MB)
+          this%R%mat=(0.0d0,0.0d0)
+         endif
 
-        ! check prefactors! 
+         allocate(Rabp(this%Hdim,this%Hdim))
+         allocate(Rabm(this%Hdim,this%Hdim))
+         allocate(Rbap(this%Hdim,this%Hdim))
+         allocate(Rbam(this%Hdim,this%Hdim))
+
+         Rabp=(0.0d0,0.0d0)
+         Rabm=(0.0d0,0.0d0)
+         Rbap=(0.0d0,0.0d0)
+         Rbam=(0.0d0,0.0d0)
 
          prefc=pi*pi/hplank
          lw=lw1+lw2
 
+         do ii=1,this%Hdim
+          do jj=1,this%Hdim          
+
+           do kk=1,this%Hdim
+
+             Rabp(ii,jj)=Rabp(ii,jj)+V1mat(ii,kk)*V2mat(kk,jj)&
+                  /(this%Ener(kk)-this%Ener(jj)+freq2-cmplx(0.0d0,1.0d0,8)*lw2)
+
+             Rabm(ii,jj)=Rabm(ii,jj)+V1mat(ii,kk)*V2mat(kk,jj)&
+                  /(this%Ener(kk)-this%Ener(jj)-freq2-cmplx(0.0d0,1.0d0,8)*lw2)
+
+             Rbap(ii,jj)=Rbap(ii,jj)+V2mat(ii,kk)*V1mat(kk,jj)&
+                  /(this%Ener(kk)-this%Ener(jj)+freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rbam(ii,jj)=Rbam(ii,jj)+V2mat(ii,kk)*V1mat(kk,jj)&
+                  /(this%Ener(kk)-this%Ener(jj)-freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+           enddo ! kk
+                
+          enddo
+         enddo
+
          do ii=1,size(this%R%mat,1)
-          do jj=1,size(this%R%mat,2)
+          do jj=1,size(this%R%mat,2)         
 
            l1=indxl2g(ii,NB,myrow,0,nprow)
            l2=indxl2g(jj,MB,mycol,0,npcol)
 
-           if (l1.gt.this%Hdim .or. l2.gt.this%Hdim) cycle ! restrict to population terms
-           if (l1.eq.l2) cycle 
-
            la=this%Lbasis(l1,1)
-           lb=this%Lbasis(l2,2)
+           lb=this%Lbasis(l1,2)
+           lc=this%Lbasis(l2,1)
+           ld=this%Lbasis(l2,2)                 
 
-           R0pp=(0.0d0,0.0d0)
-           R0mm=(0.0d0,0.0d0)
-           R0pm=(0.0d0,0.0d0)
-           R0mp=(0.0d0,0.0d0)
+           Secular=this%Ener(la)-this%Ener(lc)+this%Ener(ld)-this%Ener(lb)
+
+           if( abs(Secular).lt.1.0e-6 )then              
+
+            ! +- and -+ processes
+
+            DEner=this%Ener(la)-this%Ener(lc)-freq1+freq2
+            Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbam(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabp(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc*0.5d0
+
+            DEner=this%Ener(la)-this%Ener(lc)+freq1-freq2
+            Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbap(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabm(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc*0.5d0
+
+            DEner=this%Ener(lb)-this%Ener(ld)-freq1+freq2            
+            Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbam(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabp(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc*0.5d0
+
+            DEner=this%Ener(lb)-this%Ener(ld)+freq1-freq2
+            Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbap(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabm(la,lc)*Gf*prefc*0.5d0
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc*0.5d0
+
+            if(la.eq.lc)then
+
+             do kk=1,this%Hdim
+
+             ! +- and -+ processes
+
+              DEner=this%Ener(kk)-this%Ener(ld)-freq1+freq2
+              Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
+  
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+             
+
+              DEner=this%Ener(kk)-this%Ener(ld)+freq1-freq2
+              Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
  
-           do kk=1,this%Hdim
-                
-            R0pm=R0pm+V1mat(la,kk)*V2mat(kk,lb)&
-                 /(this%Ener(kk)-this%Ener(lb)-freq2-cmplx(0.0d0,1.0d0,8)*lw2)
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
 
-            R0pm=R0pm+V2mat(la,kk)*V1mat(kk,lb)&
-                 /(this%Ener(kk)-this%Ener(lb)+freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
+       
+             enddo
 
-            R0mp=R0mp+V1mat(la,kk)*V2mat(kk,lb)&
-                 /(this%Ener(kk)-this%Ener(lb)+freq2-cmplx(0.0d0,1.0d0,8)*lw2)
+            endif
 
-            R0mp=R0mp+V2mat(la,kk)*V1mat(kk,lb)&
-                 /(this%Ener(kk)-this%Ener(lb)-freq1-cmplx(0.0d0,1.0d0,8)*lw1)
-                
-            R0pp=R0pp+V1mat(la,kk)*V2mat(kk,lb)&
-                 /(this%Ener(kk)-this%Ener(lb)+freq2-cmplx(0.0d0,1.0d0,8)*lw2)
+            if(lb.eq.ld)then
 
-            R0pp=R0pp+V2mat(la,kk)*V1mat(kk,lb)&
-                 /(this%Ener(kk)-this%Ener(lb)+freq1-cmplx(0.0d0,1.0d0,8)*lw1)
-                                       
-            R0mm=R0mm+V1mat(la,kk)*V2mat(kk,lb)&
-                 /(this%Ener(kk)-this%Ener(lb)-freq2-cmplx(0.0d0,1.0d0,8)*lw2)
+             do kk=1,this%Hdim
 
-            R0mm=R0mm+V2mat(la,kk)*V1mat(kk,lb)&
-                 /(this%Ener(kk)-this%Ener(lb)-freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+             ! +- and -+ processes
 
-           enddo ! kk
-                
-           DEner=this%Ener(la)-this%Ener(lb)-freq2+freq1
-           Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
-             
-           this%R%mat(ii,jj)=this%R%mat(ii,jj)+dble(R0pm*conjg(R0pm))*Gf*prefc
+              DEner=this%Ener(kk)-this%Ener(lc)-freq1+freq2
+              Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
+  
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
 
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
 
-           DEner=this%Ener(la)-this%Ener(lb)+freq2-freq1
-           Gf=(bose(temp,freq2)+1)*bose(temp,freq1)*delta(type_smear,DEner,lw1)
-             
-           this%R%mat(ii,jj)=this%R%mat(ii,jj)+dble(R0mp*conjg(R0mp))*Gf*prefc
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
 
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
 
-           DEner=this%Ener(la)-this%Ener(lb)-freq2-freq1
-           Gf=bose(temp,freq2)*bose(temp,freq1)*delta(type_smear,DEner,lw1)
-             
-           this%R%mat(ii,jj)=this%R%mat(ii,jj)+dble(R0mm*conjg(R0mm))*Gf*prefc
+              DEner=this%Ener(kk)-this%Ener(lc)+freq1-freq2
+              Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
 
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
 
-           DEner=this%Ener(la)-this%Ener(lb)+freq2+freq1
-           Gf=(bose(temp,freq2)+1)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
-             
-           this%R%mat(ii,jj)=this%R%mat(ii,jj)+dble(R0pp*conjg(R0pp))*Gf*prefc
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
+ 
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
 
-          enddo ! jj
-         enddo ! ii
-               
-         do l1=1,this%Hdim
-          norm=(0.0d0,0.0d0)
-          do l2=1,this%Hdim         
-          if(l1.ne.l2)then  
-            call pzelget('A',' ',val,this%R%mat,l2,l1,this%R%desc)
-            norm=norm-val
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
+         
+             enddo
+
+            endif
+
            endif
+
           enddo
-          call pdelset(this%R%mat,l1,l1,this%R%desc,norm)
          enddo
+
+         deallocate(Rabp)
+         deallocate(Rabm)
+         deallocate(Rbap)
+         deallocate(Rbam)
 
         return
         end subroutine make_R41
