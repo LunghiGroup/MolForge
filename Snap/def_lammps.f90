@@ -9,21 +9,38 @@
         type,extends(atoms_group)         :: lammps_obj
          type(C_ptr)                      :: lmp
          contains
-         !procedure     :: atoms_to_lammps_obj        
-         procedure     :: setup_lammps_lattice
-         !procedure     :: get_bis
-         !procedure     :: get_der_bis
+         procedure     :: initialize => init_lammps_obj
+         procedure     :: finalize => finalize_lammps_obj
+         procedure     :: setup => setup_lammps_obj
+         procedure     :: get_bis
+         !procedure     :: get_der_desc => get_der_bis
         end type lammps_obj
 
         contains
+        
+        subroutine init_lammps_obj(this)
+        implicit none
+        class(lammps_obj),intent(in)         :: this
+                 
+        call lammps_open_no_mpi("lmp -screen none -log log.simple",this%lmp)
+        
+        end subroutine init_lammps_obj
 
-        subroutine setup_lammps_lattice(this,nkinds)
-        use atoms_class
+        subroutine finalize_lammps_obj(this)
+        implicit none
+        class(lammps_obj),intent(in)         :: this
+
+        call lammps_close(this%lmp)
+
+        end subroutine finalize_lammps_obj
+
+
+        subroutine setup_lammps_obj(this,nkinds)
         implicit none
         class(lammps_obj),intent(in)          :: this
         integer,intent(in)                    :: nkinds
         character(len=100)                    :: a1,a2,a3
-        character(len=200)                    :: region_string
+        character(len=300)                    :: region_string
         character(len=250)                    :: create_atoms_string,mass_string,create_box_string
         integer                               :: j
 
@@ -71,11 +88,61 @@
          end do
         end if
 
+       end subroutine setup_lammps_obj
+ 
+       subroutine get_bis(this,cutoff,twojmax)
+       use bispectrum_class        
+       !be careful, at the end of this routine, you have created and not allocated memory for the bispectrum components
+       implicit none
+       class(lammps_obj),intent(inout)                       :: this
+       integer                                               :: i,j,k,pos,m
+       integer (C_int), dimension(:),pointer                 :: id
+       integer                                               :: nlocal
+       integer,allocatable                                   :: store_kind(:)
+       integer,intent(in)                                    :: twojmax
+       real (C_double), dimension(:,:), pointer              :: bispec => NULL()
+       real (C_double), dimension(:,:), pointer              :: der_bis => NULL()
+       character(len=150)                                    :: cutoff_string,der_bis_string
+       real(kind=sgl),intent(in)                             :: cutoff
+       integer                                               :: components
+       
+       call lammps_command(this%lmp,"pair_style zero 30")
+       call lammps_command(this%lmp,"pair_coeff * *")
+       write(cutoff_string,*)'compute bispec all sna/atom',cutoff,'1',twojmax
+       
+       do i=1,this%nkinds
+        cutoff_string=trim(cutoff_string)//' 0.5'
+       end do
+       
+       do i=1,this%nkinds
+        cutoff_string=trim(cutoff_string)//' 1'
+       end do
 
-       end subroutine setup_lammps_lattice
-        
-       subroutine atoms_to_lammps_obj(set,nconfig,file_input,len_file_inp)
-       type(lammps_obj), allocatable       :: set(:)
+       call lammps_command(this%lmp,trim(cutoff_string))
+       call lammps_command(this%lmp,"run 0")
+       call lammps_extract_atom(id,this%lmp,"id")
+       call number_bispec(twojmax,components)
+
+       allocate(this%at_desc(this%nats))
+       call lammps_extract_compute(bispec,this%lmp,'bispec',LMP_STYLE_ATOM,LMP_TYPE_ARRAY)
+       
+       do k=1,this%nats
+         
+         allocate(this%at_desc(k)%desc(components))
+         pos=FINDLOC(id,k,1)
+         this%at_desc(k)%desc(1)=1.0
+         
+         do m=1,components-1
+          this%at_desc(k)%desc(m+1)=bispec(m,pos)
+         end do
+       
+       end do
+       call lammps_command(this%lmp,"uncompute bispec")
+       
+       end subroutine get_bis
+
+       subroutine import_lammps_obj_list(set,nconfig,file_input,len_file_inp)
+       type(lammps_obj), allocatable        :: set(:)
        integer                              :: nconfig, i,j,nats,ntypes
        character(len=100),allocatable       :: tmp(:,:)
        character(len=100),dimension(10)     :: tmp_cell_nkinds
@@ -132,6 +199,25 @@
       
         end do
         close(1)
+        
+        end subroutine import_lammps_obj_list
 
-        end subroutine atoms_to_lammps_obj
+        subroutine number_bispec(twojmax,components)
+        implicit none
+        integer,intent(in)            :: twojmax
+        integer,intent(out)           :: components
+        double precision              :: order_coeff
+
+        if (modulo(twojmax,2)==0) then
+         order_coeff=(twojmax/2.0)+1
+         components=order_coeff*(order_coeff+1)*(2*order_coeff+1)/6.0
+        else
+         order_coeff=(twojmax+1)/2.0
+         components=order_coeff*(order_coeff+1)*(order_coeff+2)/3.0
+        end if
+
+        components=components + 1
+
+        end subroutine number_bispec
+
         end module

@@ -285,7 +285,7 @@
 
         return
         end subroutine read_extended_xyz        
-
+        
         subroutine read_xyz(this,IOid,filename)
         implicit none
         class(atoms_group)            :: this
