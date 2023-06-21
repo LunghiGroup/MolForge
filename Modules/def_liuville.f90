@@ -682,52 +682,54 @@
             DEner=this%Ener(la)-this%Ener(lc)-freq1+freq2
             Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbam(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbam(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabp(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabp(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc
 
             DEner=this%Ener(la)-this%Ener(lc)+freq1-freq2
             Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbap(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbap(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabm(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabm(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc
 
-            DEner=this%Ener(lb)-this%Ener(ld)-freq1+freq2            
-            Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
+            ! ++ processes
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc*0.5d0
+            DEner=this%Ener(la)-this%Ener(lc)-freq1-freq2
+            Gf=bose(temp,freq1)*bose(temp,freq2)*delta(type_smear,DEner,lw1)
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbam(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabp(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabm(la,lc)*Gf*prefc
 
-            DEner=this%Ener(lb)-this%Ener(ld)+freq1-freq2
-            Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbam(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc*0.5d0
+            ! -- processes
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbap(la,lc)*Gf*prefc*0.5d0
+            DEner=this%Ener(la)-this%Ener(lc)+freq1+freq2
+            Gf=(bose(temp,freq1)+1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabm(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc*0.5d0
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabp(la,lc)*Gf*prefc
+
+            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbap(la,lc)*Gf*prefc
 
             if(la.eq.lc)then
 
              do kk=1,this%Hdim
-
-             ! +- and -+ processes
 
               DEner=this%Ener(kk)-this%Ener(ld)-freq1+freq2
               Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
@@ -752,6 +754,28 @@
 
               this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
        
+              DEner=this%Ener(kk)-this%Ener(ld)-freq1-freq2
+              Gf=bose(temp,freq2)*bose(temp,freq1)*delta(type_smear,DEner,lw1)
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+ 
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+
+              DEner=this%Ener(kk)-this%Ener(ld)+freq1+freq2
+              Gf=(bose(temp,freq2)+1)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
+ 
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
+
              enddo
 
             endif
@@ -759,8 +783,6 @@
             if(lb.eq.ld)then
 
              do kk=1,this%Hdim
-
-             ! +- and -+ processes
 
               DEner=this%Ener(kk)-this%Ener(lc)-freq1+freq2
               Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
@@ -784,6 +806,28 @@
 
               this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
          
+              DEner=this%Ener(kk)-this%Ener(lc)-freq1-freq2
+              Gf=bose(temp,freq2)*bose(temp,freq1)*delta(type_smear,DEner,lw1)
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
+ 
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
+
+              DEner=this%Ener(kk)-this%Ener(lc)+freq1+freq2
+              Gf=(bose(temp,freq2)+1)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
+ 
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
+
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
+
              enddo
 
             endif
