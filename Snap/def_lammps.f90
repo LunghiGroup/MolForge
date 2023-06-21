@@ -8,11 +8,14 @@
 
         type,extends(atoms_group)         :: lammps_obj
          type(C_ptr)                      :: lmp
+         real(kind=dbl)                   :: cutoff
+         integer                          :: twojmax
          contains
          procedure     :: initialize => init_lammps_obj
          procedure     :: finalize => finalize_lammps_obj
          procedure     :: setup => setup_lammps_obj
-         procedure     :: get_bis
+         !procedure     :: setup_bis => setup_bis
+         procedure     :: get_bis => get_bis
          !procedure     :: get_der_desc => get_der_bis
         end type lammps_obj
 
@@ -90,25 +93,23 @@
 
        end subroutine setup_lammps_obj
  
-       subroutine get_bis(this,cutoff,twojmax)
-       use bispectrum_class        
+
+       subroutine get_bis(this)
        !be careful, at the end of this routine, you have created and not allocated memory for the bispectrum components
        implicit none
        class(lammps_obj),intent(inout)                       :: this
        integer                                               :: i,j,k,pos,m
        integer (C_int), dimension(:),pointer                 :: id
        integer                                               :: nlocal
+       integer                                               :: components
        integer,allocatable                                   :: store_kind(:)
-       integer,intent(in)                                    :: twojmax
        real (C_double), dimension(:,:), pointer              :: bispec => NULL()
        real (C_double), dimension(:,:), pointer              :: der_bis => NULL()
        character(len=150)                                    :: cutoff_string,der_bis_string
-       real(kind=sgl),intent(in)                             :: cutoff
-       integer                                               :: components
        
        call lammps_command(this%lmp,"pair_style zero 30")
        call lammps_command(this%lmp,"pair_coeff * *")
-       write(cutoff_string,*)'compute bispec all sna/atom',cutoff,'1',twojmax
+       write(cutoff_string,*)'compute bispec all sna/atom',this%cutoff,'1',this%twojmax
        
        do i=1,this%nkinds
         cutoff_string=trim(cutoff_string)//' 0.5'
@@ -121,9 +122,9 @@
        call lammps_command(this%lmp,trim(cutoff_string))
        call lammps_command(this%lmp,"run 0")
        call lammps_extract_atom(id,this%lmp,"id")
-       call number_bispec(twojmax,components)
-
+       call number_bispec(this%twojmax,components)
        allocate(this%at_desc(this%nats))
+       
        call lammps_extract_compute(bispec,this%lmp,'bispec',LMP_STYLE_ATOM,LMP_TYPE_ARRAY)
        
        do k=1,this%nats
@@ -140,8 +141,9 @@
        call lammps_command(this%lmp,"uncompute bispec")
        
        end subroutine get_bis
-
+        
        subroutine import_lammps_obj_list(set,nconfig,file_input,len_file_inp)
+       implicit none
        type(lammps_obj), allocatable        :: set(:)
        integer                              :: nconfig, i,j,nats,ntypes
        character(len=100),allocatable       :: tmp(:,:)
@@ -206,7 +208,7 @@
         implicit none
         integer,intent(in)            :: twojmax
         integer,intent(out)           :: components
-        double precision              :: order_coeff
+        real(kind=dbl)                :: order_coeff
 
         if (modulo(twojmax,2)==0) then
          order_coeff=(twojmax/2.0)+1
