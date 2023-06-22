@@ -14,9 +14,8 @@
          procedure     :: initialize => init_lammps_obj
          procedure     :: finalize => finalize_lammps_obj
          procedure     :: setup => setup_lammps_obj
-         !procedure     :: setup_bis => setup_bis
-         procedure     :: get_bis => get_bis
-         !procedure     :: get_der_desc => get_der_bis
+         procedure     :: get_desc => get_bis
+         procedure     :: get_der_desc => get_der_bis
         end type lammps_obj
 
         contains
@@ -95,7 +94,6 @@
  
 
        subroutine get_bis(this)
-       !be careful, at the end of this routine, you have created and not allocated memory for the bispectrum components
        implicit none
        class(lammps_obj),intent(inout)                       :: this
        integer                                               :: i,j,k,pos,m
@@ -142,10 +140,54 @@
        
        end subroutine get_bis
         
+       subroutine get_der_bis(this)
+       implicit none
+       class(lammps_obj),intent(inout)                       :: this
+       integer                                               :: i,j,k,pos,m
+       integer (C_int), dimension(:),pointer                 :: id
+       integer                                               :: nlocal
+       integer                                               :: components
+       integer,allocatable                                   :: store_kind(:)
+       real (C_double), dimension(:,:), pointer              :: x,bis_comp,bispec,der_bis
+       character(len=800)                                    :: cutoff_string,der_bis_string, &
+                                                                mass_string
+
+       call lammps_command(this%lmp,"pair_style zero 30")
+       call lammps_command(this%lmp,"pair_coeff * *")
+       write(der_bis_string,*)'compute der_bis all snad/atom',this%cutoff,'1',this%twojmax
+
+       do i=1,this%nkinds
+        der_bis_string=trim(der_bis_string)//' 0.5'
+       end do
+
+       do i=1,this%nkinds
+        der_bis_string=trim(der_bis_string)//' 1'
+       end do
+       
+       call lammps_command(this%lmp,trim(der_bis_string))
+       call lammps_command(this%lmp,"run 0")
+       call lammps_extract_compute(der_bis,this%lmp,'der_bis',LMP_STYLE_ATOM,LMP_TYPE_ARRAY)
+       call lammps_extract_atom(id,this%lmp,"id")
+             
+       call number_bispec(this%twojmax,components)
+       allocate(this%der_at_desc(this%nats))
+ 
+       do k=1,this%nats
+
+        allocate(this%der_at_desc(k)%desc(3*this%nkinds*(components-1)))
+        pos=FINDLOC(id,k,1)
+        this%der_at_desc(k)%desc(:)=der_bis(:,pos)
+      
+       end do
+
+       call lammps_command(this%lmp,"uncompute der_bis")
+
+       end subroutine get_der_bis
+
        subroutine import_lammps_obj_list(set,nconfig,file_input,len_file_inp)
        implicit none
        type(lammps_obj), allocatable        :: set(:)
-       integer                              :: nconfig, i,j,nats,ntypes
+       integer                              :: nconfig, i,j,nats
        character(len=100),allocatable       :: tmp(:,:)
        character(len=100),dimension(10)     :: tmp_cell_nkinds
        character(len=80)                    :: err_string
