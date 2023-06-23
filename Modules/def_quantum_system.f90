@@ -1148,6 +1148,9 @@
          allocate(this%QMOP(3*s2print))
 
          do s=1,s2print
+          call this%QMOP(3*(s-1)+1)%set(this%Hdim,this%Hdim,NB,MB)
+          call this%QMOP(3*(s-1)+2)%set(this%Hdim,this%Hdim,NB,MB)
+          call this%QMOP(3*(s-1)+3)%set(this%Hdim,this%Hdim,NB,MB)
           this%QMOP(3*(s-1)+1)%mat=Sx(s)%mat
           this%QMOP(3*(s-1)+2)%mat=Sy(s)%mat
           this%QMOP(3*(s-1)+3)%mat=Sz(s)%mat
