@@ -442,7 +442,7 @@
                DEner=this%Ener(kk)-this%Ener(lc)+freq
                Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
               endif
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-Vmat(la,kk)*conjg(Vmat(lc,kk))*Gf*prefc
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Vmat(kk,la))*Vmat(kk,lc)*Gf*prefc 
              enddo
             endif
 
@@ -456,7 +456,7 @@
                DEner=this%Ener(kk)-this%Ener(ld)+freq
                Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
               endif
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-Vmat(ld,kk)*conjg(Vmat(lb,kk))*Gf*prefc
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-Vmat(kk,lb)*conjg(Vmat(kk,ld))*Gf*prefc
              enddo
             endif
 
@@ -565,7 +565,7 @@
               DEner=this%Ener(jj)-this%Ener(lc)+freq1+freq2
               Gf=Gf+(bose(temp,freq1)+1.0d0)*(bose(temp,freq2)+1.0d0)*delta(type_smear,DEner,lw)
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-Vmat(la,jj)*conjg(Vmat(lc,kk))*Gf*prefc
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-Vmat(kk,lc)*conjg(Vmat(kk,la))*Gf*prefc
 
              enddo
             endif
@@ -589,7 +589,7 @@
               DEner=this%Ener(kk)-this%Ener(ld)+freq1+freq2
               Gf=Gf+(bose(temp,freq1)+1.0d0)*(bose(temp,freq2)+1.0d0)*delta(type_smear,DEner,lw)
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-Vmat(ld,kk)*conjg(Vmat(lb,kk))*Gf*prefc
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-Vmat(kk,lb)*conjg(Vmat(kk,ld))*Gf*prefc
 
              enddo
             endif
