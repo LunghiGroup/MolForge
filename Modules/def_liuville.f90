@@ -21,7 +21,7 @@
          procedure   ::  make_unitary_propagator
          procedure   ::  make_basis_L
          procedure   ::  make_rho
-         procedure   ::  diag_limbladian
+         procedure   ::  diag_lindbladian
          procedure   ::  make_R21
          procedure   ::  make_R22
          procedure   ::  make_R41
@@ -288,7 +288,7 @@
 !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        subroutine diag_limbladian(this,step)
+        subroutine diag_lindbladian(this,step)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -308,7 +308,7 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)
-          write(*,*) '     Building the limbladian propagator by full diagonalization'
+          write(*,*) '     Building the lindbladian propagator by full diagonalization'
           flush(6)
          endif
 
@@ -371,7 +371,7 @@
          endif
 
         return
-        end subroutine diag_limbladian
+        end subroutine diag_lindbladian
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -392,7 +392,7 @@
         integer                      :: t1,t2,rate,indxl2g,type_smear
         integer                      :: ii,jj,kk,l,l2,la,lb,lc,ld
 
-         if (.not.allocated(this%R%mat)) call this%R%set(this%Hdim,this%Hdim,NB,MB)
+         if (.not.allocated(this%R%mat)) call this%R%set(this%Ldim,this%Ldim,NB,MB)
 
          prefc=pi*pi/hplank 
 
@@ -486,7 +486,7 @@
         integer                      :: t1,t2,rate,indxl2g,type_smear
         integer                      :: ii,jj,kk,l,l2,la,lb,lc,ld
      
-         if (.not.allocated(this%R%mat)) call this%R%set(this%Hdim,this%Hdim,NB,MB)
+         if (.not.allocated(this%R%mat)) call this%R%set(this%Ldim,this%Ldim,NB,MB)
 
          prefc=pi*pi/hplank/2.0d0
          lw=lw1+lw2
@@ -622,11 +622,8 @@
         integer                      :: ii,jj,kk,l1,l2,la,lb,lc,ld
         double complex               :: val
               
-         if (.not.allocated(this%R%mat))then
-          call this%R%set(this%Hdim,this%Hdim,NB,MB)
-          this%R%mat=(0.0d0,0.0d0)
-         endif
-
+         if (.not.allocated(this%R%mat)) call this%R%set(this%Ldim,this%Ldim,NB,MB)
+         
          allocate(Rabp(this%Hdim,this%Hdim))
          allocate(Rabm(this%Hdim,this%Hdim))
          allocate(Rbap(this%Hdim,this%Hdim))
@@ -675,10 +672,11 @@
 
            Secular=this%Ener(la)-this%Ener(lc)+this%Ener(ld)-this%Ener(lb)
 
+
            if( abs(Secular).lt.1.0e-6 )then              
 
             ! +- and -+ processes
-
+           
             DEner=this%Ener(la)-this%Ener(lc)-freq1+freq2
             Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
 
@@ -741,7 +739,6 @@
               this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
 
               this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
-             
 
               DEner=this%Ener(kk)-this%Ener(ld)+freq1-freq2
               Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
@@ -826,7 +823,7 @@
  
               this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
+              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0            
 
              enddo
 

@@ -23,9 +23,9 @@
          integer                                 :: norder
          integer                                 :: nderiv         
          contains              
-         procedure     ::  make_R21_limbladian
-         procedure     ::  make_R22_limbladian
-         procedure     ::  make_R41_limbladian
+         procedure     ::  make_R21_lindbladian
+         procedure     ::  make_R22_lindbladian
+         procedure     ::  make_R41_lindbladian
          procedure     ::  X2Q
          procedure     ::  XY2QQ
         end type open_quantum_system
@@ -156,7 +156,7 @@
 !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        subroutine make_R21_limbladian(this,min_ener,max_ener)
+        subroutine make_R21_lindbladian(this,min_ener,max_ener)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -172,7 +172,7 @@
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)       
           write(*,*) '' 
-          write(*,*) '     Building the second-order Limbladian operator with linear coupling'
+          write(*,*) '     Building the second-order Lindbladian operator with linear coupling'
           flush(6)
          endif
 
@@ -229,7 +229,7 @@
          endif
 
         return
-        end subroutine make_R21_limbladian
+        end subroutine make_R21_lindbladian
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
@@ -237,7 +237,7 @@
 !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        subroutine make_R22_limbladian(this,min_ener,max_ener)
+        subroutine make_R22_lindbladian(this,min_ener,max_ener)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -253,7 +253,7 @@
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)       
           write(*,*) '' 
-          write(*,*) '     Building the second-order Limbladian operator with quadratic coupling'
+          write(*,*) '     Building the second-order Lindbladian operator with quadratic coupling'
           flush(6)
          endif
 
@@ -321,7 +321,7 @@
          endif
 
         return
-        end subroutine make_R22_limbladian
+        end subroutine make_R22_lindbladian
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -330,7 +330,7 @@
 !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        subroutine make_R41_limbladian(this,min_ener,max_ener)
+        subroutine make_R41_lindbladian(this,min_ener,max_ener)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -346,7 +346,7 @@
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)       
           write(*,*) '' 
-          write(*,*) '     Building the fourth-order Limbladian operator with linear coupling'
+          write(*,*) '     Building the fourth-order Linbladian operator with linear coupling'
           flush(6)
          endif
 
@@ -429,7 +429,7 @@
          endif
 
         return
-        end subroutine make_R41_limbladian
+        end subroutine make_R41_lindbladian
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
