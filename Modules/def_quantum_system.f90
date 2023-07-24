@@ -42,6 +42,7 @@
          procedure   ::  get_Hij
          procedure   ::  make_Hmat
          procedure   ::  make_Smat
+         procedure   ::  make_tinv
 !         procedure   ::  make_Vx
 !         procedure   ::  make_rot
 !         procedure   ::  set_dipolar
@@ -1017,7 +1018,6 @@
          allocate(Sy(s2print))
          allocate(Sx(s2print))
 
-
          do i=1,s2print
           call Sx(i)%set(this%Hdim,this%Hdim,NB,MB)
           call Sy(i)%set(this%Hdim,this%Hdim,NB,MB)
@@ -1175,5 +1175,110 @@
         return 
         end subroutine make_Smat
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   CORRECT THE PHASE OF Hmat EIGENVECTORS 
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_tinv(this)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        implicit none
+        class(spin_quantum_system)          :: this
+        type(dist_cmplx_mat)                :: Sx
+        logical,allocatable                 :: a(:),skip
+        integer                             :: i,j,v,k,s,t,ii,jj
+        integer                             :: t1,t2,rate,s2print,indxl2g
+        double precision                    :: aaa,phi
+        complex(8), allocatable             :: Mtmp(:)
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)        
+          write(*,*) '' 
+          write(*,*) '     Correcting the phase of Hmat eigenvectors'
+          flush(6)
+         endif
+
+
+         call Sx%set(this%Hdim,this%Hdim,NB,MB)
+         Sx%mat=(0.0d0,0.0d0)
+                    
+         allocate(a(this%spins%nspins))
+
+         allocate(Mtmp(3))
+         Mtmp=(0.0d0,0.0d0)
+          
+         do ii=1,size(Sx%mat,1)
+          do jj=1,size(Sx%mat,2)
+
+           s=indxl2g(ii,NB,myrow,0,nprow)
+           t=indxl2g(jj,MB,mycol,0,npcol)
+
+           do v=1,this%spins%nspins
+
+            a=.true.
+            do k=1,this%spins%nspins
+             if(k.ne.v)then
+              if(ABS(this%basis(s,k)-this%basis(t,k)).gt.1.0d-8)then
+               a(k)=.false.
+               exit
+              endif
+             endif
+            enddo
+
+            if(ALL(a))then
+
+! S+
+             if(abs(this%basis(s,v)-this%basis(t,v)-1).lt.1.0E-06)then
+
+              aaa=dsqrt((this%spins%spin(this%spins%kind(v))-this%basis(t,v))* &
+                        (this%spins%spin(this%spins%kind(v))+this%basis(t,v)+1) )
+              aaa=aaa/2.0d0
+
+              Mtmp(1)=cmplx(aaa,0.0d0,8)
+
+              Sx%mat(ii,jj)=Sx%mat(ii,jj)+Mtmp(1)
+
+             endif
+
+! S-
+             if(abs(this%basis(s,v)-this%basis(t,v)+1).lt.1.0E-06)then
+
+              aaa=dsqrt((this%spins%spin(this%spins%kind(v))+this%basis(t,v))* &
+                        (this%spins%spin(this%spins%kind(v))-this%basis(t,v)+1) )
+              aaa=aaa/2.0d0
+
+              Mtmp(1)=cmplx(aaa,0.0d0,8)
+
+              Sx%mat(ii,jj)=Sx%mat(ii,jj)+Mtmp(1)
+
+             endif
+
+            endif
+
+           enddo
+          enddo
+         enddo
+
+         call this%to_eigenbasis(Sx)
+        
+         do ii=1,this%Hdim-1         
+          phi=atan2(aimag(Sx%mat(i,i+1)),dble(Sx%mat(i,i+1)))
+          this%H%mat(:,i+1)=this%H%mat(:,i+1)*exp(cmplx(0.0d0,-phi,8))
+         enddo
+                
+         deallocate(Mtmp)
+         deallocate(a)        
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return 
+        end subroutine make_tinv
 
         end module quantum_systems_class
