@@ -279,8 +279,8 @@
          enddo
 
 
-!         call sp%make_R21_limbladian(min_ener=5.0d0,max_ener=3000.0d0)
-         call sp%make_R41_limbladian(min_ener=5.0d0,max_ener=500.0d0)
+!         call sp%make_R21_lindbladian(min_ener=5.0d0,max_ener=3000.0d0)
+         call sp%make_R41_lindbladian(min_ener=5.0d0,max_ener=500.0d0)
          call sp%diag_limbladian(step)
 
 ! propagate
