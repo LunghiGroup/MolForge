@@ -36,10 +36,11 @@ export MOLFORGE_INC_FLAG = -I$(MOLFORGE_INC_DIR)
 export MOLFORGE_LINK_FLAG = -L$(MOLFORGE_LIB_DIR) $(MOLFORGE_LIBS)
 
 export MPI_LIB = /usr/lib64/openmpi/lib
-export SNAP_LIBS = -lblas -llammps_fortran -llammps_mpi -lMolForge -llapack -lmpi_cxx -lstdc++ -lm
+export SNAP_LIBS = -lblas -llammps_fortran -llammps_mpi -lMolForge -llapack -lmpi_cxx -lstdc++ -lm -ldftd3
+export DFTD3_LIB= /home/valeriobriganti/Desktop/dftd3-lib-0.9/lib
 
-export SNAP_INC_FLAG = -I$(MODULES_DIR) -I$(LAMMPS_F90_DIR)
-export SNAP_LINK_FLAG = -L$(MPI_LIB) -L$(LAMMPS_MPI_DIR) -L$(LAMMPS_F90_DIR) -L$(MOLFORGE_LIB_DIR) $(SNAP_LIBS)
+export SNAP_INC_FLAG = -I$(MODULES_DIR) -I$(LAMMPS_F90_DIR) -I$(DFTD3_LIB)
+export SNAP_LINK_FLAG = -L$(MPI_LIB) -L$(LAMMPS_MPI_DIR) -L$(LAMMPS_F90_DIR) -L$(MOLFORGE_LIB_DIR) -L$(DFTD3_LIB) $(SNAP_LIBS)
 
 
 

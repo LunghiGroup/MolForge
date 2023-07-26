@@ -1,6 +1,6 @@
 .SUFFIXES:
 
-SOURCES = def_kind.f90 def_parameters.f90 def_lammps.f90 def_max.f90 def_SNAP.f90 main.f90
+SOURCES = def_kind.f90 def_parameters.f90 def_lammps.f90 def_max.f90 def_VdW.f90 def_SNAP.f90 main.f90
 
 OBJECTS = $(subst .f90,.o,$(SOURCES))
 
@@ -23,6 +23,9 @@ def_max.o : def_max.f90
 def_SNAP.o : def_SNAP.f90
 	$(FC) $(FFLAGS) -c $(SNAP_DIR)/$(subst .o,.f90,$@) $(MOLFORGE_INC_FLAG) $(SNAP_INC_FLAG)
 
+def_VdW.o: def_VdW.f90
+	$(FC) $(FFLAGS) -c $(SNAP_DIR)/$(subst .o,.f90,$@) $(MOLFORGE_INC_FLAG) $(SNAP_INC_FLAG)
+
 main.o : main.f90
 	$(FC) $(FFLAGS) -c $(SNAP_DIR)/$(subst .o,.f90,$@) $(MOLFORGE_INC_FLAG) $(SNAP_INC_FLAG)
 
@@ -34,7 +37,9 @@ def_max.f90:
 
 def_parameters.f90:
 
-#def_SNAP.f90:
+def_SNAP.f90:
+
+def_VdW.f90:
 
 main.f90: def_kind.o def_lammps.o
 

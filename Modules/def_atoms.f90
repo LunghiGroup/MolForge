@@ -31,6 +31,8 @@
          double precision, allocatable   :: rij(:,:)
          type(vector_int), allocatable   :: neigh(:) 
          double precision                :: neigh_cutoff=3.7d0
+         double precision                :: en_VdW
+         double precision,allocatable    :: grads_VdW(:,:)
          character(len=10), allocatable  :: label(:)
          logical                         :: born_charges=.false. 
          double precision, allocatable   :: fcs2(:,:,:,:,:)
