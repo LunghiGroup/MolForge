@@ -328,14 +328,15 @@
 
          if(mpi_id.eq.0) then
 
-          write(*,*) '     Limbladian Matrix Eigenvalues (1/ms):'
-
+          write(*,*) '     Lindbladian Matrix Eigenvalues (1/ps):'
+          
           allocate(rates(this%Ldim))
-          rates=abs(dble(Rval))
-          call  order_array(rates)
+          rates=dble(Rval)
+          call order_array(rates)
 
-          do l=1,this%Ldim
-           write(*,*) '          ',l,rates(l)*1.0d9
+          write(*,*) '       Zero:',dble(rates(this%Ldim))
+          do l=this%Ldim-1,1,-1
+           write(*,*) '          ',this%Ldim-l+1,-1.0d0*rates(l)
           enddo
 
           deallocate(rates)
