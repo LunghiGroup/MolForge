@@ -90,7 +90,7 @@
 
         if ((this%flag_energy).and.(.not.this%flag_forces)) then
 
-         ref_values(1:size(this%set))=this%energies
+         ref_values(1:size(this%set))=this%energies*this%weight
 
         end if
 
