@@ -3,9 +3,9 @@
 export FC = mpif90
 export FFLAGS = -g -O2
 
-export LIBS = -lscalapack -llapack 
-export INC_FLAG =  ## -I$(INC_DIR) 
-export LINK_FLAG = $(LIBS) ## -L$(LIB_DIR) $(LIBS)
+export LIBS = -lscalapack-openmpi -llapack
+export INC_FLAG =## -I$(INC_DIR) 
+export LINK_FLAG = $(LIBS) ## -L${LIB_DIR} ${LIBS}
 
 ## Set this keyword to "MKL" if you are using MKL scalapack instead of GNU libs.
 export SCALAPACK_FLAG =
@@ -22,7 +22,7 @@ export INTENSOR_DIR = $(MOLFORGE_DIR)/Intensor
 export TOOLS_DIR = $(MOLFORGE_DIR)/Tools
 export SNAP_DIR =$(MOLFORGE_DIR)/Snap
 
-export LAMMPS_DIR = /home/valeriobriganti/Desktop/mylammps/
+export LAMMPS_DIR = /home/valerio/Desktop/lammps
 export LAMMPS_F90_DIR = $(LAMMPS_DIR)/examples/COUPLE/fortran2
 export LAMMPS_MPI_DIR = $(LAMMPS_DIR)/src
 
