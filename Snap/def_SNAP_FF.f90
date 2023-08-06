@@ -14,6 +14,8 @@
         real(kind=dbl), allocatable             :: beta(:)
         integer                                 :: tot_kinds
         integer                                 :: num_bisp
+        real(kind=dbl)                          :: energy
+        real(kind=dbl), allocatable             :: grad(:)       
 
         contains
         
@@ -65,6 +67,8 @@
         real(kind=dbl)                  :: val
         integer                         :: i,j,k,m
         real(kind=dbl), allocatable     :: vec(:),grad(:)
+
+        if (associated(this%frame%der_at_desc)) deallocate (this%frame%der_at_desc)
 
         call this%frame%initialize
         call this%frame%setup(this%frame%nkinds)
