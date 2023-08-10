@@ -50,7 +50,7 @@
         integer                                         :: i,j,tot_kinds
 
         val=0.0
-
+        
         do i=1,this%frame%nats
          do j=1,this%num_bisp
 
@@ -68,12 +68,17 @@
         integer                         :: i,j,k,m
         real(kind=dbl), allocatable     :: vec(:),grad(:)
 
-        if (associated(this%frame%der_at_desc)) deallocate (this%frame%der_at_desc)
-
-        call this%frame%initialize
-        call this%frame%setup(this%frame%nkinds)
-        call this%frame%get_der_desc
-        call this%frame%finalize
+        !if (associated(this%frame%der_at_desc)) deallocate (this%frame%der_at_desc)
+        
+        !if (.not.allocated(vec)) then
+        ! allocate(vec(this%frame%nats*3))
+        !end if
+         
+        !do i=1,this%frame%nats
+        ! do j=1,3
+        !  this%frame%x(i,j)
+        ! end do
+        !end do
 
         allocate(grad(this%frame%nats*3))
         grad=0.0

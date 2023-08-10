@@ -184,84 +184,89 @@
 
        end subroutine get_der_bis
 
-       subroutine import_lammps_obj_list(set,nconfig,file_input,len_file_inp)
+       subroutine import_lammps_obj_list(nconfig,file_input,len_file_inp,set_array,set_scalar)
        implicit none
-       type(lammps_obj), allocatable        :: set(:)
-       integer                              :: nconfig, i,j,nats
-       character(len=100),allocatable       :: tmp(:,:)
-       character(len=100),dimension(10)     :: tmp_cell_nkinds
-       character(len=80)                    :: err_string
-       character(len=50)                    :: filename
-       character(len=*)                     :: file_input
-       integer,intent(in)                   :: len_file_inp
-       character(len=150)                   :: file_inp
-       integer                              :: ierror    
-       integer                              :: status
-       character(len=80)                    :: err_msg
+       type(lammps_obj), allocatable,optional    :: set_array(:)
+       type(lammps_obj),optional                 :: set_scalar
+       integer                                   :: nconfig, i,j,nats,ntypes
+       character(len=100),allocatable            :: tmp(:,:)
+       character(len=100),dimension(10)          :: tmp_cell_nkinds
+       character(len=50)                         :: filename
+       character(len=*)                          :: file_input
+       integer,intent(in)                        :: len_file_inp
+       character(len=150)                        :: file_inp
+       !declare dimension allocatable above together with the fixed one, why everything should be allocatable?
 
-        file_inp=file_input(1:len_file_inp)
-        allocate(set(nconfig))
-        open(unit=1,file=trim(file_inp),status="old",action="read", iostat=ierror, iomsg=err_string)
-        
-        if (ierror /= 0) then
-          write(*,*) err_string
-        end if
+       file_inp=file_input(1:len_file_inp)
 
-        do i=1,nconfig
-         read(1,*,iostat=status,iomsg=err_msg) nats
-         
-         if(status /= 0) then
-          write(*,*) err_msg
-        end if
+       if (present(set_array)) then
+        allocate(set_array(nconfig))
+       end if
 
-         read(1,*)tmp_cell_nkinds(:)
-         allocate(tmp(nats,6))
+       open(1,file=trim(file_inp))
 
-         do j=1,nats
-          read(1,*) tmp(j,:)
-         end do
+       do i=1,nconfig
 
-         filename="file_temporaneo"
-         open(unit=2, file = trim(filename), status="replace",action="write",iostat=ierror,iomsg=err_string)
-         
-         !if (ierror /= 0) then
-          !write(*,*) err_string
-         !end if         
-         
-          write(2,*)nats
-          write(2,*)trim(tmp_cell_nkinds(1)),' ',trim(tmp_cell_nkinds(2)),' ',trim(tmp_cell_nkinds(3)),' '&
+        read(1,*)nats
+        read(1,*)tmp_cell_nkinds(:)
+
+        allocate(tmp(nats,6))
+
+        do j=1,nats
+
+         read(1,*) tmp(j,:)
+
+        end do
+
+        filename="file_temporaneo"
+
+        open(unit=2,status="replace",file=trim(filename))
+
+        write(2,*)nats
+        write(2,*)trim(tmp_cell_nkinds(1)),' ',trim(tmp_cell_nkinds(2)),' ',trim(tmp_cell_nkinds(3)),' '&
            ,trim(tmp_cell_nkinds(4)),' ',trim(tmp_cell_nkinds(5)),' ',trim(tmp_cell_nkinds(6)),' ',trim(tmp_cell_nkinds(7))&
            ,' ',trim(tmp_cell_nkinds(8)),' ',trim(tmp_cell_nkinds(9)),' ',trim(tmp_cell_nkinds(10))
-          do j=1,nats
-           write(2,*)trim(tmp(j,1)),' ',trim(tmp(j,2)),' ',trim(tmp(j,3)),' ',trim(tmp(j,4)),' ',trim(tmp(j,5)),&
+
+        do j=1,nats
+
+         write(2,*)trim(tmp(j,1)),' ',trim(tmp(j,2)),' ',trim(tmp(j,3)),' ',trim(tmp(j,4)),' ',trim(tmp(j,5)),&
             ' ',trim(tmp(j,6))
-          end do
 
-         deallocate(tmp)
-         close(2)
-         call set(i)%read_extended_xyz(3,trim(filename))
-      
         end do
-        close(1)
-        
-        end subroutine import_lammps_obj_list
 
-        subroutine number_bispec(twojmax,components)
-        implicit none
-        integer,intent(in)            :: twojmax
-        integer,intent(out)           :: components
-        real(kind=dbl)                :: order_coeff
+        deallocate(tmp)
+        !deallocate(tmp_cell_nkinds)
 
-        if (modulo(twojmax,2)==0) then
-         order_coeff=(twojmax/2.0)+1
-         components=order_coeff*(order_coeff+1)*(2*order_coeff+1)/6.0
-        else
-         order_coeff=(twojmax+1)/2.0
-         components=order_coeff*(order_coeff+1)*(order_coeff+2)/3.0
+        close(2)
+
+
+        if (present(set_array)) then
+         call set_array(i)%read_extended_xyz(3,trim(filename))
+
+        else if (present(set_scalar)) then
+         call set_scalar%read_extended_xyz(3,trim(filename))
         end if
 
-        components=components + 1
+       end do
+ 
+       end subroutine import_lammps_obj_list
 
-        end subroutine number_bispec
+       subroutine number_bispec(twojmax,components)
+       implicit none
+       integer,intent(in)            :: twojmax
+       integer,intent(out)           :: components
+       real(kind=dbl)                :: order_coeff
+
+       if (modulo(twojmax,2)==0) then
+        order_coeff=(twojmax/2.0)+1
+        components=order_coeff*(order_coeff+1)*(2*order_coeff+1)/6.0
+       else
+        order_coeff=(twojmax+1)/2.0
+        components=order_coeff*(order_coeff+1)*(order_coeff+2)/3.0
+       end if
+
+       components=components + 1
+
+       end subroutine number_bispec
 
         end module
