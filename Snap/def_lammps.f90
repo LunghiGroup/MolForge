@@ -23,7 +23,7 @@
         subroutine init_lammps_obj(this)
         implicit none
         class(lammps_obj),intent(in)         :: this
-                 
+        
         call lammps_open_no_mpi("lmp -screen none -log log.simple",this%lmp)
         
         end subroutine init_lammps_obj

@@ -4,6 +4,7 @@
         use max_class
         use atoms_class
         use lammps_class
+        use potential_class
         use SNAP_fit_class
         use VdW_class
         use SNAP_FF_class
@@ -48,8 +49,8 @@
         double precision, allocatable             :: X_M(:), Y(:),X(:),mean(:),sigma(:)
         double precision                          :: y_tmp,y_tmp_2
         real(kind=dbl)                            :: weight
-
-        train_ff=.false.
+        
+        train_ff=.true.
         VdW_flag=.true.
         single_eval=.true.
 
@@ -74,10 +75,6 @@
          SNAP%set(i)%cutoff  = cutoff_en
         end do
         
-        FF_SNAP%frame%twojmax=twojmax_en
-        FF_SNAP%frame%cutoff=cutoff_en
-
-
         SNAP%twojmax= twojmax_en
         
         !the coeffiecients that you set to be true are the ones that you put equal to zero
@@ -114,7 +111,7 @@
 
          if (SNAP%flag_energy) then
 
-          allocate(SNAP%energies(size(set)))
+          allocate(SNAP%energies(size(SNAP%set)))
 
           open(100,file=trim(energy_file))
 
@@ -122,7 +119,6 @@
            read(100,*) SNAP%energies(i)
            
            if (VdW_flag) then
-                   write(*,*) SNAP%set(i)%en_VdW
             SNAP%energies(i)=SNAP%energies(i)-SNAP%set(i)%en_VdW
            end if
           
@@ -148,7 +144,6 @@
 
             do i=1,SNAP%nconfig
 
-             write(*,*)SNAP%set(i)%grads_VdW
 
              do j=1,SNAP%set(i)%nats
               do k=1,3
@@ -161,34 +156,41 @@
 
            end do
           end if
+        
          SNAP%forces=-gradients
+        
          end if
+        
          call SNAP%fit
          
         end if
-
-
+        
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!single evaluation block
+        
         call import_lammps_obj_list(nconfig=1,file_input=trim(frame_file),len_file_inp=&
                 len_trim(frame_file),set_scalar=FF_SNAP%frame)
         
+        FF_SNAP%frame%twojmax=twojmax_en
+        FF_SNAP%frame%cutoff=cutoff_en
         FF_SNAP%num_bisp=SNAP%num_bisp
         FF_SNAP%tot_kinds=SNAP%tot_kinds
         
         if (single_eval) then
-
-        call FF_SNAP%import        
+        
+       
+        call FF_SNAP%import      
         call FF_SNAP%frame%initialize()
         call FF_SNAP%frame%setup(FF_SNAP%frame%nkinds)
         call FF_SNAP%frame%get_desc()
         call FF_SNAP%frame%get_der_desc()
         call FF_SNAP%frame%finalize()
-
-
+        
         call FF_SNAP%get_fval(vec,FF_SNAP%energy)
         call FF_SNAP%get_fgrad(vec,FF_SNAP%energy,FF_SNAP%grad)
-        write(*,*) FF_SNAP%energy
-        write(*,*) FF_SNAP%grad
         
         end if
-
+        
+        !!!!!!!!!!!!!!!!!!!!!!!!!!
+        !!!!!!!!!!!!!!!!!!!!!!!!!!MD block
+        
         end program

@@ -1,7 +1,7 @@
 .SUFFIXES:
 
 export FC = mpif90
-export FFLAGS = -g -O2
+export FFLAGS = -g -O0 -fcheck=all -fbacktrace
 
 export LIBS = -lscalapack -llapack 
 export INC_FLAG =  ## -I$(INC_DIR) 

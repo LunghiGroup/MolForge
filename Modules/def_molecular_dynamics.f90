@@ -5,13 +5,14 @@
         use target_functions_class
         implicit none
 
-        type                    :: md
+        type                    :: MD
          
         integer                 :: max_steps
         integer                 :: step_size
         character(len=3)        :: ensemble
-        type(SNAP_FF)           :: potential
-        
+        type(potential)         :: pot
+        character
+
         end type md
         
         contains

@@ -6,16 +6,13 @@
         use kind_class
         use parameters_class
         use lapack_inverse
-        use target_functions_class
+        use potential_class
         implicit none
 
-        type, extends(target_function)          :: SNAP_FF
-        type(lammps_obj)                        :: frame
+        type, extends(potential)                :: SNAP_FF
         real(kind=dbl), allocatable             :: beta(:)
         integer                                 :: tot_kinds
         integer                                 :: num_bisp
-        real(kind=dbl)                          :: energy
-        real(kind=dbl), allocatable             :: grad(:)       
 
         contains
         
@@ -67,18 +64,6 @@
         real(kind=dbl)                  :: val
         integer                         :: i,j,k,m
         real(kind=dbl), allocatable     :: vec(:),grad(:)
-
-        !if (associated(this%frame%der_at_desc)) deallocate (this%frame%der_at_desc)
-        
-        !if (.not.allocated(vec)) then
-        ! allocate(vec(this%frame%nats*3))
-        !end if
-         
-        !do i=1,this%frame%nats
-        ! do j=1,3
-        !  this%frame%x(i,j)
-        ! end do
-        !end do
 
         allocate(grad(this%frame%nats*3))
         grad=0.0
