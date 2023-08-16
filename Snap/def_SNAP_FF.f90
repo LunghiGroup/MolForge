@@ -11,6 +11,7 @@
 
         type, extends(potential)                :: SNAP_FF
         real(kind=dbl), allocatable             :: beta(:)
+        type(lammps_obj)                        :: frame
         integer                                 :: tot_kinds
         integer                                 :: num_bisp
 
@@ -19,7 +20,7 @@
         procedure                        :: import
         procedure                        :: get_fval  => get_SNAP_energy
         procedure                        :: get_fgrad => get_SNAP_force
-        
+
         end type SNAP_FF
         
         contains
@@ -48,13 +49,21 @@
 
         val=0.0
         
+        call this%frame%initialize()
+        call this%frame%setup(this%frame%nkinds)
+        call this%frame%get_desc()
+        call this%frame%finalize()
+
         do i=1,this%frame%nats
          do j=1,this%num_bisp
 
           val=val+this%beta((this%frame%kind(i)-1)*this%num_bisp+j)*this%frame%at_desc(i)%desc(j)
 
          end do
+         deallocate(this%frame%at_desc(i)%desc)
         end do
+
+        deallocate(this%frame%at_desc)
         
         end subroutine get_SNAP_energy
 
@@ -64,6 +73,11 @@
         real(kind=dbl)                  :: val
         integer                         :: i,j,k,m
         real(kind=dbl), allocatable     :: vec(:),grad(:)
+
+        call this%frame%initialize()
+        call this%frame%setup(this%frame%nkinds)
+        call this%frame%get_der_desc()
+        call this%frame%finalize()
 
         allocate(grad(this%frame%nats*3))
         grad=0.0
@@ -79,10 +93,10 @@
            end do
           end do
          end do
+         deallocate(this%frame%der_at_desc(i)%desc)
         end do       
          
         deallocate(this%frame%der_at_desc)
-        
         end subroutine get_SNAP_force
 
         end module SNAP_FF_class

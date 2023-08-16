@@ -60,7 +60,7 @@
         
         SNAP%weight=1.0d0
         SNAP%lambda=1.0d0
-        SNAP%set_type='TRAIN'
+        SNAP%set_type='VALID'
 
         geometry_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_tr_AL_++"
         energy_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/ener_tr_AL_++"
@@ -167,8 +167,8 @@
         
         !!!!!!!!!!!!!!!!!!!!!!!!!!!single evaluation block
         
-        call import_lammps_obj_list(nconfig=1,file_input=trim(frame_file),len_file_inp=&
-                len_trim(frame_file),set_scalar=FF_SNAP%frame)
+        call import_lammps_obj_list(nconfig=1,file_input=trim(frame_file),&
+                len_file_inp=len_trim(frame_file),set_scalar=FF_SNAP%frame)
         
         FF_SNAP%frame%twojmax=twojmax_en
         FF_SNAP%frame%cutoff=cutoff_en
@@ -179,15 +179,11 @@
         
        
         call FF_SNAP%import      
-        call FF_SNAP%frame%initialize()
-        call FF_SNAP%frame%setup(FF_SNAP%frame%nkinds)
-        call FF_SNAP%frame%get_desc()
-        call FF_SNAP%frame%get_der_desc()
-        call FF_SNAP%frame%finalize()
-        
         call FF_SNAP%get_fval(vec,FF_SNAP%energy)
         call FF_SNAP%get_fgrad(vec,FF_SNAP%energy,FF_SNAP%grad)
         
+        write(*,*) FF_SNAP%energy
+        write(*,*) FF_SNAP%grad
         end if
         
         !!!!!!!!!!!!!!!!!!!!!!!!!!

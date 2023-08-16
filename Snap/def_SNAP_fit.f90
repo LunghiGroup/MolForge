@@ -29,7 +29,7 @@
         
         contains
 
-        procedure                        :: fit
+        procedure                                    :: fit
 
         end type SNAP_fit
 

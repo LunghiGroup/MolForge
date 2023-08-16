@@ -23,7 +23,7 @@
         subroutine init_lammps_obj(this)
         implicit none
         class(lammps_obj),intent(in)         :: this
-        
+                 
         call lammps_open_no_mpi("lmp -screen none -log log.simple",this%lmp)
         
         end subroutine init_lammps_obj
@@ -183,7 +183,7 @@
        call lammps_command(this%lmp,"uncompute der_bis")
 
        end subroutine get_der_bis
-
+        
        subroutine import_lammps_obj_list(nconfig,file_input,len_file_inp,set_array,set_scalar)
        implicit none
        type(lammps_obj), allocatable,optional    :: set_array(:)
@@ -191,7 +191,7 @@
        integer                                   :: nconfig, i,j,nats,ntypes
        character(len=100),allocatable            :: tmp(:,:)
        character(len=100),dimension(10)          :: tmp_cell_nkinds
-       character(len=50)                         :: filename
+       character(len=100)                         :: filename
        character(len=*)                          :: file_input
        integer,intent(in)                        :: len_file_inp
        character(len=150)                        :: file_inp
@@ -241,32 +241,33 @@
 
 
         if (present(set_array)) then
-         call set_array(i)%read_extended_xyz(3,trim(filename))
+         call set_array(i)%read_extended_xyz(3,filename)
 
         else if (present(set_scalar)) then
-         call set_scalar%read_extended_xyz(3,trim(filename))
+         call set_scalar%read_extended_xyz(3,filename)
         end if
 
        end do
- 
+
        end subroutine import_lammps_obj_list
+        
 
-       subroutine number_bispec(twojmax,components)
-       implicit none
-       integer,intent(in)            :: twojmax
-       integer,intent(out)           :: components
-       real(kind=dbl)                :: order_coeff
+        subroutine number_bispec(twojmax,components)
+        implicit none
+        integer,intent(in)            :: twojmax
+        integer,intent(out)           :: components
+        real(kind=dbl)                :: order_coeff
 
-       if (modulo(twojmax,2)==0) then
-        order_coeff=(twojmax/2.0)+1
-        components=order_coeff*(order_coeff+1)*(2*order_coeff+1)/6.0
-       else
-        order_coeff=(twojmax+1)/2.0
-        components=order_coeff*(order_coeff+1)*(order_coeff+2)/3.0
-       end if
+        if (modulo(twojmax,2)==0) then
+         order_coeff=(twojmax/2.0)+1
+         components=order_coeff*(order_coeff+1)*(2*order_coeff+1)/6.0
+        else
+         order_coeff=(twojmax+1)/2.0
+         components=order_coeff*(order_coeff+1)*(order_coeff+2)/3.0
+        end if
 
-       components=components + 1
+        components=components + 1
 
-       end subroutine number_bispec
+        end subroutine number_bispec
 
         end module
