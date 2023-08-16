@@ -6,12 +6,13 @@
         implicit none
          
          type,extends(target_function)           :: potential
+          type(lammps_obj)                       :: frame
           real(kind=dbl),allocatable             :: grad(:)
           real(kind=dbl)                         :: energy
 
           contains
           
-          procedure                              :: import => import_generic
+          procedure                              :: import_coeff => import_generic
           procedure                              :: get_fgrad => get_forces
           procedure                              :: get_fval => get_energy
          end type potential

@@ -13,6 +13,7 @@
         type(lammps_obj),allocatable              :: set(:)
         type(SNAP_fit)                            :: SNAP
         type(SNAP_FF)                             :: FF_SNAP
+        type(VdW_FF)                             :: FF_VdW
         integer                                   :: nconfig,tot_kinds,num_bisp_en,num_bisp_dip,twojmax_dip,twojmax_en
         integer                                   :: i,j
         character(len=120)                        :: geometry_file,energy_file,dipoles_file,shift_file,atom_string, &
@@ -60,16 +61,14 @@
         
         SNAP%weight=1.0d0
         SNAP%lambda=1.0d0
-        SNAP%set_type='VALID'
+        SNAP%set_type='TRAIN'
 
         geometry_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_tr_AL_++"
         energy_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/ener_tr_AL_++"
         forces_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/grad_tr_AL_++"
         frame_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_start"
-
         call import_lammps_obj_list(nconfig=SNAP%nconfig,file_input=trim(geometry_file),&
                 len_file_inp=len_trim(geometry_file),set_array=SNAP%set)     
-
         do i=1,SNAP%nconfig
          SNAP%set(i)%twojmax = twojmax_en
          SNAP%set(i)%cutoff  = cutoff_en
@@ -99,16 +98,10 @@
          call SNAP%set(i)%finalize()
 
         end do
+        
         !GENERATE FF POTENTIAL
         if (train_ff) then
          
-         if (VdW_flag) then
-          do i=1,SNAP%nconfig
-          allocate(SNAP%set(i)%grads_VdW(3,SNAP%set(i)%nats))
-                call grimme_d3(SNAP%set(i))
-          end do
-         end if       
-
          if (SNAP%flag_energy) then
 
           allocate(SNAP%energies(size(SNAP%set)))
@@ -119,7 +112,10 @@
            read(100,*) SNAP%energies(i)
            
            if (VdW_flag) then
-            SNAP%energies(i)=SNAP%energies(i)-SNAP%set(i)%en_VdW
+
+                   FF_VdW%frame=SNAP%set(i)
+                   call FF_VdW%get_fval(vec,FF_VdW%energy)
+                   SNAP%energies(i)=SNAP%energies(i)-FF_VdW%energy*Har_to_kc
            end if
           
           end do
@@ -143,16 +139,13 @@
           if (VdW_flag) then
 
             do i=1,SNAP%nconfig
+             
+             FF_VdW%frame=SNAP%set(i)
+             call FF_VdW%get_fgrad(vec,FF_VdW%energy,FF_VdW%grad)
 
 
-             do j=1,SNAP%set(i)%nats
-              do k=1,3
-               gradients(((i-1)*SNAP%set(i)%nats*3) +(j-1)*3+k)=&
-               gradients(((i-1)*SNAP%set(i)%nats*3) +(j-1)*3+k)-SNAP%set(i)%grads_VdW(k,j)
-              end do
-             end do
-
-             deallocate(SNAP%set(i)%grads_VdW)
+             gradients((i-1)*3*SNAP%set(i)%nats+1:i*3*SNAP%set(i)%nats)=&
+             gradients((i-1)*3*SNAP%set(i)%nats+1:i*3*SNAP%set(i)%nats)-FF_VdW%grad*F_conv
 
            end do
           end if
@@ -167,23 +160,20 @@
         
         !!!!!!!!!!!!!!!!!!!!!!!!!!!single evaluation block
         
-        call import_lammps_obj_list(nconfig=1,file_input=trim(frame_file),&
-                len_file_inp=len_trim(frame_file),set_scalar=FF_SNAP%frame)
-        
+         call import_lammps_obj_list(nconfig=1,file_input=trim(frame_file),len_file_inp=&
+                len_trim(frame_file),set_scalar=FF_SNAP%frame)
+
         FF_SNAP%frame%twojmax=twojmax_en
         FF_SNAP%frame%cutoff=cutoff_en
         FF_SNAP%num_bisp=SNAP%num_bisp
         FF_SNAP%tot_kinds=SNAP%tot_kinds
         
         if (single_eval) then
-        
        
-        call FF_SNAP%import      
+        call FF_SNAP%import_coeff      
         call FF_SNAP%get_fval(vec,FF_SNAP%energy)
         call FF_SNAP%get_fgrad(vec,FF_SNAP%energy,FF_SNAP%grad)
         
-        write(*,*) FF_SNAP%energy
-        write(*,*) FF_SNAP%grad
         end if
         
         !!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -1,17 +1,71 @@
         module VdW_class        
         use atoms_class
         use parameters_class
+        use potential_class
         implicit none
+        
+        type,extends(potential)                :: VdW_FF
         
         contains
 
-        subroutine grimme_d3(this)
+        procedure                              :: import_coeff => import_coeff_VdW
+        procedure                              :: import_geo => import_geo_VdW
+        procedure                              :: get_fgrad => get_VdW_force
+        procedure                              :: get_fval => get_VdW_en
+        procedure                              :: grimme_d3
+
+        end type VdW_FF
+
+        contains
+
+        subroutine get_VdW_en(this,vec,val)
         use dftd3_api
         implicit none
+        class(VdW_FF)                              :: this
+        real(kind=dbl),allocatable              :: vec(:)
+        real(kind=dbl)                          :: val       
+        
+        call this%grimme_d3(flag_force=.false.)
+        val=this%energy
 
-        class(atoms_group),intent(inout)       :: this
-        double precision, allocatable          :: coords(:,:)
-        double precision, allocatable          :: grads(:,:)
+        end subroutine get_VdW_en
+
+        subroutine get_VdW_force(this,vec,val,grad)
+        use dftd3_api
+        implicit none
+        class(VdW_FF)                :: this
+        real(kind=dbl),allocatable      :: vec(:)
+        real(kind=dbl)                  :: val
+        real(kind=dbl),allocatable      :: grad(:)
+        
+        
+        if (.not.allocated(this%grad)) allocate(this%grad(3*this%frame%nats))
+        call this%grimme_d3(flag_force=.true.)
+
+        end subroutine get_VdW_force
+
+        subroutine import_coeff_VdW(this)
+        implicit none
+        class(VdW_FF)               :: this
+
+        end subroutine import_coeff_VdW
+
+        subroutine import_geo_VdW(this,filename)
+        implicit none
+        class(VdW_FF)               :: this
+        character(len=50)         :: filename
+
+        call this%frame%read_extended_xyz(3,trim(filename))
+
+        end subroutine import_geo_VdW
+
+        subroutine grimme_d3(this,flag_force)
+        use dftd3_api
+        implicit none
+        
+        class(VdW_FF)                                     :: this
+        double precision, allocatable                  :: coords(:,:)
+        logical                                        :: flag_force
         ! integer, parameter :: species(nAtoms) = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, &
         !  & 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, &
         !  & 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
@@ -26,13 +80,14 @@
 
         !integer, parameter :: nSpecies = 4
         !character(2),  :: speciesNames(nSpecies) = [ 'N ', 'C ', 'O ', 'H ']
-
+        real(kind=dbl),allocatable    :: grads(:,:)
         integer,allocatable           :: atnum(:)
         type(dftd3_input)             :: input
         type(dftd3_calc)              :: dftd3
         double precision              :: edisp
         double precision              :: stress(3, 3)
-
+        integer                       :: i,j
+        
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! Initialize input
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -56,15 +111,30 @@
         ! by the dftd3_set_params() function.
         call dftd3_set_functional(dftd3, func='pbe', version=4, tz=.false.)
 
-        allocate(atnum(this%nats))
+        allocate(atnum(this%frame%nats))
         ! Convert species name to atomic number for each atom
-        atnum(:) = get_atomic_number(this%label(this%kind))
-
-        allocate(coords(3,this%nats))
-        coords=transpose(this%x)*A_to_B
-
+        atnum(:) = get_atomic_number(this%frame%label(this%frame%kind))
+        
+        if (flag_force) allocate(grads(3,this%frame%nats))
+        allocate(coords(3,this%frame%nats))
+        coords=transpose(this%frame%x)*A_to_B
+        
         !Calculate dispersion and gradients for non-periodic case
-        call dftd3_dispersion(dftd3, coords,atnum,this%en_VdW,this%grads_VdW)
+
+        call dftd3_dispersion(dftd3, coords,atnum,this%energy,grads)
+        
+        if (flag_force) then
+         
+         do i=1,this%frame%nats
+          do j=1,3
+           this%grad((i-1)*3+j)=grads(j,i)
+          end do
+         end do
+        
+         deallocate(grads)
+        
+        end if
+
         !this%en_VdW= edisp
         !this%grads_VdW=grads
         !write(*, "(A)") "*** Dispersion for non-periodic case"

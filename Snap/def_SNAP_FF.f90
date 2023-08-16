@@ -11,21 +11,20 @@
 
         type, extends(potential)                :: SNAP_FF
         real(kind=dbl), allocatable             :: beta(:)
-        type(lammps_obj)                        :: frame
         integer                                 :: tot_kinds
         integer                                 :: num_bisp
 
         contains
         
-        procedure                        :: import
+        procedure                        :: import_coeff => import_SNAP_coeff
         procedure                        :: get_fval  => get_SNAP_energy
         procedure                        :: get_fgrad => get_SNAP_force
-
+        
         end type SNAP_FF
         
         contains
 
-        subroutine import(this)
+        subroutine import_SNAP_coeff(this)
         implicit none
         class(SNAP_FF)                                :: this
         integer                                       :: i
@@ -38,7 +37,7 @@
          end do
         close(222)
 
-        end subroutine import
+        end subroutine import_SNAP_coeff
 
         subroutine get_SNAP_energy(this,vec,val)
         implicit none
