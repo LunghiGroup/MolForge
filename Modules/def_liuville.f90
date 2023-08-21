@@ -13,6 +13,10 @@
          type(dist_cmplx_mat)               :: H
          type(dist_cmplx_mat)               :: U
          type(dist_cmplx_mat)               :: R
+         type(dist_cmplx_mat)               :: R0
+         type(dist_cmplx_mat)               :: R21
+         type(dist_cmplx_mat)               :: R22
+         type(dist_cmplx_mat)               :: R41
          type(dist_cmplx_mat)               :: rho
          type(dist_cmplx_mat), allocatable  :: QMOP(:)
          contains
@@ -22,9 +26,12 @@
          procedure   ::  make_basis_L
          procedure   ::  make_rho
          procedure   ::  diag_lindbladian
+         procedure   ::  make_R00
          procedure   ::  make_R21
          procedure   ::  make_R22
          procedure   ::  make_R41
+         procedure   ::  get_K21
+         procedure   ::  get_dK21
          procedure   ::  propagate
          procedure   ::  make_expval
          procedure   ::  dump_expvals
@@ -113,7 +120,7 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
-!!!!!   BUILD THE PROPAGATOR
+!!!!!   build the propagator
 !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -129,22 +136,22 @@
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)        
-          write(*,*) '     Building unitary propagator operator'
+          write(*,*) '     building unitary propagator operator'
           flush(6)
          endif
  
-         if(allocated(this%U%mat)) call this%U%dealloc()
-         allocate(this%U%mat(1,this%Hdim))
-         this%U%mat=(0.0d0,0.0d0)
+         if(allocated(this%u%mat)) call this%u%dealloc()
+         allocate(this%u%mat(1,this%hdim))
+         this%u%mat=(0.0d0,0.0d0)
 
-         do v=1,this%Hdim
-          this%U%mat(1,v)=-step*cmplx(0.0d0,1.0d0,8)*this%Ener(v)*2*acos(-1.0d0)/hplank
-          this%U%mat(1,v)=exp(this%U%mat(1,v))
-         enddo
+         do v=1,this%hdim
+          this%u%mat(1,v)=-step*cmplx(0.0d0,1.0d0,8)*this%ener(v)*2*acos(-1.0d0)/hplank
+          this%u%mat(1,v)=exp(this%u%mat(1,v))
+         enddo         
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
-          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          write(*,*) '     task completed in ',real(t2-t1)/real(rate),'s'
           flush(6)
          endif
 
@@ -374,6 +381,63 @@
         return
         end subroutine diag_lindbladian
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   BUILD ZERO-ORDER LIMBLADIAN OPERATOR (UNITARY EVOLUTION)
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_R00(this)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        use units_parms
+        implicit none
+        class(liuville_space)    :: this
+        double precision         :: step,prefc
+        integer                  :: ii,jj,kk,l,l2,la,lb,lc,ld
+        integer                  :: t1,t2,rate,v,indxl2g
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)        
+          write(*,*) '     Building unitary propagator operator'
+          flush(6)
+         endif
+ 
+         if (.not.allocated(this%R%mat)) call this%R%set(this%Ldim,this%Ldim,NB,MB)
+         if (.not.allocated(this%R0%mat)) call this%R0%set(this%Ldim,this%Ldim,NB,MB)
+
+         prefc=2*pi/hplank
+
+         do ii=1,size(this%R%mat,1)
+          do jj=1,size(this%R%mat,2)
+
+           l=indxl2g(ii,NB,myrow,0,nprow)
+           l2=indxl2g(jj,MB,mycol,0,npcol)
+ 
+           la=this%Lbasis(l,1)
+           lb=this%Lbasis(l,2)
+
+           lc=this%Lbasis(l2,1) 
+           ld=this%Lbasis(l2,2) 
+
+           if(la.eq.lc .and. lb.eq.lc)then            
+            this%R0%mat(ii,jj)=this%R0%mat(ii,jj)-cmplx(0.0d0,1.0d0,8)*(this%ener(la)-this%ener(lb))*prefc
+           endif
+
+          enddo
+         enddo
+
+         this%R%mat=this%R%mat+this%R0%mat
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '     task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return
+        end subroutine make_R00
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
@@ -387,18 +451,20 @@
         use blacs_utils
         use units_parms 
         implicit none
-        class(liuville_space)         :: this
-        double precision             :: Gf,DEner,freq,lw,temp,prefc,secular
+        class(liuville_space)        :: this
+        double precision             :: DEner,freq,lw,temp,prefc,secular
         complex(8), allocatable      :: Vmat(:,:)       
         integer                      :: t1,t2,rate,indxl2g,type_smear
         integer                      :: ii,jj,kk,l,l2,la,lb,lc,ld
+        double complex               :: Gf
 
          if (.not.allocated(this%R%mat)) call this%R%set(this%Ldim,this%Ldim,NB,MB)
+         if (.not.allocated(this%R21%mat)) call this%R21%set(this%Ldim,this%Ldim,NB,MB)
 
-         prefc=pi*pi/hplank 
+         prefc=pi/hplank 
 
-         do ii=1,size(this%R%mat,1)
-          do jj=1,size(this%R%mat,2)
+         do ii=1,size(this%R21%mat,1)
+          do jj=1,size(this%R21%mat,2)
 
            l=indxl2g(ii,NB,myrow,0,nprow)
            l2=indxl2g(jj,MB,mycol,0,npcol)
@@ -413,51 +479,51 @@
      
            if( abs(Secular).lt.1.0d-6 )then              
 
-            Gf=0.0d0
+            Gf=(0.0d0,0.0d0)
             if( (this%Ener(lb)-this%Ener(ld)).gt.0.0d0 ) then
              DEner=this%Ener(lb)-this%Ener(ld)-freq
-             Gf=Gf+bose(temp,freq)*delta(type_smear,DEner,lw)
+             Gf=Gf+bose(temp,freq)*pi*delta(type_smear,DEner,lw)!+cmplx(0.0d0,pval(DEner,lw)))
             else
              DEner=this%Ener(lb)-this%Ener(ld)+freq
-             Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
+             Gf=Gf+(bose(temp,freq)+1.0d0)*pi*delta(type_smear,DEner,lw)!+cmplx(0.0d0,pval(DEner,lw)))
             endif
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+Vmat(la,lc)*conjg(Vmat(lb,ld))*Gf*prefc
+            this%R21%mat(ii,jj)=this%R21%mat(ii,jj)+Vmat(la,lc)*conjg(Vmat(lb,ld))*Gf*prefc
  
-            Gf=0.0d0
+            Gf=(0.0d0,0.0d0)
             if( (this%Ener(la)-this%Ener(lc)).gt.0.0d0) then
              DEner=this%Ener(la)-this%Ener(lc)-freq
-             Gf=Gf+bose(temp,freq)*delta(type_smear,DEner,lw)
+             Gf=Gf+bose(temp,freq)*pi*delta(type_smear,DEner,lw)!+cmplx(0.0d0,pval(DEner,lw)))
             else
              DEner=this%Ener(la)-this%Ener(lc)+freq
-             Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
+             Gf=Gf+(bose(temp,freq)+1.0d0)*pi*delta(type_smear,DEner,lw)!+cmplx(0.0d0,pval(DEner,lw)))
             endif
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+Vmat(la,lc)*conjg(Vmat(lb,ld))*Gf*prefc
+            this%R21%mat(ii,jj)=this%R21%mat(ii,jj)+Vmat(la,lc)*conjg(Vmat(lb,ld))*Gf*prefc
 
             if(ld.eq.lb)then
              do kk=1,this%Hdim
-              Gf=0.0d0
+              Gf=(0.0d0,0.0d0)
               if( (this%Ener(kk)-this%Ener(lc)).gt.0.0d0) then
                DEner=this%Ener(kk)-this%Ener(lc)-freq
-               Gf=Gf+bose(temp,freq)*delta(type_smear,DEner,lw)
+               Gf=Gf+bose(temp,freq)*pi*delta(type_smear,DEner,lw)!+cmplx(0.0d0,pval(DEner,lw)))
               else
                DEner=this%Ener(kk)-this%Ener(lc)+freq
-               Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
+               Gf=Gf+(bose(temp,freq)+1.0d0)*pi*delta(type_smear,DEner,lw)!+cmplx(0.0d0,pval(DEner,lw)))
               endif
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Vmat(kk,la))*Vmat(kk,lc)*Gf*prefc 
+              this%R21%mat(ii,jj)=this%R21%mat(ii,jj)-conjg(Vmat(kk,la))*Vmat(kk,lc)*Gf*prefc 
              enddo
             endif
 
             if(lc.eq.la)then
              do kk=1,this%Hdim
-              Gf=0.0d0
+              Gf=(0.0d0,0.0d0)
               if( (this%Ener(kk)-this%Ener(ld)).gt.0.0d0) then
                DEner=this%Ener(kk)-this%Ener(ld)-freq
-               Gf=Gf+bose(temp,freq)*delta(type_smear,DEner,lw)
+               Gf=Gf+bose(temp,freq)*pi*delta(type_smear,DEner,lw)!+cmplx(0.0d0,pval(DEner,lw)))
               else
                DEner=this%Ener(kk)-this%Ener(ld)+freq
-               Gf=Gf+(bose(temp,freq)+1.0d0)*delta(type_smear,DEner,lw)
+               Gf=Gf+(bose(temp,freq)+1.0d0)*pi*delta(type_smear,DEner,lw)!+cmplx(0.0d0,pval(DEner,lw)))
               endif
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-Vmat(kk,lb)*conjg(Vmat(kk,ld))*Gf*prefc
+              this%R21%mat(ii,jj)=this%R21%mat(ii,jj)-Vmat(kk,lb)*conjg(Vmat(kk,ld))*Gf*prefc
              enddo
             endif
 
@@ -609,7 +675,7 @@
 !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        subroutine make_R41(this,V1mat,V2mat,temp,freq1,freq2,lw1,lw2,type_smear)
+        subroutine make_R41(this,V1mat,V2mat,temp,freq1,freq2,lw1,lw2,type_smear,correction)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -617,13 +683,16 @@
         implicit none
         class(liuville_space)        :: this
         double precision             :: Gf,DEner,freq1,freq2,lw,lw1,lw2,temp,prefc,secular
+        double precision             :: secular2,secular3,Ediff
         double complex, allocatable  :: V1mat(:,:),V2mat(:,:)
         double complex, allocatable  :: Rabp(:,:),Rabm(:,:),Rbap(:,:),Rbam(:,:)
         integer                      :: t1,t2,rate,indxl2g,type_smear
-        integer                      :: ii,jj,kk,l1,l2,la,lb,lc,ld
-        double complex               :: val
+        integer                      :: ii,jj,kk,l1,l2,l3,la,lb,lc,ld,ll,lk
+        double complex               :: val,omega,G2,K2
+        logical                      :: correction
               
          if (.not.allocated(this%R%mat)) call this%R%set(this%Ldim,this%Ldim,NB,MB)
+         if (.not.allocated(this%R41%mat)) call this%R41%set(this%Ldim,this%Ldim,NB,MB)
          
          allocate(Rabp(this%Hdim,this%Hdim))
          allocate(Rabm(this%Hdim,this%Hdim))
@@ -673,7 +742,6 @@
 
            Secular=this%Ener(la)-this%Ener(lc)+this%Ener(ld)-this%Ener(lb)
 
-
            if( abs(Secular).lt.1.0e-6 )then              
 
             ! +- and -+ processes
@@ -681,50 +749,54 @@
             DEner=this%Ener(la)-this%Ener(lc)-freq1+freq2
             Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbam(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbam(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabp(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabp(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc
+
 
             DEner=this%Ener(la)-this%Ener(lc)+freq1-freq2
             Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbap(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbap(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabm(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabm(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc
+
 
             ! ++ processes
 
             DEner=this%Ener(la)-this%Ener(lc)-freq1-freq2
             Gf=bose(temp,freq1)*bose(temp,freq2)*delta(type_smear,DEner,lw1)
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rabm(lb,ld))*Rabm(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rbam(lb,ld))*Rbam(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabm(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rbam(lb,ld))*Rabm(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbam(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rabm(lb,ld))*Rbam(la,lc)*Gf*prefc
+
 
             ! -- processes
 
             DEner=this%Ener(la)-this%Ener(lc)+freq1+freq2
             Gf=(bose(temp,freq1)+1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rabp(lb,ld))*Rabp(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rbap(lb,ld))*Rbap(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabp(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rbap(lb,ld))*Rabp(la,lc)*Gf*prefc
 
-            this%R%mat(ii,jj)=this%R%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbap(la,lc)*Gf*prefc
+            this%R41%mat(ii,jj)=this%R41%mat(ii,jj)+conjg(Rabp(lb,ld))*Rbap(la,lc)*Gf*prefc
+
 
             if(la.eq.lc)then
 
@@ -733,46 +805,49 @@
               DEner=this%Ener(kk)-this%Ener(ld)-freq1+freq2
               Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
   
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabp(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabp(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbam(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbam(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+
 
               DEner=this%Ener(kk)-this%Ener(ld)+freq1-freq2
               Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabm(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabm(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
  
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbap(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbap(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
+
        
               DEner=this%Ener(kk)-this%Ener(ld)-freq1-freq2
               Gf=bose(temp,freq2)*bose(temp,freq1)*delta(type_smear,DEner,lw1)
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabm(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabm(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
  
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbam(kk,ld))*Rabm(kk,lb)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbam(kk,ld))*Rbam(kk,lb)*Gf*prefc*0.5d0
+
 
               DEner=this%Ener(kk)-this%Ener(ld)+freq1+freq2
               Gf=(bose(temp,freq2)+1)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabp(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabp(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
  
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbap(kk,ld))*Rabp(kk,lb)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbap(kk,ld))*Rbap(kk,lb)*Gf*prefc*0.5d0
 
              enddo
 
@@ -785,52 +860,116 @@
               DEner=this%Ener(kk)-this%Ener(lc)-freq1+freq2
               Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*delta(type_smear,DEner,lw1)
   
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabp(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabp(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbam(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbam(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
+
 
               DEner=this%Ener(kk)-this%Ener(lc)+freq1-freq2
               Gf=bose(temp,freq2)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabm(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabm(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
  
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbap(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbap(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
+
          
               DEner=this%Ener(kk)-this%Ener(lc)-freq1-freq2
               Gf=bose(temp,freq2)*bose(temp,freq1)*delta(type_smear,DEner,lw1)
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabm(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabm(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabm(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
  
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbam(kk,la))*Rabm(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbam(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbam(kk,la))*Rbam(kk,lc)*Gf*prefc*0.5d0
+
 
               DEner=this%Ener(kk)-this%Ener(lc)+freq1+freq2
               Gf=(bose(temp,freq2)+1)*(bose(temp,freq1)+1)*delta(type_smear,DEner,lw1)
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabp(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rabp(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rabp(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0
  
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbap(kk,la))*Rabp(kk,lc)*Gf*prefc*0.5d0
 
-              this%R%mat(ii,jj)=this%R%mat(ii,jj)-conjg(Rbap(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0            
+              this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-conjg(Rbap(kk,la))*Rbap(kk,lc)*Gf*prefc*0.5d0            
 
              enddo
 
             endif
 
-           endif
+            if(correction)then
+
+             do l3=1,this%Ldim
+
+              lk=this%Lbasis(l3,1)
+              ll=this%Lbasis(l3,2)
+
+              Secular2=this%Ener(la)-this%Ener(lk)+this%Ener(ll)-this%Ener(lb)
+              Secular3=this%Ener(lk)-this%Ener(lc)+this%Ener(ld)-this%Ener(ll)
+
+              if( abs(secular2).lt.1.0e-6 .and. abs(secular3).lt.1.0e-6 )then              
+
+               omega=cmplx(this%Ener(lc)-this%Ener(ld),lw)
+               G2=get_K21(this,V2mat,temp,freq2,omega,type_smear,lk,ll,lc,ld)
+
+               Ediff=this%Ener(lk)-this%Ener(ll)-this%Ener(lc)+this%Ener(ld)
+
+               if(abs(Ediff).ge.1e-6)then
+
+                omega=cmplx(this%Ener(lk)-this%Ener(ll),lw)
+                K2=get_K21(this,V1mat,temp,freq1,omega,type_smear,la,lb,lk,ll)
+                omega=cmplx(this%Ener(lc)-this%Ener(ld),lw)
+                K2=K2-get_K21(this,V1mat,temp,freq1,omega,type_smear,la,lb,lk,ll)
+                K2=K2/(Ediff)
+
+               else
+
+                omega=cmplx(this%Ener(lc)-this%Ener(ld),lw)
+                K2=get_dK21(this,V1mat,temp,freq1,omega,type_smear,la,lb,lk,ll)
+
+               endif              
+
+               this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-K2*G2
+
+               omega=cmplx(this%Ener(lc)-this%Ener(ld),lw)
+               G2=get_K21(this,V1mat,temp,freq1,omega,type_smear,lk,ll,lc,ld)
+
+               Ediff=this%Ener(lk)-this%Ener(ll)-this%Ener(lc)+this%Ener(ld)
+
+               if(abs(Ediff).ge.1e-6)then
+
+                omega=cmplx(this%Ener(lk)-this%Ener(ll),lw)
+                K2=get_K21(this,V2mat,temp,freq2,omega,type_smear,la,lb,lk,ll)
+                omega=cmplx(this%Ener(lc)-this%Ener(ld),lw)
+                K2=K2-get_K21(this,V2mat,temp,freq2,omega,type_smear,la,lb,lk,ll)
+                K2=K2/(Ediff)
+
+               else
+
+                omega=cmplx(this%Ener(lc)-this%Ener(ld),lw)
+                K2=get_dK21(this,V2mat,temp,freq2,omega,type_smear,la,lb,lk,ll)
+
+               endif              
+
+               this%R41%mat(ii,jj)=this%R41%mat(ii,jj)-K2*G2
+
+              endif
+             enddo
+
+            endif ! correction
+
+           endif ! secular
 
           enddo
          enddo
@@ -843,6 +982,161 @@
         return
         end subroutine make_R41
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   BUILD LT SECOND-ORDER NZ KERNEL WITH LINEAR SYSTEM-BATH COUPLING
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        function get_K21(this,Vmat,temp,freq,lw,type_smear,la,lb,lc,ld) result(K21)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        use units_parms 
+        implicit none
+        class(liuville_space)        :: this
+        double precision             :: freq,temp,prefc,DEner
+        complex(8), allocatable      :: Vmat(:,:)       
+        integer                      :: t1,t2,rate,indxl2g,type_smear
+        integer                      :: kk,la,lb,lc,ld
+        double complex               :: Gf,lw,K21
+
+         K21=(0.0d0,0.0d0)
+
+         prefc=pi/hplank 
+
+         Gf=(0.0d0,0.0d0)
+
+         DEner=this%Ener(ld)-this%Ener(la)+freq+dble(lw)
+         Gf=(pi*delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,pval(DEner,aimag(lw))))*bose(temp,freq)
+
+         DEner=this%Ener(ld)-this%Ener(la)-freq+dble(lw)
+         Gf=Gf+(pi*delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,pval(DEner,aimag(lw))))*(bose(temp,freq)+1)
+
+         K21=K21+Vmat(la,lc)*conjg(Vmat(lb,ld))*Gf*prefc
+
+         Gf=(0.0d0,0.0d0)
+
+         DEner=this%Ener(lb)-this%Ener(lc)-freq+dble(lw)
+         Gf=(pi*delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,pval(DEner,aimag(lw))))*bose(temp,freq)
+
+         DEner=this%Ener(lb)-this%Ener(lc)+freq+dble(lw)
+         Gf=Gf+(pi*delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,pval(DEner,aimag(lw))))*(bose(temp,freq)+1)
+
+         K21=K21+Vmat(la,lc)*conjg(Vmat(lb,ld))*Gf*prefc
+
+         if(ld.eq.lb)then
+          do kk=1,this%Hdim
+
+           Gf=(0.0d0,0.0d0)
+
+           DEner=this%Ener(lb)-this%Ener(kk)+freq+dble(lw)
+           Gf=(pi*delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,pval(DEner,aimag(lw))))*bose(temp,freq)
+
+           DEner=this%Ener(lb)-this%Ener(kk)-freq+dble(lw)
+           Gf=Gf+(pi*delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,pval(DEner,aimag(lw))))*(bose(temp,freq)+1)
+
+           K21=K21+Vmat(kk,lc)*conjg(Vmat(kk,la))*Gf*prefc
+
+          enddo
+         endif
+
+         if(lc.eq.la)then
+          do kk=1,this%Hdim
+
+           Gf=(0.0d0,0.0d0)
+
+           DEner=this%Ener(kk)-this%Ener(la)-freq+dble(lw)
+           Gf=(pi*delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,pval(DEner,aimag(lw))))*bose(temp,freq)
+
+           DEner=this%Ener(kk)-this%Ener(la)+freq+dble(lw)
+           Gf=Gf+(pi*delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,pval(DEner,aimag(lw))))*(bose(temp,freq)+1)
+
+           K21=K21+Vmat(kk,lb)*conjg(Vmat(kk,ld))*Gf*prefc
+
+          enddo
+         endif
+
+        return
+        end function get_K21
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   BUILD DERIVATIVE OF LT OF SECOND-ORDER NZ KERNEL WITH LINEAR SYSTEM-BATH COUPLING
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        function get_dK21(this,Vmat,temp,freq,lw,type_smear,la,lb,lc,ld) result(K21)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        use units_parms 
+        implicit none
+        class(liuville_space)        :: this
+        double precision             :: freq,temp,prefc,DEner
+        complex(8), allocatable      :: Vmat(:,:)       
+        integer                      :: t1,t2,rate,indxl2g,type_smear
+        integer                      :: kk,la,lb,lc,ld
+        double complex               :: Gf,lw,K21
+
+         K21=(0.0d0,0.0d0)
+
+         prefc=pi/hplank 
+
+         Gf=(0.0d0,0.0d0)
+
+         DEner=this%Ener(ld)-this%Ener(la)+freq+dble(lw)
+         Gf=(pi*d_delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,d_pval(DEner,aimag(lw))))*bose(temp,freq)
+
+         DEner=this%Ener(ld)-this%Ener(la)-freq+dble(lw)
+         Gf=Gf+(pi*d_delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,d_pval(DEner,aimag(lw))))*(bose(temp,freq)+1)
+
+         K21=K21+Vmat(la,lc)*conjg(Vmat(lb,ld))*Gf*prefc
+
+         Gf=(0.0d0,0.0d0)
+
+         DEner=this%Ener(lb)-this%Ener(lc)-freq+dble(lw)
+         Gf=(pi*d_delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,d_pval(DEner,aimag(lw))))*bose(temp,freq)
+
+         DEner=this%Ener(lb)-this%Ener(lc)+freq+dble(lw)
+         Gf=Gf+(pi*d_delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,d_pval(DEner,aimag(lw))))*(bose(temp,freq)+1)
+
+         K21=K21+Vmat(la,lc)*conjg(Vmat(lb,ld))*Gf*prefc
+
+         if(ld.eq.lb)then
+          do kk=1,this%Hdim
+
+           Gf=(0.0d0,0.0d0)
+
+           DEner=this%Ener(lb)-this%Ener(kk)+freq+dble(lw)
+           Gf=(pi*d_delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,d_pval(DEner,aimag(lw))))*bose(temp,freq)
+
+           DEner=this%Ener(lb)-this%Ener(kk)-freq+dble(lw)
+           Gf=Gf+(pi*d_delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,d_pval(DEner,aimag(lw))))*(bose(temp,freq)+1)
+
+           K21=K21+Vmat(kk,lc)*conjg(Vmat(kk,la))*Gf*prefc
+
+          enddo
+         endif
+
+         if(lc.eq.la)then
+          do kk=1,this%Hdim
+
+           Gf=(0.0d0,0.0d0)
+
+           DEner=this%Ener(kk)-this%Ener(la)-freq+dble(lw)
+           Gf=(pi*d_delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,d_pval(DEner,aimag(lw))))*bose(temp,freq)
+
+           DEner=this%Ener(kk)-this%Ener(la)+freq+dble(lw)
+           Gf=Gf+(pi*d_delta(type_smear,DEner,aimag(lw))+cmplx(0.0d0,d_pval(DEner,aimag(lw))))*(bose(temp,freq)+1)
+
+           K21=K21+Vmat(kk,lb)*conjg(Vmat(kk,ld))*Gf*prefc
+
+          enddo
+         endif
+
+        return
+        end function get_dK21
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
@@ -886,19 +1180,21 @@
 
           time=time+step
 
-          do ii=1,size(this%rho%mat,1)
-           do jj=1,size(this%rho%mat,2)
+          if( .not. allocated(this%R%mat) ) then
+                  
+           do ii=1,size(this%rho%mat,1)
+            do jj=1,size(this%rho%mat,2)
 
-            l=indxl2g(ii,NB,myrow,0,nprow)
-            v=indxl2g(jj,MB,mycol,0,npcol)
+             l=indxl2g(ii,NB,myrow,0,nprow)
+             v=indxl2g(jj,MB,mycol,0,npcol)
                     
-            this%rho%mat(ii,jj)=this%rho%mat(ii,jj) &
-                        *this%U%mat(1,l)*conjg(this%U%mat(1,v))
+             this%rho%mat(ii,jj)=this%rho%mat(ii,jj) &
+                         *this%U%mat(1,l)*conjg(this%U%mat(1,v))
                           
+            enddo
            enddo
-          enddo
 
-          if( allocated(this%R%mat) ) then
+          else
 
            do l=1,this%Ldim
             ii=this%Lbasis(l,1)

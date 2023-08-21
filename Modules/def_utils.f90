@@ -41,6 +41,24 @@
          return
          end function bose
 
+         function pval(ener,N) result(val)
+         implicit none
+         double precision :: ener,N,val
+          
+          val=ener/(ener**2+N**2)
+
+         return
+         end function pval
+
+         function d_pval(ener,N) result(val)
+         implicit none
+         double precision :: ener,N,val
+          
+          val=1/(ener**2+N**2)-2*ener**2/(ener**2+N**2)**2
+
+         return
+         end function d_pval
+
          function deltaL(ener,N) result(val)
          implicit none
          double precision :: ener,N,val
@@ -51,6 +69,17 @@
 
          return
          end function deltaL
+
+         function d_deltaL(ener,N) result(val)
+         implicit none
+         double precision :: ener,N,val
+
+!!!      LORENTZIAN LINEWIDTH
+          val=-2*N*ener/(ener**2+N**2)**2
+          val=val/dacos(-1.0d0)
+
+         return
+         end function d_deltaL
 
          function deltaG(ener,N) result(val)
          implicit none
@@ -64,6 +93,19 @@
          return
          end function deltaG
 
+         function d_deltaG(ener,N) result(val)
+         implicit none
+         double precision :: ener,N,val
+
+!!!      GAUSSIAN LINEWIDTH
+          val=N*sqrt(pi)
+          val=1.0d0/val
+          val=val*dexp(-(ener**2/N**2))
+          val=val*(-2/N**2)
+
+         return
+         end function d_deltaG
+
          function delta(Dtype,ener,N) result(val)
          implicit none
          double precision :: ener,N,val
@@ -74,6 +116,17 @@
 
          return
          end function delta
+
+         function d_delta(Dtype,ener,N) result(val)
+         implicit none
+         double precision :: ener,N,val
+         integer          :: Dtype
+          
+          if(Dtype.eq.1) val=d_deltaG(ener,N)
+          if(Dtype.eq.0) val=d_deltaL(ener,N) 
+
+         return
+         end function d_delta
 
          function deltaN(ener,N,NN) result(val)
          implicit none

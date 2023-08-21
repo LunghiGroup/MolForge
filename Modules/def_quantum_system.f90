@@ -215,14 +215,16 @@
           ph=ph+1
          enddo
 
-         do i=1,size(this%R%mat,1)
-          do j=1,size(this%R%mat,2)
+         do i=1,size(this%R21%mat,1)
+          do j=1,size(this%R21%mat,2)
            valc=(0.0d0,0.0d0)
-           call mpi_allreduce(this%R%mat(i,j),valc,1,&
+           call mpi_allreduce(this%R21%mat(i,j),valc,1,&
               mpi_double_complex,mpi_sum,mpi_phonons_world,err)
-           this%R%mat(i,j)=valc
+           this%R21%mat(i,j)=valc
           enddo
          enddo
+
+         this%R%mat=this%R%mat+this%R21%mat
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
@@ -307,14 +309,16 @@
           ph=ph+1
          enddo
 
-         do i=1,size(this%R%mat,1)
-          do j=1,size(this%R%mat,2)
+         do i=1,size(this%R22%mat,1)
+          do j=1,size(this%R22%mat,2)
            valc=(0.0d0,0.0d0)
-           call mpi_allreduce(this%R%mat(i,j),valc,1,&
+           call mpi_allreduce(this%R22%mat(i,j),valc,1,&
               mpi_double_complex,mpi_sum,mpi_phonons_world,err)
-           this%R%mat(i,j)=valc
+           this%R22%mat(i,j)=valc
           enddo
          enddo
+
+         this%R%mat=this%R%mat+this%R22%mat
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
@@ -331,7 +335,7 @@
 !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        subroutine make_R41_lindbladian(this,min_ener,max_ener)
+        subroutine make_R41_lindbladian(this,min_ener,max_ener,correction)
         use mpi
         use mpi_utils
         use blacs_utils
@@ -343,6 +347,7 @@
         double complex                    :: valc
         double complex, allocatable       :: Vmat(:,:),V2mat(:,:)
         integer, allocatable              :: proc_grid(:)
+        logical                           :: correction
 
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)       
@@ -406,7 +411,7 @@
               enddo
              enddo                   
 
-             call this%make_R41(Vmat,V2mat,this%temp,freq,freq2,this%smear,this%smear,this%type_smear)
+             call this%make_R41(Vmat,V2mat,this%temp,freq,freq2,this%smear,this%smear,this%type_smear,correction)
 
             enddo ! bn2
            enddo ! ph2
@@ -415,14 +420,16 @@
           ph=ph+1
          enddo
 
-         do i=1,size(this%R%mat,1)
-          do j=1,size(this%R%mat,2)
+         do i=1,size(this%R41%mat,1)
+          do j=1,size(this%R41%mat,2)
            valc=(0.0d0,0.0d0)
-           call mpi_allreduce(this%R%mat(i,j),valc,1,&
+           call mpi_allreduce(this%R41%mat(i,j),valc,1,&
               mpi_double_complex,mpi_sum,mpi_phonons_world,err)
-           this%R%mat(i,j)=valc
+           this%R41%mat(i,j)=valc
           enddo
          enddo
+
+         this%R%mat=this%R%mat+this%R41%mat
 
          if(mpi_id.eq.0)then
           call system_clock(t2)
