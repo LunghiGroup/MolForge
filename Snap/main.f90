@@ -50,16 +50,17 @@
         double precision, allocatable             :: X_M(:), Y(:),X(:),mean(:),sigma(:)
         double precision                          :: y_tmp,y_tmp_2
         real(kind=dbl)                            :: weight
+        real(kind=dbl)                            :: error
 
         train_ff=.true.
-        VdW_flag=.false.
+        VdW_flag=.true.
 
         SNAP%nconfig=19
-        cutoff_en=4.0d0
-        twojmax_en=8
+        cutoff_en=4.5d0
+        twojmax_en=12
         
-        SNAP%weight=4.0d0
-        SNAP%lambda=0.0d0
+        SNAP%weight=20.0d0
+        SNAP%lambda=12.0d0
         SNAP%set_type='TRAIN'
 
         geometry_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_tr_AL_++"
@@ -138,8 +139,10 @@
          end if
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!        
          call SNAP%build_matrix
+         call SNAP%build_target
          call SNAP%LLS_solve
-         
+         call SNAP%get_uncertainty(SNAP%set(9),.true.,error)
+         write(*,*)error
          
         end if
         !!!!!!!!!!!!!!!!!!!!!!!!!!MD block
