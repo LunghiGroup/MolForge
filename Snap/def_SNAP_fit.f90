@@ -8,6 +8,7 @@
         use lammps_class
         use parameters_class
         use lapack_inverse
+        use VdW_class
         implicit none
 
         type                                         :: SNAP_fit
@@ -20,17 +21,22 @@
         real(kind=dbl)                               :: lambda
         real(kind=dbl), allocatable                  :: beta(:)
         real(kind=dbl)                               :: s_z
+        real(kind=dbl)                               :: cutoff
         integer                                      :: twojmax
         integer                                      :: num_bisp
         integer                                      :: nconfig
         logical, allocatable                         :: coeff_mask(:)
         logical                                      :: flag_energy
         logical                                      :: flag_forces
+        character(len=120)                           :: energy_file,forces_file
         character(len=5)                             :: set_type
         
         contains
-
-        procedure                                    :: LLS_solve
+        
+        procedure                                    :: import_set
+        procedure                                    :: import_labels
+        procedure                                    :: add_sub_VdW
+        procedure                                    :: LLS
         procedure                                    :: build_matrix
         procedure                                    :: build_target
         procedure                                    :: get_uncertainty
@@ -38,6 +44,101 @@
         end type SNAP_fit
 
         contains
+        
+       subroutine import_set(this,file_input,len_file_inp)
+       implicit none
+       class(SNAP_fit)                           :: this
+       integer                                   :: nconfig, i,j,nats,ntypes
+       character(len=100),allocatable            :: tmp(:,:)
+       character(len=100),dimension(10)          :: tmp_cell_nkinds
+       character(len=100)                        :: filename
+       character(len=*)                          :: file_input
+       integer,intent(in)                        :: len_file_inp
+       character(len=150)                        :: file_inp
+        
+       call import_lammps_obj(nconfig=this%nconfig,file_input=file_input,len_file_inp=len_file_inp,set_array=this%set)
+
+       do i=1,this%nconfig  
+
+         this%set(i)%twojmax = this%twojmax
+         this%set(i)%cutoff  = this%cutoff
+
+        end do
+
+        end subroutine import_set
+
+        subroutine import_labels(this)
+        implicit none
+        
+        class(SNAP_fit)                      :: this                    
+        integer                              :: tot_atom
+        real(kind=dbl)                       :: ave_atom
+        real(kind=dbl),allocatable           :: gradients(:)
+        integer                              :: i,j
+
+        if (this%flag_energy) then
+
+        allocate(this%energies(this%nconfig))
+        open(1,file=trim(this%energy_file))
+
+         do i=1,this%nconfig
+           read(1,*) this%energies(i)
+         end do
+        
+        close(1)
+        end if
+
+        if (this%flag_forces) then
+        
+        call get_ave_atoms(this%set,ave_atom,tot_atom)
+        allocate(gradients(3*tot_atom))
+
+        open(1,file=trim(this%forces_file))
+
+        do j=1,3*tot_atom
+         read(1,*) gradients(j)
+        end do
+
+        close(1)
+
+        this%forces=-gradients
+        deallocate(gradients)
+
+        end if
+
+        end subroutine import_labels
+        
+        subroutine add_sub_VdW(this,addsub)
+        implicit none
+        
+        class(SNAP_fit)                                                       :: this
+        integer                                                               :: i              
+        character(len=3),intent(in)                                           :: addsub
+        type(VdW_FF)                                                          :: FF_VdW
+        real(kind=dbl),allocatable                                            :: vec(:)
+        
+        do i=1,this%nconfig         
+
+          FF_VdW%frame=this%set(i)
+          call FF_VdW%get_fgrad(vec,FF_VdW%energy,FF_VdW%grad)
+          
+          if ((this%flag_energy).and.(addsub=="sub")) then
+            this%energies(i)=this%energies(i)-FF_VdW%energy*Har_to_Kc
+           else if ((this%flag_energy).and.(addsub=="add")) then
+           this%energies(i)=this%energies(i)+FF_VdW%energy*Har_to_Kc
+          end if
+
+          if ((this%flag_forces).and.(addsub=="sub")) then
+             this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)=&
+             this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)+FF_VdW%grad*F_conv
+          else if ((this%flag_forces).and.(addsub=="add")) then
+             this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)=&
+             this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)-FF_VdW%grad*F_conv
+          end if 
+        
+        end do
+
+        end subroutine add_sub_VdW
         
         subroutine build_matrix(this)
         implicit none
@@ -53,7 +154,6 @@
         real(kind=dbl)                                                        :: ave_atom
         
         do i=1,this%nconfig
-
          call this%set(i)%initialize()
          call this%set(i)%setup(this%set(i)%nkinds)
          if (this%flag_energy) then
@@ -244,7 +344,7 @@
 
         end subroutine build_target
 
-        subroutine LLS_solve(this)
+        subroutine LLS(this)
         implicit none
         
         class(SNAP_fit)                                                       :: this
@@ -262,8 +362,7 @@
         integer                                                               :: start_snap_force
         real(kind=dbl),dimension(:),allocatable                               :: WORK
         
-        if (this%set_type == "TRAIN") then
-
+        if (this%set_type=="TRAIN") then
          TRANS='N'
          M=size(this%matrix,1)
          LDA=size(this%matrix,1)
@@ -297,10 +396,9 @@
 
          else
 
-         deallocate(temp_target)
-         allocate(this%beta(size(this%matrix,2)))
+          allocate(this%beta(size(this%matrix,2)))
 
-         open(11,file='snapcoeff_energy',action='read')
+          open(11,file='snapcoeff_energy',action='read')
           do i=1,size(this%matrix,2)
            read(11,*) this%beta(i)
           end do
@@ -372,7 +470,7 @@
 
         end if
 
-        end subroutine LLS_solve
+        end subroutine LLS
 
         subroutine get_uncertainty(this,frame,calc_sz_flag,error)
         implicit none
@@ -508,6 +606,14 @@
         deallocate(y_pred)
         deallocate(tmp)
         deallocate(error_array)
+        
+        do i=1,frame%nats
+         deallocate(frame%at_desc(i)%desc)
+         deallocate(frame%der_at_desc(i)%desc)
+        end do
+
+        deallocate(frame%at_desc)
+        deallocate(frame%der_at_desc)
 
         end subroutine get_uncertainty
 

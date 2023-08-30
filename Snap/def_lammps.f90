@@ -20,6 +20,71 @@
 
         contains
         
+       subroutine import_lammps_obj(nconfig,file_input,len_file_inp,set_array,set_scalar)
+       implicit none
+       type(lammps_obj), allocatable,optional    :: set_array(:)
+       type(lammps_obj),optional                 :: set_scalar
+       integer                                   :: nconfig, i,j,nats,ntypes
+       character(len=100),allocatable            :: tmp(:,:)
+       character(len=100),dimension(10)          :: tmp_cell_nkinds
+       character(len=100)                        :: filename
+       character(len=*)                          :: file_input
+       integer,intent(in)                        :: len_file_inp
+       character(len=150)                        :: file_inp
+
+       file_inp=file_input(1:len_file_inp)
+
+       if (present(set_array)) then
+        allocate(set_array(nconfig))
+       end if
+
+       open(1,file=trim(file_inp))
+
+       do i=1,nconfig
+
+        read(1,*)nats
+        read(1,*)tmp_cell_nkinds(:)
+
+        allocate(tmp(nats,6))
+
+        do j=1,nats
+
+         read(1,*) tmp(j,:)
+
+        end do
+
+        filename="file_temporaneo"
+
+        open(unit=2,status="replace",file=trim(filename))
+
+        write(2,*)nats
+        write(2,*)trim(tmp_cell_nkinds(1)),' ',trim(tmp_cell_nkinds(2)),' ',trim(tmp_cell_nkinds(3)),' '&
+           ,trim(tmp_cell_nkinds(4)),' ',trim(tmp_cell_nkinds(5)),' ',trim(tmp_cell_nkinds(6)),' ',trim(tmp_cell_nkinds(7))&
+           ,' ',trim(tmp_cell_nkinds(8)),' ',trim(tmp_cell_nkinds(9)),' ',trim(tmp_cell_nkinds(10))
+
+        do j=1,nats
+
+         write(2,*)trim(tmp(j,1)),' ',trim(tmp(j,2)),' ',trim(tmp(j,3)),' ',trim(tmp(j,4)),' ',trim(tmp(j,5)),&
+            ' ',trim(tmp(j,6))
+
+        end do
+
+        deallocate(tmp)
+
+        close(2)
+
+
+        if (present(set_array)) then
+         call set_array(i)%read_extended_xyz(3,filename)
+
+        else if (present(set_scalar)) then
+         call set_scalar%read_extended_xyz(3,filename)
+        end if
+
+        end do
+
+        end subroutine import_lammps_obj
+
         subroutine init_lammps_obj(this)
         implicit none
         class(lammps_obj),intent(in)         :: this
@@ -183,73 +248,6 @@
        call lammps_command(this%lmp,"uncompute der_bis")
 
        end subroutine get_der_bis
-        
-       subroutine import_lammps_obj_list(nconfig,file_input,len_file_inp,set_array,set_scalar)
-       implicit none
-       type(lammps_obj), allocatable,optional    :: set_array(:)
-       type(lammps_obj),optional                 :: set_scalar
-       integer                                   :: nconfig, i,j,nats,ntypes
-       character(len=100),allocatable            :: tmp(:,:)
-       character(len=100),dimension(10)          :: tmp_cell_nkinds
-       character(len=100)                         :: filename
-       character(len=*)                          :: file_input
-       integer,intent(in)                        :: len_file_inp
-       character(len=150)                        :: file_inp
-       !declare dimension allocatable above together with the fixed one, why everything should be allocatable?
-
-       file_inp=file_input(1:len_file_inp)
-
-       if (present(set_array)) then
-        allocate(set_array(nconfig))
-       end if
-
-       open(1,file=trim(file_inp))
-
-       do i=1,nconfig
-
-        read(1,*)nats
-        read(1,*)tmp_cell_nkinds(:)
-
-        allocate(tmp(nats,6))
-
-        do j=1,nats
-
-         read(1,*) tmp(j,:)
-
-        end do
-
-        filename="file_temporaneo"
-
-        open(unit=2,status="replace",file=trim(filename))
-
-        write(2,*)nats
-        write(2,*)trim(tmp_cell_nkinds(1)),' ',trim(tmp_cell_nkinds(2)),' ',trim(tmp_cell_nkinds(3)),' '&
-           ,trim(tmp_cell_nkinds(4)),' ',trim(tmp_cell_nkinds(5)),' ',trim(tmp_cell_nkinds(6)),' ',trim(tmp_cell_nkinds(7))&
-           ,' ',trim(tmp_cell_nkinds(8)),' ',trim(tmp_cell_nkinds(9)),' ',trim(tmp_cell_nkinds(10))
-
-        do j=1,nats
-
-         write(2,*)trim(tmp(j,1)),' ',trim(tmp(j,2)),' ',trim(tmp(j,3)),' ',trim(tmp(j,4)),' ',trim(tmp(j,5)),&
-            ' ',trim(tmp(j,6))
-
-        end do
-
-        deallocate(tmp)
-        !deallocate(tmp_cell_nkinds)
-
-        close(2)
-
-
-        if (present(set_array)) then
-         call set_array(i)%read_extended_xyz(3,filename)
-
-        else if (present(set_scalar)) then
-         call set_scalar%read_extended_xyz(3,filename)
-        end if
-
-       end do
-
-       end subroutine import_lammps_obj_list
         
 
         subroutine number_bispec(twojmax,components)
