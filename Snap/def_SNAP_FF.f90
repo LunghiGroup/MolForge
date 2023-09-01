@@ -30,7 +30,6 @@
         integer                                       :: i
 
         allocate(this%beta(this%num_bisp*this%tot_kinds))
-
         open(222,file='snapcoeff_energy',action='read')
          do i=1,this%num_bisp*this%tot_kinds
           read(222,*) this%beta(i)

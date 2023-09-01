@@ -1,19 +1,24 @@
         module md_class
         use SNAP_FF_class
         use lammps_class
+        use potential_class
+        use SNAP_FF_class
+        use VdW_class
         !use rescale
         use target_functions_class
         implicit none
 
-        type                    :: MD
+        type                                    :: MD
          
-        integer                 :: max_steps
-        integer                 :: step_size
-        integer                 :: num_pot
-        character(len=3)        :: ensemble
-        type(potential)         :: pot
+        type(potential_list),allocatable        :: pot(:)
+        integer                                 :: max_steps
+        integer                                 :: step_size
+        integer                                 :: num_pot
+        integer                                 :: iter
+        character(len=3)                        :: ensemble
         contains
-        procedure :: initialize_vel        
+        procedure                               :: initialize_vel        
+        procedure                               :: link_potentials
         !procedure :: propagate
         !procedure :: velocity_verlet
         !procedure :: bussi
@@ -63,47 +68,60 @@
 
         end subroutine initialize_vel
 
+        subroutine link_potentials(this,keyword,SNAP,VdW)
+        implicit none
+        class(md)                       :: this
+        character(len=*)                :: keyword
+        type(SNAP_FF),target            :: SNAP
+        type(VdW_FF),optional,target    :: VdW
+        integer                         :: i
+
+        allocate(this%pot(this%num_pot))
+        
+        if (keyword=="SNAP") then
+         this%pot(1)%item=>SNAP
+         do i=2,this%num_pot
+          this%pot(i)%item=>NULL()
+         end do      
+        else if ((keyword=="SNAP_VdW").and.(present(VdW))) then 
+         this%pot(1)%item=>SNAP
+         this%pot(2)%item=>VdW
+         do i=3,this%num_pot
+          this%pot(i)%item=>NULL()
+         end do
+        
+        end if
+        end subroutine link_potentials
+
         !subroutine propagate(this,frame)
         !implicit none
         !class(md), intent(inout) :: this
         !type(lammps_obj)         :: frame
-        !integer                  :: iter
          
-        !allocate(vec(frame%nats*3))
-       
         !do while (this%iter < this%max_steps)
-        ! call this%velocity_verlet
-        ! if ((this%ensemble)=='nvt') call this%bussi
+        ! call this%velocity_verlet(frame)
+         !if ((this%ensemble)=='nvt') call this%bussi
         !end do
 
         !end subroutine propagate
 
-        !subroutine velocity_verlet
+        !subroutine velocity_verlet(this,frame)
         !implicit none
         !class(md), intent(inout) :: this
         !integer                  :: i,j
         
-
-        !do i=1,this%potential%frame%nats
-        ! do j=1,3
-
-         ! vec((i-1)*3+j)=this%potential%frame%x(i,j)
-
-         !end do
-        !end do
- 
-        
         !if (this%iter==1) then 
-          
-        ! call this%potential%get_fgrad(vec,this%potential%energy,this%potential%grad)
-         
+         ! do j=1,this%num_pot
+         !call this%potential(i)%get_fgrad(vec,this%potential%energy,this%potential%grad)
+          !end do
+
          ! do i=1,this%potential%frame%nats
          !  do j=1,3
 
-          !  acc(i,j)=-this%potential%grad((i-1)*3+j)/this%mass(this%kind(i))
+         !   acc(i,j)=-this%potential%grad((i-1)*3+j)/this%mass(this%kind(i))
 
-          ! end do
-          !end do
+         !  end do
+         ! end do
 
         ! end if
 

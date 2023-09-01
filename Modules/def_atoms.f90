@@ -245,7 +245,7 @@
         class(atoms_group)            :: this
         integer                       :: i,j,IOid
         double precision, allocatable :: mass(:)
-        character(len=100), optional  :: filename
+        character(len=*), optional  :: filename
         character(len=5), allocatable :: label(:)
 
          if(present(filename)) open(IOid,file=trim(filename))

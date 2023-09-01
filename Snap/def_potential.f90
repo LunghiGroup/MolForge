@@ -16,7 +16,12 @@
           procedure                              :: get_fgrad => get_forces
           procedure                              :: get_fval => get_energy
          end type potential
-            
+         
+         type, extends(potential)       :: potential_list
+          class(potential),pointer      :: item
+         end type potential_list
+   
+
         contains
 
         subroutine get_energy(this,vec,val)
@@ -41,6 +46,5 @@
         class(potential)               :: this
         
         end subroutine import_generic
-
          
         end module potential_class

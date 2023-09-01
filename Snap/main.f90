@@ -40,11 +40,12 @@
         double precision                          :: temperature,timestep
         real(kind=dbl)                            :: T_in
         integer                                   :: tot_steps_md
-        double precision,allocatable              :: vec(:),grad(:)
+        double precision,allocatable              :: vec(:),grad_SNAP(:),grad_VdW(:)
         integer                                   :: idist
         integer,dimension(4)                      :: iseed
         real(kind=dbl)                            :: weight
         real(kind=dbl)                            :: error
+        real(kind=dbl)                            :: val
 
         train=.true.
         VdW_flag=.true.
@@ -56,7 +57,10 @@
         SNAP%weight=10.0d0
         SNAP%lambda=0.0d0
         SNAP%set_type='TRAIN'
-
+        
+        frame%cutoff=4.5d0
+        frame%twojmax=11
+        
         geometry_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_tr_AL_++"
         SNAP%energy_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/ener_tr_AL_++"
         SNAP%forces_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/grad_tr_AL_++"
@@ -78,19 +82,35 @@
         end if
         !!!!!!!!!!!!!!!!!!!!!!!!!!MD block
         
+        Dinamica%num_pot=2
         iseed=[1469,2425,1202,693]
         T_in=50.0d0
-        
+
         if (md_flag) then
         
-        call import_lammps_obj(nconfig=1,file_input=trim(frame_file),len_file_inp=len_trim(frame_file),set_scalar=frame)
-        
+        call import_lammps_obj(nconfig=1,file_input=trim(frame_file),len_file_inp=len_trim(frame_file),set_scalar=frame)       
         !transformazione unita' da kcal related to atomic units
         frame%mass=amu_to_emass*frame%mass
         !!!!!!!!!!!!!!!!!!!!!!
         
-        call Dinamica%initialize_vel(frame,iseed,T_in)
+        call number_bispec(frame%twojmax,FF_SNAP%num_bisp)
+        FF_SNAP%tot_kinds=frame%nkinds
 
+        call FF_SNAP%import_coeff
+        FF_SNAP%frame=frame
+        
+        if (VdW_flag) then
+         call FF_VdW%import_coeff
+         call FF_VdW%import_geo(frame_file)
+        end if
+        
+        call Dinamica%link_potentials("SNAP_VdW",FF_SNAP,FF_VdW)
+        
+        call Dinamica%pot(1)%item%get_fgrad(vec,val,grad_SNAP)
+        if (VdW_flag) then
+         call Dinamica%pot(2)%item%get_fgrad(vec,val,grad_VdW)
+         call Dinamica%initialize_vel(frame,iseed,T_in)
+        end if
         
         end if
 

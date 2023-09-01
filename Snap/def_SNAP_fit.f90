@@ -116,24 +116,26 @@
         character(len=3),intent(in)                                           :: addsub
         type(VdW_FF)                                                          :: FF_VdW
         real(kind=dbl),allocatable                                            :: vec(:)
-        
+        real(kind=dbl)                                                        :: val
+        real(kind=dbl),allocatable                                            :: grad(:)
+
         do i=1,this%nconfig         
 
           FF_VdW%frame=this%set(i)
-          call FF_VdW%get_fgrad(vec,FF_VdW%energy,FF_VdW%grad)
+          call FF_VdW%get_fgrad(vec,val,grad)
           
           if ((this%flag_energy).and.(addsub=="sub")) then
-            this%energies(i)=this%energies(i)-FF_VdW%energy*Har_to_Kc
+            this%energies(i)=this%energies(i)-val
            else if ((this%flag_energy).and.(addsub=="add")) then
-           this%energies(i)=this%energies(i)+FF_VdW%energy*Har_to_Kc
+           this%energies(i)=this%energies(i)+val
           end if
 
           if ((this%flag_forces).and.(addsub=="sub")) then
              this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)=&
-             this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)+FF_VdW%grad*F_conv
+             this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)+grad
           else if ((this%flag_forces).and.(addsub=="add")) then
              this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)=&
-             this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)-FF_VdW%grad*F_conv
+             this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)-grad
           end if 
         
         end do

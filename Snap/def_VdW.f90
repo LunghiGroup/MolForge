@@ -22,11 +22,13 @@
         use dftd3_api
         implicit none
         class(VdW_FF)                              :: this
-        real(kind=dbl),allocatable              :: vec(:)
-        real(kind=dbl)                          :: val       
+        real(kind=dbl),allocatable                 :: vec(:)
+        real(kind=dbl)                             :: val       
         
+        this%energy=0.0d0
         call this%grimme_d3(flag_force=.false.)
-        val=this%energy
+        val=this%energy*Har_to_Kc
+
 
         end subroutine get_VdW_en
 
@@ -39,8 +41,9 @@
         real(kind=dbl),allocatable      :: grad(:)
         
         
-        if (.not.allocated(this%grad)) allocate(this%grad(3*this%frame%nats))
-        call this%grimme_d3(flag_force=.true.)
+        if (.not.allocated(grad)) allocate(grad(3*this%frame%nats))
+        call this%grimme_d3(flag_force=.true.,grad=grad)
+        val=this%energy*Har_to_Kc
 
         end subroutine get_VdW_force
 
@@ -53,17 +56,17 @@
         subroutine import_geo_VdW(this,filename)
         implicit none
         class(VdW_FF)               :: this
-        character(len=50)         :: filename
+        character(len=*)         :: filename
 
         call this%frame%read_extended_xyz(3,trim(filename))
 
         end subroutine import_geo_VdW
 
-        subroutine grimme_d3(this,flag_force)
+        subroutine grimme_d3(this,flag_force,grad)
         use dftd3_api
         implicit none
         
-        class(VdW_FF)                                     :: this
+        class(VdW_FF)                                  :: this
         double precision, allocatable                  :: coords(:,:)
         logical                                        :: flag_force
         ! integer, parameter :: species(nAtoms) = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, &
@@ -80,13 +83,14 @@
 
         !integer, parameter :: nSpecies = 4
         !character(2),  :: speciesNames(nSpecies) = [ 'N ', 'C ', 'O ', 'H ']
-        real(kind=dbl),allocatable    :: grads(:,:)
-        integer,allocatable           :: atnum(:)
-        type(dftd3_input)             :: input
-        type(dftd3_calc)              :: dftd3
-        double precision              :: edisp
-        double precision              :: stress(3, 3)
-        integer                       :: i,j
+        real(kind=dbl),allocatable              :: grads(:,:)
+        real(kind=dbl),optional,allocatable     :: grad(:)
+        integer,allocatable                     :: atnum(:)
+        type(dftd3_input)                       :: input
+        type(dftd3_calc)                        :: dftd3
+        double precision                        :: edisp
+        double precision                        :: stress(3, 3)
+        integer                                 :: i,j
         
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! Initialize input
@@ -123,14 +127,15 @@
 
         call dftd3_dispersion(dftd3, coords,atnum,this%energy,grads)
         
-        if (flag_force) then
+        if ((flag_force).and.(present(grad))) then
          
          do i=1,this%frame%nats
           do j=1,3
-           this%grad((i-1)*3+j)=grads(j,i)
+           grad((i-1)*3+j)=grads(j,i)
           end do
          end do
-        
+         
+         grad=grad*F_conv
          deallocate(grads)
         
         end if
