@@ -25,9 +25,8 @@
         real(kind=dbl),allocatable                 :: vec(:)
         real(kind=dbl)                             :: val       
         
-        this%energy=0.0d0
-        call this%grimme_d3(flag_force=.false.)
-        val=this%energy*Har_to_Kc
+        call this%grimme_d3(flag_force=.false.,val=val)
+        val=val*Har_to_Kc
 
 
         end subroutine get_VdW_en
@@ -42,8 +41,9 @@
         
         
         if (.not.allocated(grad)) allocate(grad(3*this%frame%nats))
-        call this%grimme_d3(flag_force=.true.,grad=grad)
-        val=this%energy*Har_to_Kc
+        call this%grimme_d3(flag_force=.true.,grad=grad,val=val)
+        val=val*Har_to_Kc
+        grad=grad*F_conv
 
         end subroutine get_VdW_force
 
@@ -62,7 +62,7 @@
 
         end subroutine import_geo_VdW
 
-        subroutine grimme_d3(this,flag_force,grad)
+        subroutine grimme_d3(this,flag_force,grad,val)
         use dftd3_api
         implicit none
         
@@ -88,8 +88,9 @@
         integer,allocatable                     :: atnum(:)
         type(dftd3_input)                       :: input
         type(dftd3_calc)                        :: dftd3
-        double precision                        :: edisp
-        double precision                        :: stress(3, 3)
+        real(kind=dbl)                          :: edisp
+        real(kind=dbl)                          :: stress(3, 3)
+        real(kind=dbl)                          :: val
         integer                                 :: i,j
         
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -124,8 +125,8 @@
         coords=transpose(this%frame%x)*A_to_B
         
         !Calculate dispersion and gradients for non-periodic case
-
-        call dftd3_dispersion(dftd3, coords,atnum,this%energy,grads)
+         
+        call dftd3_dispersion(dftd3, coords,atnum,val,grads)
         
         if ((flag_force).and.(present(grad))) then
          
@@ -135,7 +136,6 @@
           end do
          end do
          
-         grad=grad*F_conv
          deallocate(grads)
         
         end if

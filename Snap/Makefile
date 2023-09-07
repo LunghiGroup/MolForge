@@ -38,6 +38,8 @@ def_molecular_dynamics.o: def_molecular_dynamics.f90
 main.o : main.f90
 	$(FC) $(FFLAGS) -c $(SNAP_DIR)/$(subst .o,.f90,$@) $(MOLFORGE_INC_FLAG) $(SNAP_INC_FLAG)
 
+def_rescale.f90:
+
 def_kind.f90:
 
 def_lammps.f90:

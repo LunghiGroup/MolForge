@@ -70,13 +70,13 @@
         class(SNAP_FF)                  :: this
         real(kind=dbl)                  :: val
         integer                         :: i,j,k,m
+        integer                         :: shift
         real(kind=dbl), allocatable     :: vec(:),grad(:)
 
         call this%frame%initialize()
         call this%frame%setup(this%frame%nkinds)
         call this%frame%get_der_desc()
         call this%frame%finalize()
-
         allocate(grad(this%frame%nats*3))
         grad=0.0
 
@@ -84,16 +84,15 @@
          do j=1,this%frame%nkinds
           do m=1,3
            do k=1,this%num_bisp-1
-
             grad((i-1)*3+m)=grad((i-1)*3+m)+this%frame%der_at_desc(i)%desc((j-1)*3*(this%num_bisp-1)&
-            +(m-1)*(this%num_bisp-1)+k)*this%beta((this%frame%kind(j)-1)*this%num_bisp+k+1)
+            +(m-1)*(this%num_bisp-1)+k)*this%beta((j-1)*this%num_bisp+k+1)
 
            end do
           end do
          end do
          deallocate(this%frame%der_at_desc(i)%desc)
         end do       
-         
+        grad=-grad
         deallocate(this%frame%der_at_desc)
         end subroutine get_SNAP_force
 

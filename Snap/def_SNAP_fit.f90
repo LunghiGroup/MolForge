@@ -308,10 +308,17 @@
 
         end if
         
+       if (this%flag_energy) then
         do i=1,this%nconfig
          deallocate(this%set(i)%at_desc)
+        end do
+       end if
+
+       if (this%flag_forces) then
+        do i=1,this%nconfig       
          deallocate(this%set(i)%der_at_desc)
         end do
+       end if
         
         end subroutine build_matrix
         

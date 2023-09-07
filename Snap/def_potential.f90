@@ -7,9 +7,7 @@
          
          type,extends(target_function)           :: potential
           type(lammps_obj)                       :: frame
-          real(kind=dbl),allocatable             :: grad(:)
-          real(kind=dbl)                         :: energy
-
+          
           contains
           
           procedure                              :: import_coeff => import_generic
