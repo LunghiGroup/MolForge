@@ -17,6 +17,7 @@
         type(VdW_FF)                              :: FF_VdW
         type(MD)                                  :: Dinamica
         type(lammps_obj)                          :: frame
+        
         integer                                   :: nconfig,tot_kinds,num_bisp_en,num_bisp_dip,twojmax_dip,twojmax_en
         integer                                   :: i,j
         character(len=120)                        :: geometry_file,energy_file,dipoles_file,shift_file,atom_string, &
@@ -39,6 +40,8 @@
         double precision,dimension(:),allocatable :: coul_energy_plus,coul_energy_minus
         double precision                          :: temperature,timestep
         real(kind=dbl)                            :: T_in
+        real(kind=dbl)                            :: delta
+        logical                                   :: active_learning
         integer                                   :: tot_steps_md
         double precision,allocatable              :: vec(:),grad(:),grad_SNAP(:),grad_VdW(:)
         integer                                   :: idist
@@ -47,9 +50,10 @@
         real(kind=dbl)                            :: error
         real(kind=dbl)                            :: val
 
-        train=.true.
+        train=.false.
         VdW_flag=.true.
         md_flag=.true.
+        active_learning=.true.
 
         SNAP%nconfig=19
         SNAP%cutoff=4.0d0
@@ -69,7 +73,7 @@
         SNAP%flag_energy=.true.
         SNAP%flag_forces=.true.
 
-        if (train) then
+        if ((train).or.(active_learning)) then
          call SNAP%import_set(file_input=trim(geometry_file),len_file_inp=len_trim(geometry_file))
          call SNAP%import_labels
         if (VdW_flag) then 
@@ -77,8 +81,13 @@
         end if  
          call SNAP%build_matrix
          call SNAP%build_target
+        
+        if (train) then
          call SNAP%LLS
-         !call SNAP%get_uncertainty(SNAP%set(9),.true.,error)
+        else if (active_learning) then
+         call SNAP%import_coeff
+        end if
+
         end if
         !!!!!!!!!!!!!!!!!!!!!!!!!!MD block
         
@@ -89,6 +98,7 @@
         Dinamica%step_size=1.0d0*41.49d0
         Dinamica%max_steps=4000
         Dinamica%ensemble='nvt'
+        delta=1.5
         
         if (md_flag) then
         
@@ -103,18 +113,21 @@
         call FF_SNAP%import_coeff
         FF_SNAP%frame=frame
         call FF_SNAP%get_fgrad(vec,val,grad)
-        write(*,*) grad
+       
         if (VdW_flag) then
          call FF_VdW%import_coeff
          call FF_VdW%import_geo(frame_file)
         end if
         
-        call Dinamica%link_potentials("SNAP_VdW",FF_SNAP,FF_VdW)
-        call Dinamica%initialize_vel(frame,iseed,T_in)
-        call Dinamica%propagate(frame)
+        if (active_learning) then
+         Dinamica%linear_fit=SNAP
         end if
 
-
-
+         call Dinamica%link_potentials("SNAP_VdW",FF_SNAP,FF_VdW)
+         call Dinamica%initialize_vel(frame,iseed,T_in)
+         call Dinamica%propagate(frame,active_learning,delta)
+        
+        end if
         !!!!!!!!!!!!!!!!!!!!!!!!!!
+        
         end program

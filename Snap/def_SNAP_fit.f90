@@ -35,6 +35,7 @@
         
         procedure                                    :: import_set
         procedure                                    :: import_labels
+        procedure                                    :: import_coeff
         procedure                                    :: add_sub_VdW
         procedure                                    :: LLS
         procedure                                    :: build_matrix
@@ -405,13 +406,7 @@
 
          else
 
-          allocate(this%beta(size(this%matrix,2)))
-
-          open(11,file='snapcoeff_energy',action='read')
-          do i=1,size(this%matrix,2)
-           read(11,*) this%beta(i)
-          end do
-         close(11)
+         call this%import_coeff
 
         end if
 
@@ -481,6 +476,21 @@
 
         end subroutine LLS
 
+        subroutine import_coeff(this)
+        implicit none
+        class(SNAP_fit)                                         :: this
+        integer                                                 :: i
+
+        allocate(this%beta(size(this%matrix,2)))
+
+        open(11,file='snapcoeff_energy',action='read')
+        do i=1,size(this%matrix,2)
+         read(11,*) this%beta(i)
+        end do
+        close(11)
+
+        end subroutine
+
         subroutine get_uncertainty(this,frame,calc_sz_flag,error)
         implicit none
         class(SNAP_fit)                                         :: this
@@ -529,7 +539,7 @@
         K_mat=0.0d0
         tmp=0.0d0
         NUMERATOR=0.0d0
-
+        
         X=this%matrix
         X_t=transpose(X)
         U_matrix=matmul(X_t,X)

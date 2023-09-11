@@ -2,7 +2,7 @@
         use SNAP_FF_class
         use lammps_class
         use potential_class
-        use SNAP_FF_class
+        use SNAP_fit_class
         use VdW_class
         use target_functions_class
         implicit none
@@ -10,6 +10,7 @@
         type                                    :: MD
          
         type(potential_list),allocatable        :: pot(:)
+        type(SNAP_fit)                          :: linear_fit
         integer                                 :: max_steps
         integer                                 :: step_size
         integer                                 :: num_pot
@@ -95,20 +96,41 @@
         end if
         end subroutine link_potentials
 
-        subroutine propagate(this,frame)
+        subroutine propagate(this,frame,active_learning,delta)
         implicit none
         class(md), intent(inout) :: this
         type(lammps_obj)         :: frame
         integer                  :: i 
-        
+        logical,optional         :: active_learning
+        real(kind=dbl)           :: error
+        real(kind=dbl),optional  :: delta
+        logical                  :: calc_sz_flag
+
         this%iter=0
         call this%print_info(frame)
         do while (this%iter < this%max_steps)
          this%iter=this%iter+1
          call this%velocity_verlet(frame)
+         
+         if (active_learning) then
+          if (this%iter==1) then
+           calc_sz_flag=.true.
+          else
+           calc_sz_flag=.false.
+          end if
+          call this%linear_fit%get_uncertainty(frame,calc_sz_flag,error)
+          write(*,*) error
+          if (error > delta*this%linear_fit%s_z) then
+           write(*,*)error,delta*this%linear_fit%s_z, "Error above the threshold"
+           call this%print_info(frame)
+           stop
+          end if
+         end if
+
          if ((this%ensemble)=='nvt') then
          call this%bussi(frame)
          end if
+         
          call this%print_info(frame)        
         end do
 
@@ -171,6 +193,7 @@
 
         frame%v=frame%v+0.5d0*frame%acc*this%step_size
         deallocate(sum_grad)
+        
         end subroutine velocity_verlet
 
         subroutine bussi(this,frame)
