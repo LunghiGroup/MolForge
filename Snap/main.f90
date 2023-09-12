@@ -8,16 +8,19 @@
         use SNAP_fit_class
         use VdW_class
         use SNAP_FF_class
+        use minimizer_class
         use md_class
         implicit none
 
         type(lammps_obj),allocatable              :: set(:)
         type(SNAP_fit)                            :: SNAP
-        type(SNAP_FF)                             :: FF_SNAP
-        type(VdW_FF)                              :: FF_VdW
+        type(SNAP_FF),target                             :: FF_SNAP
+        type(VdW_FF),target                              :: FF_VdW
         type(MD)                                  :: Dinamica
+        type(minimizer)                           :: Minimizzatore
         type(lammps_obj)                          :: frame
         
+
         integer                                   :: nconfig,tot_kinds,num_bisp_en,num_bisp_dip,twojmax_dip,twojmax_en
         integer                                   :: i,j
         character(len=120)                        :: geometry_file,energy_file,dipoles_file,shift_file,atom_string, &
@@ -51,9 +54,10 @@
         real(kind=dbl)                            :: val
 
         train=.false.
-        VdW_flag=.true.
+        VdW_flag=.false.
         md_flag=.true.
-        active_learning=.true.
+        minim_flag=.false.
+        active_learning=.false.
 
         SNAP%nconfig=19
         SNAP%cutoff=4.0d0
@@ -91,7 +95,7 @@
         end if
         !!!!!!!!!!!!!!!!!!!!!!!!!!MD block
         
-        Dinamica%num_pot=2
+        Dinamica%num_pot=1
         iseed=[1469,2425,122,693]
         T_in=5.0d0
         Dinamica%T_bath=5.0d0
@@ -112,7 +116,6 @@
 
         call FF_SNAP%import_coeff
         FF_SNAP%frame=frame
-        call FF_SNAP%get_fgrad(vec,val,grad)
        
         if (VdW_flag) then
          call FF_VdW%import_coeff
@@ -123,11 +126,36 @@
          Dinamica%linear_fit=SNAP
         end if
 
-         call Dinamica%link_potentials("SNAP_VdW",FF_SNAP,FF_VdW)
+         call Dinamica%link_potentials("SNAP",FF_SNAP,FF_VdW)
          call Dinamica%initialize_vel(frame,iseed,T_in)
          call Dinamica%propagate(frame,active_learning,delta)
         
         end if
         !!!!!!!!!!!!!!!!!!!!!!!!!!
+        if (minim_flag) then
+        ! in the minimization block we don't go to atomic units for the mass
         
+        Minimizzatore%num_pot=2
+
+        call import_lammps_obj(nconfig=1,file_input=trim(frame_file),len_file_inp=len_trim(frame_file),set_scalar=frame)
+
+        call number_bispec(frame%twojmax,FF_SNAP%num_bisp)
+        FF_SNAP%tot_kinds=frame%nkinds
+
+        call FF_SNAP%import_coeff
+        FF_SNAP%frame=frame
+
+        if (VdW_flag) then
+         call FF_VdW%import_coeff
+         call FF_VdW%import_geo(frame_file)
+        end if
+
+        allocate(Minimizzatore%pot(2))
+
+         Minimizzatore%pot(1)%item=>FF_SNAP
+         Minimizzatore%pot(2)%item=>FF_VdW
+        call Minimizzatore%init(frame)
+        call Minimizzatore%minimize
+
+        end if
         end program
