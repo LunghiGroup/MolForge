@@ -8,14 +8,16 @@
         use SNAP_fit_class
         use VdW_class
         use SNAP_FF_class
+        use trajectory_class
         use minimizer_class
         use md_class
+
         implicit none
 
         type(lammps_obj),allocatable              :: set(:)
         type(SNAP_fit)                            :: SNAP
-        type(SNAP_FF),target                             :: FF_SNAP
-        type(VdW_FF),target                              :: FF_VdW
+        type(SNAP_FF),target                      :: FF_SNAP
+        type(VdW_FF),target                       :: FF_VdW
         type(MD)                                  :: Dinamica
         type(minimizer)                           :: Minimizzatore
         type(lammps_obj)                          :: frame
@@ -36,6 +38,7 @@
         double precision                          :: R_screen
         double precision,dimension(:),allocatable :: tot_charge
         character(len=5)                          :: set_type_en,set_type_dip
+        character(len=10)                         :: keyword_din,keyword_min
         double precision,allocatable              :: force(:,:)
         double precision                          :: E_plus,E_minus,ave_atom
         integer                                   :: tot_atom
@@ -53,8 +56,10 @@
         real(kind=dbl)                            :: error
         real(kind=dbl)                            :: val
 
-        train=.false.
-        VdW_flag=.false.
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!TRAINING BLOCK
+        
+        train=.true.
+        VdW_flag=.true.
         md_flag=.true.
         minim_flag=.false.
         active_learning=.false.
@@ -95,67 +100,42 @@
         end if
         !!!!!!!!!!!!!!!!!!!!!!!!!!MD block
         
-        Dinamica%num_pot=1
+        Dinamica%num_pot=2
+        keyword_din="SNAP_VdW"
         iseed=[1469,2425,122,693]
         T_in=5.0d0
         Dinamica%T_bath=5.0d0
         Dinamica%step_size=1.0d0*41.49d0
-        Dinamica%max_steps=4000
+        Dinamica%max_steps=1000
         Dinamica%ensemble='nvt'
         delta=1.5
         
         if (md_flag) then
         
         call import_lammps_obj(nconfig=1,file_input=trim(frame_file),len_file_inp=len_trim(frame_file),set_scalar=frame)       
-        !transformazione unita' da kcal related to atomic units
         frame%mass=amu_to_emass*frame%mass
-        !!!!!!!!!!!!!!!!!!!!!!
-        
-        call number_bispec(frame%twojmax,FF_SNAP%num_bisp)
-        FF_SNAP%tot_kinds=frame%nkinds
-
-        call FF_SNAP%import_coeff
-        FF_SNAP%frame=frame
-       
-        if (VdW_flag) then
-         call FF_VdW%import_coeff
-         call FF_VdW%import_geo(frame_file)
-        end if
-        
-        if (active_learning) then
-         Dinamica%linear_fit=SNAP
-        end if
-
-         call Dinamica%link_potentials("SNAP",FF_SNAP,FF_VdW)
-         call Dinamica%initialize_vel(frame,iseed,T_in)
-         call Dinamica%propagate(frame,active_learning,delta)
+        !FF_SNAP and FF_VdW are optional arguments and as new potentials are introduced in the code, they can be added here
+        call Dinamica%init_potentials(FF_SNAP,FF_VdW,frame,trim(frame_file))
+        call Dinamica%import_linear_fits(active_learning,SNAP)
+        call Dinamica%link_potentials(keyword_din,FF_SNAP,FF_VdW)
+        call Dinamica%init(frame,iseed,T_in)
+        call Dinamica%propagate(frame,active_learning,delta)
         
         end if
-        !!!!!!!!!!!!!!!!!!!!!!!!!!
+        
+        !!!!!!!!!!!!!!!!!!!!!!!!!! MINIMIZATION BLOCK
         if (minim_flag) then
-        ! in the minimization block we don't go to atomic units for the mass
         
         Minimizzatore%num_pot=2
-
+        delta=1.25
+        keyword_min="SNAP_VdW"
+        
         call import_lammps_obj(nconfig=1,file_input=trim(frame_file),len_file_inp=len_trim(frame_file),set_scalar=frame)
-
-        call number_bispec(frame%twojmax,FF_SNAP%num_bisp)
-        FF_SNAP%tot_kinds=frame%nkinds
-
-        call FF_SNAP%import_coeff
-        FF_SNAP%frame=frame
-
-        if (VdW_flag) then
-         call FF_VdW%import_coeff
-         call FF_VdW%import_geo(frame_file)
-        end if
-
-        allocate(Minimizzatore%pot(2))
-
-         Minimizzatore%pot(1)%item=>FF_SNAP
-         Minimizzatore%pot(2)%item=>FF_VdW
+        call Minimizzatore%init_potentials(FF_SNAP,FF_VdW,frame,trim(frame_file))
+        call Minimizzatore%import_linear_fits(active_learning,SNAP)
+        call Minimizzatore%link_potentials(keyword_min,FF_SNAP,FF_VdW)
         call Minimizzatore%init(frame)
-        call Minimizzatore%minimize
-
+        call Minimizzatore%minimize(active_learning=active_learning,delta=delta)
+        
         end if
         end program

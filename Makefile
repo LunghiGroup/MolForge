@@ -22,7 +22,7 @@ export INTENSOR_DIR = $(MOLFORGE_DIR)/Intensor
 export TOOLS_DIR = $(MOLFORGE_DIR)/Tools
 export SNAP_DIR =$(MOLFORGE_DIR)/Snap
 
-export LAMMPS_DIR = /home/valeriobriganti/Desktop/mylammps/
+export LAMMPS_DIR = /home/valeriobriganti/Desktop/mylammps
 export LAMMPS_F90_DIR = $(LAMMPS_DIR)/examples/COUPLE/fortran2
 export LAMMPS_MPI_DIR = $(LAMMPS_DIR)/src
 

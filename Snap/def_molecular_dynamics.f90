@@ -5,23 +5,17 @@
         use SNAP_fit_class
         use VdW_class
         use target_functions_class
+        use trajectory_class
         implicit none
 
-        type                                    :: MD
-         
-        type(potential_list),allocatable        :: pot(:)
-        type(SNAP_fit)                          :: linear_fit
-        integer                                 :: max_steps
+        type,extends(trajectory)                :: MD
         integer                                 :: step_size
-        integer                                 :: num_pot
-        integer                                 :: iter
         character(len=3)                        :: ensemble="nvt"
         real(kind=dbl)                          :: T_bath
         contains
         
-        procedure                               :: initialize_vel        
-        procedure                               :: link_potentials
-        procedure                               :: propagate
+        procedure                               :: init => initialize_vel
+        procedure                               :: propagate => propagate_MD
         procedure                               :: velocity_verlet
         procedure                               :: bussi
         procedure                               :: print_info
@@ -43,6 +37,7 @@
         real(kind=dbl),dimension(3)                :: lin_mom_tot
         real(kind=dbl)                             :: E_kin
         real(kind=dbl)                             :: T
+        
 
         allocate(frame%v(frame%nats,3))
         
@@ -70,33 +65,8 @@
         frame%v(:,:)=dsqrt(T_in/T)*frame%v(:,:)
 
         end subroutine initialize_vel
-
-        subroutine link_potentials(this,keyword,SNAP,VdW)
-        implicit none
-        class(md)                       :: this
-        character(len=*)                :: keyword
-        type(SNAP_FF),target            :: SNAP
-        type(VdW_FF),optional,target    :: VdW
-        integer                         :: i
-
-        allocate(this%pot(this%num_pot))
         
-        if (keyword=="SNAP") then
-         this%pot(1)%item=>SNAP
-         do i=2,this%num_pot
-          this%pot(i)%item=>NULL()
-         end do      
-        else if ((keyword=="SNAP_VdW").and.(present(VdW))) then 
-         this%pot(1)%item=>SNAP
-         this%pot(2)%item=>VdW
-         do i=3,this%num_pot
-          this%pot(i)%item=>NULL()
-         end do
-        
-        end if
-        end subroutine link_potentials
-
-        subroutine propagate(this,frame,active_learning,delta)
+        subroutine propagate_MD(this,frame,active_learning,delta)
         implicit none
         class(md), intent(inout) :: this
         type(lammps_obj)         :: frame
@@ -134,7 +104,7 @@
          call this%print_info(frame)        
         end do
 
-        end subroutine propagate
+        end subroutine propagate_MD
 
         subroutine velocity_verlet(this,frame)
         implicit none
@@ -221,7 +191,7 @@
         frame%v=dsqrt(E_kin_new/E_kin)*frame%v
 
         end subroutine bussi
-
+        
         subroutine print_info(this,frame)
         implicit none
         class(md)                       :: this
