@@ -9,66 +9,31 @@
         use parameters_class
         use lapack_inverse
         use VdW_class
+        use linear_model_class
         implicit none
 
-        type                                         :: SNAP_fit
-        type(lammps_obj), allocatable                :: set(:)
-        real(kind=dbl),allocatable                   :: matrix(:,:)
-        real(kind=dbl),allocatable                   :: target(:)
+        type,extends(linear_model)                   :: SNAP_fit
         real(kind=dbl), allocatable                  :: energies(:)
         real(kind=dbl), allocatable                  :: forces(:)
-        real(kind=dbl)                               :: weight
-        real(kind=dbl)                               :: lambda
-        real(kind=dbl), allocatable                  :: beta(:)
-        real(kind=dbl)                               :: s_z
-        real(kind=dbl)                               :: cutoff
-        integer                                      :: twojmax
-        integer                                      :: num_bisp
-        integer                                      :: nconfig
-        logical, allocatable                         :: coeff_mask(:)
         logical                                      :: flag_energy
         logical                                      :: flag_forces
         character(len=120)                           :: energy_file,forces_file
-        character(len=5)                             :: set_type
         
         contains
         
-        procedure                                    :: import_set
-        procedure                                    :: import_labels
-        procedure                                    :: import_coeff
+        procedure                                    :: import_labels => import_energies_forces
+        procedure                                    :: import_coeff => import_coeff_SNAP_en
         procedure                                    :: add_sub_VdW
-        procedure                                    :: LLS
-        procedure                                    :: build_matrix
-        procedure                                    :: build_target
-        procedure                                    :: get_uncertainty
+        procedure                                    :: LLS => fit_energy_forces
+        procedure                                    :: build_matrix => build_matrix_SNAP_energy
+        procedure                                    :: build_target => build_target_energy_forces
+        procedure                                    :: get_uncertainty => get_uncertainty_ener_forces
 
         end type SNAP_fit
 
         contains
         
-       subroutine import_set(this,file_input,len_file_inp)
-       implicit none
-       class(SNAP_fit)                           :: this
-       integer                                   :: nconfig, i,j,nats,ntypes
-       character(len=100),allocatable            :: tmp(:,:)
-       character(len=100),dimension(10)          :: tmp_cell_nkinds
-       character(len=100)                        :: filename
-       character(len=*)                          :: file_input
-       integer,intent(in)                        :: len_file_inp
-       character(len=150)                        :: file_inp
-        
-       call import_lammps_obj(nconfig=this%nconfig,file_input=file_input,len_file_inp=len_file_inp,set_array=this%set)
-
-       do i=1,this%nconfig  
-
-         this%set(i)%twojmax = this%twojmax
-         this%set(i)%cutoff  = this%cutoff
-
-        end do
-
-        end subroutine import_set
-
-        subroutine import_labels(this)
+        subroutine import_energies_forces(this)
         implicit none
         
         class(SNAP_fit)                      :: this                    
@@ -107,7 +72,7 @@
 
         end if
 
-        end subroutine import_labels
+        end subroutine import_energies_forces
         
         subroutine add_sub_VdW(this,addsub)
         implicit none
@@ -143,7 +108,7 @@
 
         end subroutine add_sub_VdW
         
-        subroutine build_matrix(this)
+        subroutine build_matrix_SNAP_energy(this)
         implicit none
 
         class(SNAP_fit)                                                       :: this
@@ -321,9 +286,9 @@
         end do
        end if
         
-        end subroutine build_matrix
+        end subroutine build_matrix_SNAP_energy
         
-        subroutine build_target(this)
+        subroutine build_target_energy_forces(this)
         implicit none
         class(SNAP_fit)                                                       :: this
         integer                                                               :: tot_atom
@@ -352,9 +317,9 @@
 
         end if
 
-        end subroutine build_target
+        end subroutine build_target_energy_forces
 
-        subroutine LLS(this)
+        subroutine fit_energy_forces(this)
         implicit none
         
         class(SNAP_fit)                                                       :: this
@@ -474,9 +439,9 @@
 
         end if
 
-        end subroutine LLS
+        end subroutine fit_energy_forces
 
-        subroutine import_coeff(this)
+        subroutine import_coeff_SNAP_en(this)
         implicit none
         class(SNAP_fit)                                         :: this
         integer                                                 :: i
@@ -489,9 +454,9 @@
         end do
         close(11)
 
-        end subroutine
+        end subroutine import_coeff_SNAP_en
 
-        subroutine get_uncertainty(this,frame,calc_sz_flag,error)
+        subroutine get_uncertainty_ener_forces(this,frame,calc_sz_flag,error)
         implicit none
         class(SNAP_fit)                                         :: this
         type(lammps_obj)                                        :: frame
@@ -634,6 +599,6 @@
         deallocate(frame%at_desc)
         deallocate(frame%der_at_desc)
 
-        end subroutine get_uncertainty
+        end subroutine get_uncertainty_ener_forces
 
         end module SNAP_fit_class
