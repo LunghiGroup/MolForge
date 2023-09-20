@@ -23,7 +23,8 @@
          double precision                :: eps(3,3)
          double precision, allocatable   :: Zeff(:,:,:)
          double precision, allocatable   :: x(:,:)         
-         double precision, allocatable   :: v(:,:)         
+         double precision, allocatable   :: v(:,:)
+         double precision, allocatable   :: acc(:,:)         
          double precision, allocatable   :: mass(:)
          double precision, allocatable   :: charge(:)
          double precision, allocatable   :: dipole(:,:)
@@ -245,7 +246,7 @@
         class(atoms_group)            :: this
         integer                       :: i,j,IOid
         double precision, allocatable :: mass(:)
-        character(len=100), optional  :: filename
+        character(len=*), optional  :: filename
         character(len=5), allocatable :: label(:)
 
          if(present(filename)) open(IOid,file=trim(filename))

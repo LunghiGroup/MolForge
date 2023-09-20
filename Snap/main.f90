@@ -4,168 +4,138 @@
         use max_class
         use atoms_class
         use lammps_class
+        use potential_class
         use SNAP_fit_class
         use VdW_class
         use SNAP_FF_class
+        use trajectory_class
+        use minimizer_class
+        use md_class
+
         implicit none
 
         type(lammps_obj),allocatable              :: set(:)
         type(SNAP_fit)                            :: SNAP
-        type(SNAP_FF)                             :: FF_SNAP
+        type(SNAP_FF),target                      :: FF_SNAP
+        type(VdW_FF),target                       :: FF_VdW
+        type(MD)                                  :: Dinamica
+        type(minimizer)                           :: Minimizzatore
+        type(lammps_obj)                          :: frame
+        
+
         integer                                   :: nconfig,tot_kinds,num_bisp_en,num_bisp_dip,twojmax_dip,twojmax_en
         integer                                   :: i,j
         character(len=120)                        :: geometry_file,energy_file,dipoles_file,shift_file,atom_string, &
-                                                        shift_geo_file,forces_file
+                                                        frame_file,forces_file
         logical,dimension(:),allocatable          :: coeff_mask_en,coeff_mask_dip
         real(kind=dbl)                            :: lambda_en,cutoff_en
         double precision                          :: lambda_dip,cutoff_dip
-        logical                                   :: dipole_flag,energy_flag,md_flag,VdW_flag,coul_flag,minim_flag, &
-                train_ff,rampa_flag,phonon_flag
+        logical                                   :: dipole_flag,energy_flag,md_flag,VdW_flag,coul_flag,minim_flag,train,&
+                rampa_flag,phonon_flag,single_eval
         logical                                   :: flag_forces,flag_energy
         double precision,dimension(:),allocatable :: energies,coul_energy,snap_energy
         double precision,dimension(:),allocatable :: forces,gradients
         double precision                          :: R_screen
         double precision,dimension(:),allocatable :: tot_charge
         character(len=5)                          :: set_type_en,set_type_dip
+        character(len=10)                         :: keyword_din,keyword_min
         double precision,allocatable              :: force(:,:)
         double precision                          :: E_plus,E_minus,ave_atom
         integer                                   :: tot_atom
         integer                                   :: atom,direction,k
         double precision,dimension(:),allocatable :: coul_energy_plus,coul_energy_minus
         double precision                          :: temperature,timestep
+        real(kind=dbl)                            :: T_in
+        real(kind=dbl)                            :: delta
+        logical                                   :: active_learning
         integer                                   :: tot_steps_md
-        double precision                          :: val,step
-        double precision,allocatable              :: vec(:),grad(:)
-        double precision,allocatable              :: VdW_en(:),test_1(:,:),test_2(:,:)
-        double precision,allocatable              :: grads(:,:)
-        double precision                          :: edisp
-        double precision                          :: test(3,3)
-        integer                                   :: INFO
-        integer                                   :: len_shift_file
+        double precision,allocatable              :: vec(:),grad(:),grad_SNAP(:),grad_VdW(:)
         integer                                   :: idist
         integer,dimension(4)                      :: iseed
-        integer                                   :: N
-        double precision, allocatable             :: X_M(:), Y(:),X(:),mean(:),sigma(:)
-        double precision                          :: y_tmp,y_tmp_2
         real(kind=dbl)                            :: weight
+        real(kind=dbl)                            :: error
+        real(kind=dbl)                            :: val
 
-        train_ff=.false.
-        VdW_flag=.false.
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!TRAINING BLOCK
         
-        SNAP%nconfig=375
-        cutoff_en=4.0d0
-        twojmax_en=8
-        
-        SNAP%weight=1.0d0
-        SNAP%lambda=0.0d0
+        train=.true.
+        VdW_flag=.true.
+        md_flag=.true.
+        minim_flag=.false.
+        active_learning=.false.
+
+        SNAP%nconfig=19
+        SNAP%cutoff=4.0d0
+        SNAP%twojmax=8
+        SNAP%weight=dsqrt(17.0d0*3.0)
+        SNAP%lambda=0.1d0
         SNAP%set_type='TRAIN'
+        
+        frame%cutoff=4.0d0
+        frame%twojmax=8
+        
+        geometry_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_tr_AL_++"
+        SNAP%energy_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/ener_tr_AL_++"
+        SNAP%forces_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/grad_tr_AL_++"
+        frame_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_start"
 
-        geometry_file="/home/valeriobriganti/Desktop/Progetto_Phonons/Test_ravera/FitSnap/geo_test_ravera"
-        energy_file="/home/valeriobriganti/Desktop/Progetto_Phonons/Test_ravera/FitSnap/ener_test_ravera"
-        forces_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/grad_tr_AL_++"
-       
-        call import_lammps_obj_list(SNAP%set,SNAP%nconfig,trim(geometry_file),len_trim(geometry_file))     
-       
-        do i=1,SNAP%nconfig
-         SNAP%set(i)%twojmax = twojmax_en
-         SNAP%set(i)%cutoff  = cutoff_en
-        end do
-
-
-        SNAP%twojmax= twojmax_en
-        
-        !the coeffiecients that you set to be true are the ones that you put equal to zero
-        
-        call number_bispec(SNAP%twojmax,SNAP%num_bisp)
-        call get_ave_atoms(SNAP%set,SNAP%ave_atom,SNAP%tot_atom)
-        call get_tot_kinds(SNAP%set,SNAP%tot_kinds)
-        
-        allocate(SNAP%coeff_mask(SNAP%tot_kinds))
-        
-        SNAP%coeff_mask=.true.
-        SNAP%coeff_mask(1)=.false.
         SNAP%flag_energy=.true.
-        SNAP%flag_forces=.false.
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        do i=1,SNAP%nconfig
-       
-         call SNAP%set(i)%initialize()
-         call SNAP%set(i)%setup(SNAP%set(i)%nkinds)
-         call SNAP%set(i)%get_desc()
-         call SNAP%set(i)%get_der_desc()
-         call SNAP%set(i)%finalize()
+        SNAP%flag_forces=.true.
 
-        end do
-        !GENERATE FF POTENTIAL
+        if ((train).or.(active_learning)) then
+         call SNAP%import_set(file_input=trim(geometry_file),len_file_inp=len_trim(geometry_file))
+         call SNAP%import_labels
+        if (VdW_flag) then 
+          call SNAP%add_sub_VdW("sub")
+        end if  
+         call SNAP%build_matrix
+         call SNAP%build_target
         
-        if (train_ff) then
-
-         allocate(SNAP%energies(size(set)))
-
-         open(100,file=trim(energy_file))
-
-          do j=1,SNAP%nconfig
-           read(100,*) SNAP%energies(j)
-          end do
-
-         close(100)
-        
-
-         if (SNAP%flag_forces) then
-
-          allocate(gradients(3*SNAP%tot_atom))
-
-          open(100,file=trim(forces_file))
-
-           do j=1,3*SNAP%tot_atom
-            read(100,*) gradients(j)
-           end do
-
-          close(100)
-
-         end if
-        
-         if (VdW_flag) then
-
-          do i=1,SNAP%nconfig
-        
-           call grimme_d3(SNAP%set(i))
-         
-           if (SNAP%flag_energy) then
-
-           SNAP%energies(i)=SNAP%energies(i)-SNAP%set(i)%en_VdW
-            
-           end if
-           
-           if (SNAP%flag_forces) then
-
-           allocate(SNAP%set(i)%grads_VdW(3,SNAP%set(i)%nats))
-
-           do j=1,SNAP%set(i)%nats
-            do k=1,3
-             gradients(((i-1)*SNAP%set(i)%nats*3) +(j-1)*3+k)=&
-             gradients(((i-1)*SNAP%set(i)%nats*3) +(j-1)*3+k)-SNAP%set(i)%grads_VdW(k,j)
-            end do
-           end do
-           
-           deallocate(SNAP%set(i)%grads_VdW)
-
-           end if
-        
-          end do
-         !SNAP%forces=-gradients       
-         end if 
-         call SNAP%fit
+        if (train) then
+         call SNAP%LLS
+        else if (active_learning) then
+         call SNAP%import_coeff
+        end if
 
         end if
+        !!!!!!!!!!!!!!!!!!!!!!!!!!MD block
         
-        FF_SNAP%frame=SNAP%set(1)
-        FF_SNAP%num_bisp=SNAP%num_bisp
-        FF_SNAP%tot_kinds=SNAP%tot_kinds
-        call FF_SNAP%import
-
-        call FF_SNAP%get_fval(vec,FF_SNAP%energy)
-        call FF_SNAP%get_fgrad(vec,FF_SNAP%energy,FF_SNAP%grad)
-        write(*,*) FF_SNAP%energy
-        write(*,*) grad
+        Dinamica%num_pot=2
+        keyword_din="SNAP_VdW"
+        iseed=[1469,2425,122,693]
+        T_in=5.0d0
+        Dinamica%T_bath=5.0d0
+        Dinamica%step_size=1.0d0*41.49d0
+        Dinamica%max_steps=1000
+        Dinamica%ensemble='nvt'
+        delta=1.5
+        
+        if (md_flag) then
+        
+        call import_lammps_obj(nconfig=1,file_input=trim(frame_file),len_file_inp=len_trim(frame_file),set_scalar=frame)       
+        frame%mass=amu_to_emass*frame%mass
+        !FF_SNAP and FF_VdW are optional arguments and as new potentials are introduced in the code, they can be added here
+        call Dinamica%init_potentials(FF_SNAP,FF_VdW,frame,trim(frame_file))
+        call Dinamica%import_linear_fits(active_learning,SNAP)
+        call Dinamica%link_potentials(keyword_din,FF_SNAP,FF_VdW)
+        call Dinamica%init(frame,iseed,T_in)
+        call Dinamica%propagate(frame,active_learning,delta)
+        
+        end if
+        
+        !!!!!!!!!!!!!!!!!!!!!!!!!! MINIMIZATION BLOCK
+        if (minim_flag) then
+        
+        Minimizzatore%num_pot=2
+        delta=1.25
+        keyword_min="SNAP_VdW"
+        
+        call import_lammps_obj(nconfig=1,file_input=trim(frame_file),len_file_inp=len_trim(frame_file),set_scalar=frame)
+        call Minimizzatore%init_potentials(FF_SNAP,FF_VdW,frame,trim(frame_file))
+        call Minimizzatore%import_linear_fits(active_learning,SNAP)
+        call Minimizzatore%link_potentials(keyword_min,FF_SNAP,FF_VdW)
+        call Minimizzatore%init(frame)
+        call Minimizzatore%minimize(active_learning=active_learning,delta=delta)
+        
+        end if
         end program

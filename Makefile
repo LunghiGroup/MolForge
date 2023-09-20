@@ -1,7 +1,7 @@
 .SUFFIXES:
 
 export FC = mpif90
-export FFLAGS = -g -O2
+export FFLAGS = -g -O0 -fcheck=all -fbacktrace
 
 export LIBS = -lscalapack-openmpi -llapack
 export INC_FLAG =## -I$(INC_DIR) 
@@ -37,7 +37,7 @@ export MOLFORGE_LINK_FLAG = -L$(MOLFORGE_LIB_DIR) $(MOLFORGE_LIBS)
 
 export MPI_LIB = /usr/lib64/openmpi/lib
 export SNAP_LIBS = -lblas -llammps_fortran -llammps_mpi -lMolForge -llapack -lmpi_cxx -lstdc++ -lm -ldftd3
-export DFTD3_LIB= /home/valeriobriganti/Desktop/dftd3-lib-0.9/lib
+export DFTD3_LIB= /home/valerio/Desktop/dftd3-lib-0.9/lib
 
 export SNAP_INC_FLAG = -I$(MODULES_DIR) -I$(LAMMPS_F90_DIR) -I$(DFTD3_LIB)
 export SNAP_LINK_FLAG = -L$(MPI_LIB) -L$(LAMMPS_MPI_DIR) -L$(LAMMPS_F90_DIR) -L$(MOLFORGE_LIB_DIR) -L$(DFTD3_LIB) $(SNAP_LIBS)
