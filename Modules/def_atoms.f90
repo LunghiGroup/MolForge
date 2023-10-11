@@ -39,7 +39,10 @@
          double precision, allocatable   :: fcs2(:,:,:,:,:)
          type(fc_branch), allocatable    :: fcs3
          type(descriptor), pointer       :: at_desc(:)
-         type(descriptor), pointer       :: der_at_desc(:)
+         type(descriptor), pointer       :: at_desc_en(:)
+         type(descriptor), pointer       :: der_at_desc_en(:)
+         type(descriptor), pointer       :: at_desc_dip(:)
+         type(descriptor), pointer       :: der_at_desc_dip(:)
          type(force_field), pointer      :: FF
          type(mlmodel), pointer          :: ML
          contains

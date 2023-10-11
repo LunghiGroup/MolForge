@@ -24,7 +24,7 @@
         procedure                                    :: import_labels => import_energies_forces
         procedure                                    :: import_coeff => import_coeff_SNAP_en
         procedure                                    :: add_sub_VdW
-        procedure                                    :: LLS => fit_energy_forces
+        procedure                                    :: predict_target => predict_energies_forces
         procedure                                    :: build_matrix => build_matrix_SNAP_energy
         procedure                                    :: build_target => build_target_energy_forces
         procedure                                    :: get_uncertainty => get_uncertainty_ener_forces
@@ -125,10 +125,10 @@
          call this%set(i)%initialize()
          call this%set(i)%setup(this%set(i)%nkinds)
          if (this%flag_energy) then
-          call this%set(i)%get_desc()
+          call this%set(i)%get_desc("ENERGY")
          end if
          if (this%flag_forces) then
-          call this%set(i)%get_der_desc()
+          call this%set(i)%get_der_desc("ENERGY")
          end if
          call this%set(i)%finalize()
 
@@ -228,7 +228,7 @@
            do k=1,this%num_bisp
 
             this%matrix(j,(this%set(j)%kind(i)-1)*this%num_bisp+k) = &
-                    this%matrix(j,(this%set(j)%kind(i)-1)*this%num_bisp+k) + this%set(j)%at_desc(i)%desc(k)
+                    this%matrix(j,(this%set(j)%kind(i)-1)*this%num_bisp+k) + this%set(j)%at_desc_en(i)%desc(k)
 
            end do
           end do
@@ -264,7 +264,7 @@
              do k=1,this%num_bisp-1
 
               this%matrix(start_snap_force+(j-1)*this%set(j)%nats*3+(l-1)*3+comp,this%num_bisp*(i-1)+1+k)=&
-                this%set(j)%der_at_desc(l)%desc((i-1)*((this%num_bisp-1)*3)+(this%num_bisp-1)*(comp-1)+k)
+                this%set(j)%der_at_desc_en(l)%desc((i-1)*((this%num_bisp-1)*3)+(this%num_bisp-1)*(comp-1)+k)
 
              end do
             end do
@@ -276,13 +276,13 @@
         
        if (this%flag_energy) then
         do i=1,this%nconfig
-         deallocate(this%set(i)%at_desc)
+         deallocate(this%set(i)%at_desc_en)
         end do
        end if
 
        if (this%flag_forces) then
         do i=1,this%nconfig       
-         deallocate(this%set(i)%der_at_desc)
+         deallocate(this%set(i)%der_at_desc_en)
         end do
        end if
         
@@ -319,7 +319,7 @@
 
         end subroutine build_target_energy_forces
 
-        subroutine fit_energy_forces(this)
+        subroutine predict_energies_forces(this)
         implicit none
         
         class(SNAP_fit)                                                       :: this
@@ -337,44 +337,6 @@
         integer                                                               :: start_snap_force
         real(kind=dbl),dimension(:),allocatable                               :: WORK
         
-        if (this%set_type=="TRAIN") then
-         TRANS='N'
-         M=size(this%matrix,1)
-         LDA=size(this%matrix,1)
-         N=size(this%matrix,2)
-         NRHS=1
-         LDB=max(M,N)
-         LWORK=2*min(M,N)
-         allocate(WORK(LWORK))
-        
-         allocate(temp_matrix(size(this%matrix,1),size(this%matrix,2)))
-         allocate(temp_target(size(this%matrix,1)))
-         temp_matrix=this%matrix
-         temp_target=this%target
-         call dgels(TRANS,M,N,NRHS,temp_matrix,LDA,temp_target,LDB,WORK,LWORK,INFO)
-         
-         deallocate(WORK)
-         deallocate(temp_matrix)
-         if (info.ne.0) then
-          write(*,*) 'Convergence issues: could not solve the linear least square problem'
-         end if
-
-         open(11,file='snapcoeff_energy',action='write')
-          do i=1,size(this%matrix,2)
-          write(11,*) temp_target(i)
-          end do
-         close(11)
-
-
-         allocate(this%beta(size(this%matrix,2)))
-         this%beta=temp_target(1:size(this%matrix,2))
-
-         else
-
-         call this%import_coeff
-
-        end if
-
         if (this%flag_energy) then
          allocate(C(size(this%set),size(this%matrix,2)))
          
@@ -439,7 +401,7 @@
 
         end if
 
-        end subroutine fit_energy_forces
+        end subroutine predict_energies_forces
 
         subroutine import_coeff_SNAP_en(this)
         implicit none
@@ -526,7 +488,7 @@
         call frame%setup(frame%nkinds)
 
         if (this%flag_energy) then
-         call frame%get_desc()
+         call frame%get_desc("ENERGY")
          
          start=1
 
@@ -534,7 +496,7 @@
           do k=1,this%num_bisp
 
            x_new((frame%kind(i)-1)*this%num_bisp+k,1) = x_new((frame%kind(i)-1)*this%num_bisp+k,1)&
-           + frame%at_desc(i)%desc(k)
+           + frame%at_desc_en(i)%desc(k)
 
           end do
          end do
@@ -542,7 +504,7 @@
         end if
 
         if (this%flag_forces) then
-         call frame%get_der_desc()
+         call frame%get_der_desc("ENERGY")
          
          do i=1,frame%nkinds
           do l=1,frame%nats
@@ -550,7 +512,7 @@
             do k=1,this%num_bisp-1
 
              x_new((i-1)*(this%num_bisp)+k+1,(l-1)*3+comp+start) = frame&
-             %der_at_desc(l)%desc((i-1)*((this%num_bisp-1)*3)+(this%num_bisp-1)*(comp-1)+k)
+             %der_at_desc_en(l)%desc((i-1)*((this%num_bisp-1)*3)+(this%num_bisp-1)*(comp-1)+k)
 
             end do
            end do
@@ -592,12 +554,12 @@
         deallocate(error_array)
         
         do i=1,frame%nats
-         deallocate(frame%at_desc(i)%desc)
-         deallocate(frame%der_at_desc(i)%desc)
+         deallocate(frame%at_desc_en(i)%desc)
+         deallocate(frame%der_at_desc_en(i)%desc)
         end do
 
-        deallocate(frame%at_desc)
-        deallocate(frame%der_at_desc)
+        deallocate(frame%at_desc_en)
+        deallocate(frame%der_at_desc_en)
 
         end subroutine get_uncertainty_ener_forces
 

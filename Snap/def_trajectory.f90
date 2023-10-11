@@ -26,14 +26,15 @@
         
         subroutine init_potentials(this,FF_SNAP,FF_VdW,frame,frame_file)
         implicit none
-        class(trajectory)                                 :: this
+        class(trajectory)                         :: this
         type(SNAP_FF),optional                    :: FF_SNAP
         type(VdW_FF),optional                     :: FF_VdW
         type(lammps_obj)                          :: frame
         character(len=*)                          :: frame_file
-
+        
+        !SNAP potential takes the number of kinds from the frame to which it couples, so it must have been previously defined
         if (present(FF_SNAP)) then
-         call number_bispec(frame%twojmax,FF_SNAP%num_bisp)
+         call number_bispec(frame%twojmax_en,FF_SNAP%num_bisp)
          FF_SNAP%tot_kinds=frame%nkinds
          call FF_SNAP%import_coeff
          FF_SNAP%frame=frame
@@ -48,7 +49,7 @@
 
         subroutine import_linear_fits(this,active_learning,SNAP)
         implicit none
-        class(trajectory)                       :: this
+        class(trajectory)               :: this
         logical                         :: active_learning
         type(SNAP_fit),optional         :: SNAP
 

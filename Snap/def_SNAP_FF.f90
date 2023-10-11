@@ -49,19 +49,19 @@
         
         call this%frame%initialize()
         call this%frame%setup(this%frame%nkinds)
-        call this%frame%get_desc()
+        call this%frame%get_desc("ENERGY")
         call this%frame%finalize()
 
         do i=1,this%frame%nats
          do j=1,this%num_bisp
 
-          val=val+this%beta((this%frame%kind(i)-1)*this%num_bisp+j)*this%frame%at_desc(i)%desc(j)
+          val=val+this%beta((this%frame%kind(i)-1)*this%num_bisp+j)*this%frame%at_desc_en(i)%desc(j)
 
          end do
-         deallocate(this%frame%at_desc(i)%desc)
+         deallocate(this%frame%at_desc_en(i)%desc)
         end do
 
-        deallocate(this%frame%at_desc)
+        deallocate(this%frame%at_desc_en)
         
         end subroutine get_SNAP_energy
 
@@ -75,7 +75,7 @@
 
         call this%frame%initialize()
         call this%frame%setup(this%frame%nkinds)
-        call this%frame%get_der_desc()
+        call this%frame%get_der_desc("ENERGY")
         call this%frame%finalize()
         allocate(grad(this%frame%nats*3))
         grad=0.0
@@ -84,16 +84,16 @@
          do j=1,this%frame%nkinds
           do m=1,3
            do k=1,this%num_bisp-1
-            grad((i-1)*3+m)=grad((i-1)*3+m)+this%frame%der_at_desc(i)%desc((j-1)*3*(this%num_bisp-1)&
+            grad((i-1)*3+m)=grad((i-1)*3+m)+this%frame%der_at_desc_en(i)%desc((j-1)*3*(this%num_bisp-1)&
             +(m-1)*(this%num_bisp-1)+k)*this%beta((j-1)*this%num_bisp+k+1)
 
            end do
           end do
          end do
-         deallocate(this%frame%der_at_desc(i)%desc)
+         deallocate(this%frame%der_at_desc_en(i)%desc)
         end do       
         grad=-grad
-        deallocate(this%frame%der_at_desc)
+        deallocate(this%frame%der_at_desc_en)
         end subroutine get_SNAP_force
 
         end module SNAP_FF_class

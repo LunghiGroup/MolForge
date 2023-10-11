@@ -8,8 +8,11 @@
 
         type,extends(atoms_group)         :: lammps_obj
          type(C_ptr)                      :: lmp
-         real(kind=dbl)                   :: cutoff
-         integer                          :: twojmax
+         real(kind=dbl)                   :: cutoff_en
+         real(kind=dbl)                   :: cutoff_dip
+         integer                          :: twojmax_en
+         integer                          :: twojmax_dip
+
          contains
          procedure     :: initialize => init_lammps_obj
          procedure     :: finalize => finalize_lammps_obj
@@ -158,9 +161,10 @@
        end subroutine setup_lammps_obj
  
 
-       subroutine get_bis(this)
+       subroutine get_bis(this,type)
        implicit none
        class(lammps_obj),intent(inout)                       :: this
+       character(len=*)                                      :: type
        integer                                               :: i,j,k,pos,m
        integer (C_int), dimension(:),pointer                 :: id
        integer                                               :: nlocal
@@ -172,8 +176,13 @@
        
        call lammps_command(this%lmp,"pair_style zero 30")
        call lammps_command(this%lmp,"pair_coeff * *")
-       write(cutoff_string,*)'compute bispec all sna/atom',this%cutoff,'1',this%twojmax
-       
+
+       if (type=="ENERGY") then
+        write(cutoff_string,*)'compute bispec all sna/atom',this%cutoff_en,'1',this%twojmax_en
+       else if (type=="DIPOLE") then
+        write(cutoff_string,*)'compute bispec all sna/atom',this%cutoff_dip,'1',this%twojmax_dip
+       end if
+
        do i=1,this%nkinds
         cutoff_string=trim(cutoff_string)//' 0.5'
        end do
@@ -185,30 +194,47 @@
        call lammps_command(this%lmp,trim(cutoff_string))
        call lammps_command(this%lmp,"run 0")
        call lammps_extract_atom(id,this%lmp,"id")
-       call number_bispec(this%twojmax,components)
-       allocate(this%at_desc(this%nats))
-       
        call lammps_extract_compute(bispec,this%lmp,'bispec',LMP_STYLE_ATOM,LMP_TYPE_ARRAY)
        
-       do k=1,this%nats
-         
-         allocate(this%at_desc(k)%desc(components))
+       if (type=="ENERGY") then
+        allocate(this%at_desc_en(this%nats))
+        call number_bispec(this%twojmax_en,components)
+        do k=1,this%nats
+                  
+         allocate(this%at_desc_en(k)%desc(components))
          pos=FINDLOC(id,k,1)
-         this%at_desc(k)%desc(1)=1.0
+         this%at_desc_en(k)%desc(1)=1.0
          
          do m=1,components-1
-          this%at_desc(k)%desc(m+1)=bispec(m,pos)
+          this%at_desc_en(k)%desc(m+1)=bispec(m,pos)
          end do
        
-       end do
+        end do
+        
+       else if (type=="DIPOLE") then 
+        allocate(this%at_desc_dip(this%nats))
+        call number_bispec(this%twojmax_dip,components)
+        do k=1,this%nats
+         allocate(this%at_desc_dip(k)%desc(components))
+         pos=FINDLOC(id,k,1)
+         this%at_desc_dip(k)%desc(1)=1.0
+         
+         do m=1,components-1
+          this%at_desc_dip(k)%desc(m+1)=bispec(m,pos)
+         end do
+
+        end do
+       end if
+
        call lammps_command(this%lmp,"uncompute bispec")
        
        end subroutine get_bis
         
-       subroutine get_der_bis(this)
+       subroutine get_der_bis(this,type)
        implicit none
        class(lammps_obj),intent(inout)                       :: this
        integer                                               :: i,j,k,pos,m
+       character(len=*)                                      :: type
        integer (C_int), dimension(:),pointer                 :: id
        integer                                               :: nlocal
        integer                                               :: components
@@ -219,7 +245,12 @@
 
        call lammps_command(this%lmp,"pair_style zero 30")
        call lammps_command(this%lmp,"pair_coeff * *")
-       write(der_bis_string,*)'compute der_bis all snad/atom',this%cutoff,'1',this%twojmax
+       
+       if (type=="ENERGY") then
+        write(der_bis_string,*)'compute der_bis all snad/atom',this%cutoff_en,'1',this%twojmax_en
+       else if (type=="DIPOLE") then
+        write(der_bis_string,*)'compute der_bis all snad/atom',this%cutoff_dip,'1',this%twojmax_dip
+       end if
 
        do i=1,this%nkinds
         der_bis_string=trim(der_bis_string)//' 0.5'
@@ -234,16 +265,24 @@
        call lammps_extract_compute(der_bis,this%lmp,'der_bis',LMP_STYLE_ATOM,LMP_TYPE_ARRAY)
        call lammps_extract_atom(id,this%lmp,"id")
              
-       call number_bispec(this%twojmax,components)
-       allocate(this%der_at_desc(this%nats))
  
-       do k=1,this%nats
-
-        allocate(this%der_at_desc(k)%desc(3*this%nkinds*(components-1)))
-        pos=FINDLOC(id,k,1)
-        this%der_at_desc(k)%desc(:)=der_bis(:,pos)
-      
-       end do
+       if (type=="ENERGY") then
+        allocate(this%der_at_desc_en(this%nats))
+        call number_bispec(this%twojmax_en,components)
+        do k=1,this%nats
+         allocate(this%der_at_desc_en(k)%desc(3*this%nkinds*(components-1)))
+         pos=FINDLOC(id,k,1)
+         this%der_at_desc_en(k)%desc(:)=der_bis(:,pos)
+        end do
+       else if (type=="DIPOLE") then
+        allocate(this%der_at_desc_dip(this%nats))
+        call number_bispec(this%twojmax_dip,components)
+        do k=1,this%nats
+         allocate(this%der_at_desc_dip(k)%desc(3*this%nkinds*(components-1)))
+         pos=FINDLOC(id,k,1)
+         this%der_at_desc_dip(k)%desc(:)=der_bis(:,pos)
+        end do
+       end if
 
        call lammps_command(this%lmp,"uncompute der_bis")
 

@@ -6,6 +6,7 @@
         use lammps_class
         use potential_class
         use SNAP_fit_class
+        use coul_fit_class
         use VdW_class
         use SNAP_FF_class
         use trajectory_class
@@ -16,6 +17,7 @@
 
         type(lammps_obj),allocatable              :: set(:)
         type(SNAP_fit)                            :: SNAP
+        type(coul_fit)                            :: COUL
         type(SNAP_FF),target                      :: FF_SNAP
         type(VdW_FF),target                       :: FF_VdW
         type(MD)                                  :: Dinamica
@@ -25,13 +27,13 @@
 
         integer                                   :: nconfig,tot_kinds,num_bisp_en,num_bisp_dip,twojmax_dip,twojmax_en
         integer                                   :: i,j
-        character(len=120)                        :: geometry_file,energy_file,dipoles_file,shift_file,atom_string, &
-                                                        frame_file,forces_file
+        character(len=120)                        :: geometry_file,energy_file,dipoles_file,shift_file,&
+                                                     frame_file,forces_file,charges_file
         logical,dimension(:),allocatable          :: coeff_mask_en,coeff_mask_dip
         real(kind=dbl)                            :: lambda_en,cutoff_en
         double precision                          :: lambda_dip,cutoff_dip
-        logical                                   :: dipole_flag,energy_flag,md_flag,VdW_flag,coul_flag,minim_flag,train,&
-                rampa_flag,phonon_flag,single_eval
+        logical                                   :: dipole_flag,energy_flag,md_flag,VdW_flag,coulomb_flag,minim_flag,train,&
+                                                     phonon_flag
         logical                                   :: flag_forces,flag_energy
         double precision,dimension(:),allocatable :: energies,coul_energy,snap_energy
         double precision,dimension(:),allocatable :: forces,gradients
@@ -60,30 +62,59 @@
         
         train=.true.
         VdW_flag=.true.
-        md_flag=.true.
+        md_flag=.false.
+        coulomb_flag=.true.
         minim_flag=.false.
         active_learning=.false.
 
         SNAP%nconfig=19
         SNAP%cutoff=4.0d0
-        SNAP%twojmax=8
-        SNAP%weight=dsqrt(17.0d0*3.0)
+        SNAP%twojmax=9
+        SNAP%weight=dsqrt(64.0d0*3.0)
         SNAP%lambda=0.1d0
         SNAP%set_type='TRAIN'
         
-        frame%cutoff=4.0d0
-        frame%twojmax=8
+        frame%cutoff_en=4.0d0
+        frame%twojmax_en=8
+        frame%cutoff_dip=4.0d0
+        frame%twojmax_dip=8
         
         geometry_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_tr_AL_++"
         SNAP%energy_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/ener_tr_AL_++"
         SNAP%forces_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/grad_tr_AL_++"
         frame_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_start"
 
+        if (coulomb_flag) then
+         COUL%nconfig=19
+         COUL%cutoff=4.0d0
+         COUL%twojmax=8
+         COUL%weight=dsqrt(1.0d0*1.0)
+         COUL%lambda=0.1d0
+         COUL%set_type='TRAIN'
+         
+         COUL%dipoles_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/dipoles_tr_AL_++"
+         COUL%charges_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/charges_tr_AL_++"
+        end if
+
         SNAP%flag_energy=.true.
         SNAP%flag_forces=.true.
+        
+        if ((train.and.coulomb_flag)) then
+         call COUL%import_set(file_input=trim(geometry_file),len_file_inp=len_trim(geometry_file),type="DIPOLE")         
+         call COUL%import_labels
+         
+         call get_tot_kinds(COUL%set,tot_kinds)
+         allocate(COUL%coeff_mask(tot_kinds))
+         COUL%coeff_mask=.true.
+
+         call COUL%build_matrix
+         call COUL%build_target
+         call COUL%LLS
+         call COUL%predict_target
+        end if
 
         if ((train).or.(active_learning)) then
-         call SNAP%import_set(file_input=trim(geometry_file),len_file_inp=len_trim(geometry_file))
+         call SNAP%import_set(file_input=trim(geometry_file),len_file_inp=len_trim(geometry_file),type="ENERGY")
          call SNAP%import_labels
         if (VdW_flag) then 
           call SNAP%add_sub_VdW("sub")
@@ -93,11 +124,13 @@
         
         if (train) then
          call SNAP%LLS
+         call SNAP%predict_target
         else if (active_learning) then
          call SNAP%import_coeff
         end if
 
         end if
+        
         !!!!!!!!!!!!!!!!!!!!!!!!!!MD block
         
         Dinamica%num_pot=2
