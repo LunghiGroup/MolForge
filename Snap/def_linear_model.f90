@@ -115,12 +115,13 @@
 
         end subroutine import_set
         
-        subroutine LLS(this)
+        subroutine LLS(this,fitting_quantity)
         implicit none
         class(linear_model)                                                   :: this
         real(kind=dbl),dimension(:,:), allocatable                            :: temp_matrix
         real(kind=dbl), dimension(:), allocatable                             :: temp_target
         character(len=1)                                                      :: TRANS
+        character(len=*)                                                      :: fitting_quantity
         integer                                                               :: i
         integer                                                               :: M
         integer                                                               :: MF,N,NRHS,LDA,LDB,LWORK,INFO
@@ -147,13 +148,20 @@
          if (info.ne.0) then
           write(*,*) 'Convergence issues: could not solve the linear least square problem'
          end if
-
-         open(11,file='snapcoeff_energy',action='write')
-          do i=1,size(this%matrix,2)
-          write(11,*) temp_target(i)
-          end do
-         close(11)
-
+        
+         if (fitting_quantity=='ENERGY') then
+          open(11,file='snapcoeff_energy',action='write')
+           do i=1,size(this%matrix,2)
+            write(11,*) temp_target(i)
+           end do
+          close(11)
+         else if (fitting_quantity=='DIPOLE') then
+          open(11,file='snapcoeff_dipoles',action='write')
+           do i=1,size(this%matrix,2)
+            write(11,*) temp_target(i)
+           end do
+          close(11)
+         end if
 
          allocate(this%beta(size(this%matrix,2)))
          this%beta=temp_target(1:size(this%matrix,2))

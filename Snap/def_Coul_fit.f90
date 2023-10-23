@@ -120,7 +120,7 @@
            do k=1,this%num_bisp
 
             this%matrix(3*(j-1)+m,(this%set(j)%kind(i)-1)*this%num_bisp+k) = this%matrix(3*(j-1)+ m&
-            ,(this%set(j)%kind(i)-1)*this%num_bisp+k)+ this%set(j)%at_desc_dip(i)%desc(k)*this%set(j)%x(i,m)
+            ,(this%set(j)%kind(i)-1)*this%num_bisp+k)+ this%set(j)%at_desc_dip(i)%desc(k)*this%set(j)%x(i,m)*A_to_B
 
            end do
           end do
@@ -128,7 +128,7 @@
         end do
 
         !converting the coordinates from angstrom to bohr.
-        this%matrix=A_to_B*this%matrix
+        !this%matrix=A_to_B*this%matrix
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         
         if (this%lambda.ne.0.0) then
@@ -222,7 +222,7 @@
         ML_dipoles=matmul(C,this%beta)
         deallocate(C)
 
-        call get_ave_atoms(this%set,ave_atom,tot_atom)
+        !call get_ave_atoms(this%set,ave_atom,tot_atom)
 
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  
@@ -234,7 +234,7 @@
          write(11,*) ' ', i, ML_dipoles(i), this%dipoles(i),ML_dipoles(i)-this%dipoles(i)
         end do
 
-        write(11,*)'# RMS=',(1/ave_atom)*sqrt(sum((ML_dipoles-this%dipoles)**2)/(3*size(this%set))), 'a.u./atom (dipoles)'
+        write(11,*)'# RMS=',sqrt(sum((ML_dipoles-this%dipoles)**2)/(3*size(this%set))), 'a.u. (dipoles)'
         close(11)
 
         deallocate(this%dipoles,ML_dipoles)

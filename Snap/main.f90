@@ -9,6 +9,7 @@
         use coul_fit_class
         use VdW_class
         use SNAP_FF_class
+        use Coul_FF_class
         use trajectory_class
         use minimizer_class
         use md_class
@@ -20,6 +21,7 @@
         type(coul_fit)                            :: COUL
         type(SNAP_FF),target                      :: FF_SNAP
         type(VdW_FF),target                       :: FF_VdW
+        type(COUL_FF)                             :: FF_Coul
         type(MD)                                  :: Dinamica
         type(minimizer)                           :: Minimizzatore
         type(lammps_obj)                          :: frame
@@ -82,13 +84,14 @@
         geometry_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_tr_AL_++"
         SNAP%energy_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/ener_tr_AL_++"
         SNAP%forces_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/grad_tr_AL_++"
+        shift_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/shift_tr_AL_++"
         frame_file="/home/valeriobriganti/Desktop/MolForge_SNAP/Snap/test_files/geo_start"
 
         if (coulomb_flag) then
          COUL%nconfig=19
          COUL%cutoff=4.0d0
          COUL%twojmax=8
-         COUL%weight=dsqrt(1.0d0*1.0)
+         COUL%weight=dsqrt(1.0d0)
          COUL%lambda=0.1d0
          COUL%set_type='TRAIN'
          
@@ -101,6 +104,7 @@
         
         if ((train.and.coulomb_flag)) then
          call COUL%import_set(file_input=trim(geometry_file),len_file_inp=len_trim(geometry_file),type="DIPOLE")         
+         call shift_geom(set_array=COUL%set,shift_file=shift_file)
          call COUL%import_labels
          
          call get_tot_kinds(COUL%set,tot_kinds)
@@ -109,9 +113,26 @@
 
          call COUL%build_matrix
          call COUL%build_target
-         call COUL%LLS
+         call COUL%LLS("DIPOLE")
          call COUL%predict_target
+        
+         !!!!!!!!debugging coulomb potential stuff
+         call import_lammps_obj(nconfig=1,file_input=trim(frame_file),len_file_inp=len_trim(frame_file),set_scalar=frame)
+         call number_bispec(frame%twojmax_dip,FF_Coul%num_bisp)
+         FF_Coul%tot_kinds=frame%nkinds
+         FF_Coul%frame=frame
+         FF_Coul%r_screen=3.0*A_to_B
+         call FF_Coul%import_coeff
+         call FF_Coul%set_charges
+         call FF_Coul%get_fval(vec,val)
+         write(*,*) FF_coul%frame%charge
+         write(*,*) val
+         !!!!!!!!!!!!!!
+         
+
         end if
+        stop
+
 
         if ((train).or.(active_learning)) then
          call SNAP%import_set(file_input=trim(geometry_file),len_file_inp=len_trim(geometry_file),type="ENERGY")
@@ -123,7 +144,7 @@
          call SNAP%build_target
         
         if (train) then
-         call SNAP%LLS
+         call SNAP%LLS("ENERGY")
          call SNAP%predict_target
         else if (active_learning) then
          call SNAP%import_coeff

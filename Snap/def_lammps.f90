@@ -87,6 +87,41 @@
         end do
 
         end subroutine import_lammps_obj
+        
+        subroutine shift_geom(set_array,set_scalar,shift_file,shift_vector)
+        implicit none
+        type(lammps_obj), allocatable,intent(inout),optional      :: set_array(:)
+        type(lammps_obj),optional                                 :: set_scalar
+        integer                                                   :: i,j
+        character(len=*),intent(in),optional                      :: shift_file
+        real(kind=dbl),allocatable                                :: shifter(:,:)
+        real(kind=dbl),dimension(3),optional                      :: shift_vector
+        
+        if ((present(set_array)).and.(present(shift_file))) then
+
+         allocate(shifter(size(set_array),3))
+         open(unit=222,file=shift_file,action='read')
+
+         do i=1,size(set_array)
+          read(222,*) shifter(i,1),shifter(i,2),shifter(i,3)
+          do j=1,set_array(i)%nats
+
+           set_array(i)%x(j,:)=set_array(i)%x(j,:)-shifter(i,:)
+
+          end do
+         end do
+
+         close(222)
+
+        end if
+
+        if ((present(set_scalar)).and.(present(shift_vector))) then
+         do i=1,set_scalar%nats
+          set_scalar%x(i,:)=set_scalar%x(i,:)-shift_vector(:)
+         end do
+        end if
+        
+        end subroutine shift_geom
 
         subroutine init_lammps_obj(this)
         implicit none
