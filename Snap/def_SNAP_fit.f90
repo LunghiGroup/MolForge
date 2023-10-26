@@ -128,7 +128,7 @@
           call this%set(i)%get_desc("ENERGY")
          end if
          if (this%flag_forces) then
-          call this%set(i)%get_der_desc("ENERGY")
+          call this%set(i)%get_der_desc("ENERGY",this%set(i)%nkinds)
          end if
          call this%set(i)%finalize()
 
@@ -504,7 +504,7 @@
         end if
 
         if (this%flag_forces) then
-         call frame%get_der_desc("ENERGY")
+         call frame%get_der_desc("ENERGY",frame%nkinds)
          
          do i=1,frame%nkinds
           do l=1,frame%nats

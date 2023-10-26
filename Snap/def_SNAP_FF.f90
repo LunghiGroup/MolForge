@@ -75,7 +75,7 @@
 
         call this%frame%initialize()
         call this%frame%setup(this%frame%nkinds)
-        call this%frame%get_der_desc("ENERGY")
+        call this%frame%get_der_desc("ENERGY",this%frame%nkinds)
         call this%frame%finalize()
         allocate(grad(this%frame%nats*3))
         grad=0.0

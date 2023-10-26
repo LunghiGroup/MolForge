@@ -265,7 +265,7 @@
        
        end subroutine get_bis
         
-       subroutine get_der_bis(this,type)
+       subroutine get_der_bis(this,type,nkinds)
        implicit none
        class(lammps_obj),intent(inout)                       :: this
        integer                                               :: i,j,k,pos,m
@@ -273,6 +273,7 @@
        integer (C_int), dimension(:),pointer                 :: id
        integer                                               :: nlocal
        integer                                               :: components
+       integer,intent(in)                                    :: nkinds
        integer,allocatable                                   :: store_kind(:)
        real (C_double), dimension(:,:), pointer              :: x,bis_comp,bispec,der_bis
        character(len=800)                                    :: cutoff_string,der_bis_string, &
@@ -287,11 +288,11 @@
         write(der_bis_string,*)'compute der_bis all snad/atom',this%cutoff_dip,'1',this%twojmax_dip
        end if
 
-       do i=1,this%nkinds
+       do i=1,nkinds
         der_bis_string=trim(der_bis_string)//' 0.5'
        end do
 
-       do i=1,this%nkinds
+       do i=1,nkinds
         der_bis_string=trim(der_bis_string)//' 1'
        end do
        
@@ -305,7 +306,7 @@
         allocate(this%der_at_desc_en(this%nats))
         call number_bispec(this%twojmax_en,components)
         do k=1,this%nats
-         allocate(this%der_at_desc_en(k)%desc(3*this%nkinds*(components-1)))
+         allocate(this%der_at_desc_en(k)%desc(3*nkinds*(components-1)))
          pos=FINDLOC(id,k,1)
          this%der_at_desc_en(k)%desc(:)=der_bis(:,pos)
         end do
@@ -313,7 +314,7 @@
         allocate(this%der_at_desc_dip(this%nats))
         call number_bispec(this%twojmax_dip,components)
         do k=1,this%nats
-         allocate(this%der_at_desc_dip(k)%desc(3*this%nkinds*(components-1)))
+         allocate(this%der_at_desc_dip(k)%desc(3*nkinds*(components-1)))
          pos=FINDLOC(id,k,1)
          this%der_at_desc_dip(k)%desc(:)=der_bis(:,pos)
         end do

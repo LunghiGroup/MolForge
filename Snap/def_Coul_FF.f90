@@ -11,7 +11,8 @@
         implicit none
 
         type,extends(potential)                      :: COUL_FF
-        real(kind=dbl), allocatable                  :: beta(:)
+        real(kind=dbl), allocatable                  :: beta_dip(:)
+        real(kind=dbl), allocatable                  :: beta_forces(:)
         integer                                      :: tot_kinds
         integer                                      :: num_bisp
         real(kind=dbl)                               :: r_screen
@@ -21,6 +22,7 @@
         procedure                        :: import_coeff => import_Coul_coeff
         procedure                        :: get_fval  => get_Coul_energy
         procedure                        :: get_fgrad => get_Coul_force
+        procedure                        :: import_coeff_forces
         procedure                        :: set_charges
 
         end type COUL_FF
@@ -32,14 +34,31 @@
         class(COUL_FF)                                :: this
         integer                                       :: i
 
-        allocate(this%beta(this%num_bisp*this%tot_kinds))
+        allocate(this%beta_dip(this%num_bisp*this%tot_kinds))
         open(222,file='snapcoeff_dipoles',action='read')
          do i=1,this%num_bisp*this%tot_kinds
-          read(222,*) this%beta(i)
+          read(222,*) this%beta_dip(i)
          end do
         close(222)
 
         end subroutine import_Coul_coeff        
+
+        subroutine import_coeff_forces(this)
+        implicit none
+        class(COUL_FF)                                :: this
+        integer                                       :: i,k
+
+        allocate(this%beta_forces((this%num_bisp-1)*this%tot_kinds))
+        open(222,file='snapcoeff_dipoles',action='read')
+        do i=1,this%tot_kinds
+         read(222,*)
+         do k=1,this%num_bisp-1
+          read(222,*) this%beta_forces((i-1)*(this%num_bisp-1)+k)
+         end do
+        end do
+        close(222)
+
+        end subroutine import_coeff_forces
         
         subroutine set_charges(this)
         implicit none
@@ -56,18 +75,18 @@
         
         do j=1,this%frame%nats
          do m=1,this%num_bisp
-
-          this%frame%charge(j)=this%frame%charge(j)+this%frame%at_desc_dip(j)%desc(m)*this%beta&
+        
+          this%frame%charge(j)=this%frame%charge(j)+this%frame%at_desc_dip(j)%desc(m)*this%beta_dip&
                   ((this%frame%kind(j)-1)*this%num_bisp+m)
 
          end do
         end do
-
-        !deallocation of the descriptors will not happen at this stage, but after coulomb energy is calculated in get_Coul_energy
-        !subroutine
-
-        !!!!!!!!!!!!!!!!!!!!!!Debugging line
-        write(*,*) 'Total charge:',sum(this%frame%charge)
+        
+        do j=1,this%frame%nats
+         deallocate(this%frame%at_desc_dip(j)%desc)
+        end do
+        
+        deallocate(this%frame%at_desc_dip)
 
         end subroutine set_charges
 
@@ -87,12 +106,10 @@
         rel_dist=0.0
         call this%frame%dist_ij
 
-        do j=1,this%frame%nats
-         do k=1,this%frame%nats
-          if (k>j) then
+        do j=1,this%frame%nats-1
+         do k=j+1,this%frame%nats
         
            rel_dist(j,k)=A_to_B*this%frame%dist(j,1,k,1)
-           write(*,*) rel_dist(j,k)
            if (rel_dist(j,k) <= this%r_screen) then
             screen=0.5*(1-dcos(PI*rel_dist(j,k)/this%r_screen))
            else
@@ -100,7 +117,6 @@
            end if
 
           val=val+screen*(this%frame%charge(j)*this%frame%charge(k)/rel_dist(j,k))
-         end if
         end do
        end do
        deallocate(rel_dist)
@@ -112,11 +128,101 @@
 
        subroutine get_Coul_force(this,vec,val,grad)
        implicit none
-       class(COUL_FF)                                 :: this
+       class(COUL_FF)                                  :: this
        real(kind=dbl)                                  :: val
        real(kind=dbl), allocatable                     :: vec(:),grad(:)
-        
+       real(kind=dbl)                                  :: dump
+       integer                                         :: i,j,k,l,m
+       character(len=150)                              :: atom_string
+       real(kind=dbl),allocatable                      :: rel_dist(:,:),coord(:,:)
        
+       !beware that this subroutine needs to be called after import_coeff_forces
+
+       call this%frame%initialize()
+       call this%frame%setup(this%frame%nats)
+       do i=1,this%frame%nats
+        write(atom_string,*) 'set atom',i,'type',i
+        call lammps_command(this%frame%lmp,trim(atom_string))
+       end do
+       
+       call this%frame%get_der_desc("DIPOLE",this%frame%nats)
+       call this%frame%finalize()
+       
+       allocate(rel_dist(this%frame%nats,this%frame%nats),coord(this%frame%nats,3))
+       allocate(grad(this%frame%nats*3))
+       grad=0.0
+
+       call this%frame%dist_ij
+
+       coord=A_to_B*this%frame%x
+        
+       do i=1,this%frame%nats
+        do j=1,this%frame%nats
+         if (i.ne.j) then
+         do m=1,3
+          
+          rel_dist(i,j)=A_to_B*this%frame%dist(i,1,j,1)
+          
+          if (rel_dist(i,j) <= this%r_screen) then
+           dump=0.5*(1-dcos(PI*rel_dist(i,j)/this%r_screen))
+          else
+           dump=1.0
+          end if
+
+          grad((i-1)*3+m)=grad((i-1)*3+m)+dump*(this%frame%charge(i)*this%frame%charge(j)&
+          *(coord(i,m)-coord(j,m)))/(rel_dist(i,j)**3)
+
+          if (rel_dist(i,j) <= this%r_screen) then
+
+           grad((i-1)*3+m)=grad((i-1)*3+m)-0.5*this%frame%charge(i)*this%frame%charge(j)*&
+           (dsin(PI*rel_dist(i,j)/this%r_screen))*PI*(coord(i,m)-coord(j,m))/(this%r_screen*(rel_dist(i,j)**2))
+
+          end if
+
+         end do
+        end if
+        end do
+       end do
+
+       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+       do i=1,this%frame%nats
+        this%frame%der_at_desc_dip(i)%desc=this%frame%der_at_desc_dip(i)%desc/A_to_B
+        do l=1,this%frame%nats
+         do j=1,this%frame%nats
+         
+          if (l.ne.j) then
+
+           rel_dist(l,j)=A_to_B*this%frame%dist(l,1,j,1)
+           if (rel_dist(l,j) <= this%r_screen) then
+            dump=0.5*(1-dcos(PI*rel_dist(l,j)/this%r_screen))
+           else
+            dump=1.0
+           end if
+           
+           do m=1,3
+            do k=1,this%num_bisp-1
+             grad((i-1)*3+m)=grad((i-1)*3+m)+dump*(this%frame%charge(l)/rel_dist(l,j))*&
+             this%frame%der_at_desc_dip(i)%desc((j-1)*3*(this%num_bisp-1)+(m-1)*(this%num_bisp-1)+k)&
+             *this%beta_forces((this%frame%kind(j)-1)*(this%num_bisp-1)+k)
+                
+            end do
+           end do
+          
+          end if       
+         
+         end do
+        end do
+       end do
+       
+       grad=-grad*F_conv
+
+       !!!!!!deallocation part of the code 
+       do i=1,this%frame%nats
+        deallocate(this%frame%der_at_desc_dip(i)%desc)
+       end do
+       deallocate(this%frame%der_at_desc_dip)
+       !!!!!!
 
        end subroutine get_Coul_force
 

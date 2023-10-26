@@ -123,16 +123,17 @@
          FF_Coul%frame=frame
          FF_Coul%r_screen=3.0*A_to_B
          call FF_Coul%import_coeff
+         call FF_Coul%import_coeff_forces
          call FF_Coul%set_charges
          call FF_Coul%get_fval(vec,val)
-         write(*,*) FF_coul%frame%charge
+         call FF_Coul%get_fgrad(vec,val,grad)
+         
+         write(*,*) FF_Coul%frame%charge
          write(*,*) val
          !!!!!!!!!!!!!!
          
 
         end if
-        stop
-
 
         if ((train).or.(active_learning)) then
          call SNAP%import_set(file_input=trim(geometry_file),len_file_inp=len_trim(geometry_file),type="ENERGY")
