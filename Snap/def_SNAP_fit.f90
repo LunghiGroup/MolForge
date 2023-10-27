@@ -9,6 +9,7 @@
         use parameters_class
         use lapack_inverse
         use VdW_class
+        use Coul_FF_class
         use linear_model_class
         implicit none
 
@@ -18,12 +19,14 @@
         logical                                      :: flag_energy
         logical                                      :: flag_forces
         character(len=120)                           :: energy_file,forces_file
+        type(Coul_FF)                                :: FF_Coul
         
         contains
         
         procedure                                    :: import_labels => import_energies_forces
         procedure                                    :: import_coeff => import_coeff_SNAP_en
         procedure                                    :: add_sub_VdW
+        procedure                                    :: add_sub_Coul
         procedure                                    :: predict_target => predict_energies_forces
         procedure                                    :: build_matrix => build_matrix_SNAP_energy
         procedure                                    :: build_target => build_target_energy_forces
@@ -95,7 +98,7 @@
            else if ((this%flag_energy).and.(addsub=="add")) then
            this%energies(i)=this%energies(i)+val
           end if
-
+         
           if ((this%flag_forces).and.(addsub=="sub")) then
              this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)=&
              this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)+grad
@@ -108,6 +111,41 @@
 
         end subroutine add_sub_VdW
         
+        subroutine add_sub_Coul(this,addsub)
+        implicit none
+
+        class(SNAP_fit)                                 :: this
+        integer                                         :: i
+        character(len=3),intent(in)                     :: addsub
+        real(kind=dbl),allocatable                      :: vec(:)
+        real(kind=dbl)                                  :: val
+        real(kind=dbl),allocatable                      :: grad(:)
+
+        !this subroutine must be changed as it does not make a distinction between training only forces and only energies
+        !this subroutine assumes that the training of the dipoles has already been done, otherwise set_charges does not work
+
+        do i=1,this%nconfig
+         
+         this%FF_Coul%frame=this%set(i)
+         call this%FF_Coul%set_charges
+         call this%FF_Coul%get_fval(vec,val)
+         call this%FF_Coul%get_fgrad(vec,val,grad)
+
+         if (addsub=="sub") then
+          this%energies(i)=this%energies(i)-val
+          this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)=&
+          this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)+grad
+         else if (addsub=="add") then
+          this%energies(i)=this%energies(i)+val
+          this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)=&
+          this%forces((i-1)*3*this%set(i)%nats+1:i*3*this%set(i)%nats)-grad
+         end if
+
+         deallocate(grad)
+        end do
+
+        end subroutine add_sub_Coul
+
         subroutine build_matrix_SNAP_energy(this)
         implicit none
 

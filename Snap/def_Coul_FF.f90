@@ -69,10 +69,11 @@
         call this%frame%setup(this%frame%nkinds)
         call this%frame%get_desc("DIPOLE")
         call this%frame%finalize()
-        
+
         allocate(this%frame%charge(this%frame%nats))
         this%frame%charge=0.0
         
+
         do j=1,this%frame%nats
          do m=1,this%num_bisp
         
@@ -87,7 +88,6 @@
         end do
         
         deallocate(this%frame%at_desc_dip)
-
         end subroutine set_charges
 
         subroutine get_Coul_energy(this,vec,val)
@@ -137,6 +137,8 @@
        real(kind=dbl),allocatable                      :: rel_dist(:,:),coord(:,:)
        
        !beware that this subroutine needs to be called after import_coeff_forces
+       !at every stage of the subroutine we are acutally calculating the forces
+       !just at the end we will perform a change in sign to obtain the gradients
 
        call this%frame%initialize()
        call this%frame%setup(this%frame%nats)
@@ -148,8 +150,9 @@
        call this%frame%get_der_desc("DIPOLE",this%frame%nats)
        call this%frame%finalize()
        
-       allocate(rel_dist(this%frame%nats,this%frame%nats),coord(this%frame%nats,3))
-       allocate(grad(this%frame%nats*3))
+       if (.not.allocated(rel_dist)) allocate(rel_dist(this%frame%nats,this%frame%nats))
+       if (.not.allocated(coord)) allocate(coord(this%frame%nats,3))
+       if (.not.allocated(grad)) allocate(grad(this%frame%nats*3))
        grad=0.0
 
        call this%frame%dist_ij
@@ -158,29 +161,34 @@
         
        do i=1,this%frame%nats
         do j=1,this%frame%nats
-         if (i.ne.j) then
-         do m=1,3
+         if (i.ne.j) then 
+          do m=1,3
+         
+           rel_dist(i,j)=A_to_B*this%frame%dist(i,1,j,1)
           
-          rel_dist(i,j)=A_to_B*this%frame%dist(i,1,j,1)
+           if (rel_dist(i,j) <= this%r_screen) then
+            dump=0.5*(1-dcos(PI*rel_dist(i,j)/this%r_screen))
+           else
+            dump=1.0
+           end if
+           !
+           !here we implement a simple Coulomb interaction with the additional dumping. 
+
+           grad((i-1)*3+m)=grad((i-1)*3+m)+dump*(this%frame%charge(i)*this%frame%charge(j)&
+           *(coord(i,m)-coord(j,m)))/(rel_dist(i,j)**3)
+           
+           !
+           !derivation of the screening part of the fictitious Coulomb interaction
           
-          if (rel_dist(i,j) <= this%r_screen) then
-           dump=0.5*(1-dcos(PI*rel_dist(i,j)/this%r_screen))
-          else
-           dump=1.0
-          end if
+           if (rel_dist(i,j) <= this%r_screen) then
 
-          grad((i-1)*3+m)=grad((i-1)*3+m)+dump*(this%frame%charge(i)*this%frame%charge(j)&
-          *(coord(i,m)-coord(j,m)))/(rel_dist(i,j)**3)
+            grad((i-1)*3+m)=grad((i-1)*3+m)-0.5*this%frame%charge(i)*this%frame%charge(j)*&
+            (dsin(PI*rel_dist(i,j)/this%r_screen))*PI*(coord(i,m)-coord(j,m))/(this%r_screen*(rel_dist(i,j)**2))
 
-          if (rel_dist(i,j) <= this%r_screen) then
-
-           grad((i-1)*3+m)=grad((i-1)*3+m)-0.5*this%frame%charge(i)*this%frame%charge(j)*&
-           (dsin(PI*rel_dist(i,j)/this%r_screen))*PI*(coord(i,m)-coord(j,m))/(this%r_screen*(rel_dist(i,j)**2))
-
-          end if
-
-         end do
-        end if
+           end if
+          
+          end do                
+         end if
         end do
        end do
 
