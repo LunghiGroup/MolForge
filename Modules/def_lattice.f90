@@ -11,6 +11,7 @@
          double precision :: gamma=0.0d0
          double precision :: vol=0.0d0
          double precision :: cell(3,3)=0.0d0
+         double precision :: origin(3)=-50.0d0
          integer          :: nx=1
          integer          :: ny=1
          integer          :: nz=1

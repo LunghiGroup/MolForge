@@ -87,6 +87,9 @@ def_lattice.o : def_mpi.o def_lapack.o def_lattice.f90
 def_atoms.o : def_lattice.o def_descriptors.o def_forcefields.o def_lists.o def_sparse.o def_mpi.o def_utils.o def_general_types.o def_atoms.f90
 	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
 
+def_lammps.o : def_atoms.o def_lammps.f90
+	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
+
 def_proj_disp.o : def_lapack.o def_proj_disp.f90
 	$(FC) $(FFLAGS) -c $(subst .o,.f90,$@) $(INC_FLAG)
 

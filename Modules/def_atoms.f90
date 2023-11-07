@@ -23,7 +23,8 @@
          double precision                :: eps(3,3)
          double precision, allocatable   :: Zeff(:,:,:)
          double precision, allocatable   :: x(:,:)         
-         double precision, allocatable   :: v(:,:)         
+         double precision, allocatable   :: v(:,:)
+         double precision, allocatable   :: acc(:,:)         
          double precision, allocatable   :: mass(:)
          double precision, allocatable   :: charge(:)
          double precision, allocatable   :: dipole(:,:)
@@ -31,11 +32,17 @@
          double precision, allocatable   :: rij(:,:)
          type(vector_int), allocatable   :: neigh(:) 
          double precision                :: neigh_cutoff=3.7d0
+         double precision                :: en_VdW
+         double precision,allocatable    :: grads_VdW(:,:)
          character(len=10), allocatable  :: label(:)
          logical                         :: born_charges=.false. 
          double precision, allocatable   :: fcs2(:,:,:,:,:)
          type(fc_branch), allocatable    :: fcs3
          type(descriptor), pointer       :: at_desc(:)
+         type(descriptor), pointer       :: at_desc_en(:)
+         type(descriptor), pointer       :: der_at_desc_en(:)
+         type(descriptor), pointer       :: at_desc_dip(:)
+         type(descriptor), pointer       :: der_at_desc_dip(:)
          type(force_field), pointer      :: FF
          type(mlmodel), pointer          :: ML
          contains
@@ -242,7 +249,7 @@
         class(atoms_group)            :: this
         integer                       :: i,j,IOid
         double precision, allocatable :: mass(:)
-        character(len=100), optional  :: filename
+        character(len=*), optional  :: filename
         character(len=5), allocatable :: label(:)
 
          if(present(filename)) open(IOid,file=trim(filename))
@@ -285,7 +292,7 @@
 
         return
         end subroutine read_extended_xyz        
-
+        
         subroutine read_xyz(this,IOid,filename)
         implicit none
         class(atoms_group)            :: this
@@ -413,7 +420,7 @@
           i=(celli-1)*this%nats+v1
 
           CN%AI(i+1)=CN%AI(i)
-
+        
           do v2=1,this%nats
           do cellj=1,this%ntot
            j=(cellj-1)*this%nats+v2
