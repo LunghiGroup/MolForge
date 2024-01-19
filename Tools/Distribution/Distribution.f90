@@ -62,6 +62,7 @@
         distfunc%shift=min_val
         call distfunc%alloc_dist()
 
+        nsteps=0
         do
          read(11,*,end=10)
          nsteps = nsteps + 1
