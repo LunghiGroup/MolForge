@@ -45,7 +45,7 @@
          procedure   ::  make_tinv
 !         procedure   ::  make_Vx
 !         procedure   ::  make_rot
-!         procedure   ::  set_dipolar
+         procedure   ::  set_dipolar
         end type spin_quantum_system
 
         contains
@@ -516,6 +516,149 @@
        
         return
         end subroutine build_spin_basis
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   SET UP THE DIPOLAR NETWORK AMONG THE SPINS
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine set_dipolar(this,SH,ex_list)
+        use spinham_class
+        use mpi_utils
+        implicit none
+        class(spin_quantum_system)       :: this
+        class(SpinHamiltonian)           :: SH
+        integer                          :: i,j,s1,s2,ii,jj,v,l,m,ex,is
+        integer, allocatable             :: ex_list(:,:)
+        integer                          :: celli,cellj,Hdim1,Hdim2,Hdim12
+        double precision                 :: dist0(3)
+        double precision                 :: spin2(2),spin,psi(2),psi2(2,2)
+        integer                          :: t1,t2,rate
+        logical                          :: skip
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)        
+          write(*,*) '     Building Dipolar Network'
+          flush(6)
+         endif
+
+         SH%nDdip=0
+
+         do i=1,SH%nG
+          do j=i,SH%nG
+           do ii=1,this%spins%nspins_pr 
+           do celli=1,1!this%ntot
+            do jj=1,this%spins%nspins_pr 
+            do cellj=1,this%spins%ntot 
+
+             s1=this%spins%nspins_pr*(celli-1)+ii
+             s2=this%spins%nspins_pr*(cellj-1)+jj
+
+             skip=.false.
+             if(allocated(ex_list))then
+              do ex=1,size(ex_list,1)
+               if(s1.eq.ex_list(ex,1) .and. s2.eq.ex_list(ex,2) ) skip=.true.
+               if(s1.eq.ex_list(ex,2) .and. s2.eq.ex_list(ex,1) ) skip=.true.
+              enddo
+             endif
+
+             if(s2.le.s1 .or. skip) cycle
+
+             if(this%spins%dist(ii,celli,jj,cellj).le.SH%dipolar_thr)then
+
+              if(this%spins%kind(s1).eq.SH%G(i)%kind .and. this%spins%kind(s2).eq.SH%G(j)%kind )then                 
+               SH%nDdip=SH%nDdip+1
+              endif
+
+              if(this%spins%kind(s1).eq.SH%G(j)%kind .and. this%spins%kind(s2).eq.SH%G(i)%kind .and. & 
+                 SH%G(j)%kind .ne. SH%G(i)%kind  )then
+               SH%nDdip=SH%nDdip+1
+              endif
+
+             endif
+
+            enddo
+            enddo
+           enddo
+           enddo
+          enddo
+         enddo
+
+         allocate(SH%Ddip(SH%nDdip))
+
+         if(mpi_id.eq.0)  &
+         write(*,*) '     Total Number of spin-spin dipolar interactions: ',SH%nDdip
+
+         v=1
+
+         do i=1,SH%nG
+          do j=i,SH%nG
+           do ii=1,this%spins%nspins_pr 
+           do celli=1,1!this%ntot
+            do jj=1,this%spins%nspins_pr 
+            do cellj=1,this%spins%ntot 
+
+             s1=this%spins%nspins_pr*(celli-1)+ii
+             s2=this%spins%nspins_pr*(cellj-1)+jj
+
+             skip=.false.
+             if(allocated(ex_list))then
+              do ex=1,size(ex_list,1)
+               if(s1.eq.ex_list(ex,1) .and. s2.eq.ex_list(ex,2) ) skip=.true.
+               if(s1.eq.ex_list(ex,2) .and. s2.eq.ex_list(ex,1) ) skip=.true.
+              enddo
+             endif
+
+
+             if(s2.le.s1 .or. skip) cycle
+
+             if(this%spins%dist(ii,celli,jj,cellj).le.SH%dipolar_thr)then
+
+              dist0=this%spins%dist_vec_pbc(this%spins%x(s1,:),this%spins%x(s2,:))  
+
+              if(this%spins%kind(s1).eq.SH%G(i)%kind .and. this%spins%kind(s2).eq.SH%G(j)%kind )then
+
+               call SH%Ddip(v)%make_D(SH%G(i)%G,SH%G(j)%G, &
+                    this%spins%bohr_mag(this%spins%kind(s1)),this%spins%bohr_mag(this%spins%kind(s2)),dist0,&
+                    this%spins%dist(ii,celli,jj,cellj))
+               SH%Ddip(v)%kind(1)=s1
+               SH%Ddip(v)%kind(2)=s2
+
+               v=v+1
+
+              endif
+
+              if(this%spins%kind(s1).eq.SH%G(j)%kind .and. this%spins%kind(s2).eq.SH%G(i)%kind .and. & 
+                 SH%G(j)%kind .ne. SH%G(i)%kind  )then
+
+               call SH%Ddip(v)%make_D(SH%G(j)%G,SH%G(i)%G,  &
+                    this%spins%bohr_mag(this%spins%kind(s1)),this%spins%bohr_mag(this%spins%kind(s2)),dist0,&
+                    this%spins%dist(ii,celli,jj,cellj))
+               SH%Ddip(v)%kind(1)=s1
+               SH%Ddip(v)%kind(2)=s2
+
+               v=v+1
+
+              endif
+
+             endif
+
+            enddo
+            enddo
+           enddo
+           enddo
+          enddo
+         enddo
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return
+        end subroutine set_dipolar
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
