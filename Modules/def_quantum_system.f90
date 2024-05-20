@@ -508,7 +508,8 @@
          else
 
           do i=-nint(2*this%spins%spin(this%spins%kind(si))),nint(2*this%spins%spin(this%spins%kind(si))),2
-           this%basis(id,si)=i
+           this%basis(id,si)=i          
+           if (id .lt. size(this%basis,1) ) this%basis(id+1,:)=this%basis(id,:)
            id=id+1
           enddo
 
