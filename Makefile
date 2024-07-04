@@ -3,7 +3,7 @@
 export FC = mpif90
 export FFLAGS = -g -O2
 
-export LIBS = -lscalapack -llapack 
+export LIBS = -lscalapack -llapack -lblas
 export INC_FLAG =  ## -I$(INC_DIR) 
 export LINK_FLAG = $(LIBS) ## -L$(LIB_DIR) $(LIBS)
 

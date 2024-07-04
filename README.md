@@ -6,7 +6,7 @@ interface with electronic structure codes and makes it possible to predict spin 
 
 MolForge: a multipurpose FORTRAN2003 and MPI suite of codes for the simulation of quantum spin dynamics at the atomistic level. 
 
-Copyright (c) 2023 Trinity College Dublin
+Copyright (c) 2021-2024 Trinity College Dublin
 
 Developed by Alessandro Lunghi, School of Physics, AMBER and CRANN Institute, Trinity College, Dublin 2, Ireland
 
@@ -36,9 +36,9 @@ Additional works that contributed towards the formalism implemented in MolForge 
 
 ## How to Build MolForge
 
-Molforge is known to compile on Linux machines with GNU compilers(v8.2.0) and openmpi(3.1.2).
+Molforge is known to compile on Linux machines with GNU compilers(v12.2.0) and openmpi(5.0.2).
 
-MolForge depends on the linear algebra routines Lapack (v3.8.0), Blas(v3.8.0), and Scalapack(2.1.0).
+MolForge depends on the linear algebra routines Lapack (v3.10.0), and Netlib Scalapack(2.2.0).
 
 The following variables in the main Makefile might need to be set 
 

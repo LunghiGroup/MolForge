@@ -2765,7 +2765,7 @@
         complex(8)              :: M(3),Mi(3,this%s2print),val
         double precision        :: Mr(3),Mir(3,this%s2print)
         integer                 :: i,j,v,s,info,loc_id,kpt,blacs_pnum
-        integer                 :: mpi_status(MPI_STATUS_SIZE)
+        integer                 :: loc_mpi_state(MPI_STATUS_SIZE)
 
          Mi=(0.0d0,0.0d0)
          M=(0.0d0,0.0d0)
@@ -2790,7 +2790,7 @@
               loc_id=blacs_pnum(context,i,j)
               if(loc_id.ne.0)then
                info=2001
-               call mpi_recv(val,1,mpi_double_complex,loc_id,info,mpi_blacs_world,mpi_status,err)
+               call mpi_recv(val,1,mpi_double_complex,loc_id,info,mpi_blacs_world,loc_mpi_state,err)
                Mir(s,v)=Mir(s,v)+dble(val)
               endif
              enddo
