@@ -1,0 +1,38 @@
+! CASSCF SlowConv DKH   NoSFitting moread  autoaux VeryTightSCF DEFGRID3 
+
+%moinp "orb.gbw"
+
+
+%rel
+  picturechange 2
+end
+
+
+%basis
+ newGTO Cr "cc-pvdz-dk" end
+ newGTO N "cc-pvdz-dk" end
+ newGTO C "cc-pvdz-dk" end
+ newGTO H "cc-pvdz-dk" end
+ newGTO S "cc-pvdz-dk" end
+ Decontract true
+end
+
+%casscf
+ nel 1
+ norb 5
+ mult 2
+ nroots 5
+ printwf det
+ maxiter 100
+ actorbs canonorbs
+ ci
+  TprintWF 0.000000000
+ end
+rel
+  printlevel 3
+  dosoc true
+  gtensor true
+ end
+end
+
+*xyzfile 0 2 geo.xyz

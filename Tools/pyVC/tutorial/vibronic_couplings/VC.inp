@@ -1,0 +1,13 @@
+calculation = overlap
+basename_a = geom1
+basename_b = geom2
+nproc = 4
+wfoverlap_path = 
+orca_path = 
+wf_memory = 1000
+b_dir = 0.0488583 0.5592063 0.8275876
+b_mod = 0.3
+dof_dir = dof.txt
+disp_dir = positive negative
+step = 0.001
+eq_dir = 0_0
