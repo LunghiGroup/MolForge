@@ -763,6 +763,8 @@
            call this%SPH%cart2brill(this%rcell,sys,phondy,ph,bn)          
            if (any( abs(euler).gt.1.0d-4 )) call this%SPH%rot(euler)
 
+           write(*,*) dble(this%SPH%DSI(1)%D(1,:))**2,dble(this%SPH%DSI(1)%D(2,:)),dble(this%SPH%DSI(1)%D(3,:))**2
+
       ! Make Vij per spin    
 
             AA%mat=(0.0d0,0.0d0)
