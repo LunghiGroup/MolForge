@@ -403,6 +403,15 @@
             endif
             call DSI2list%delete()
              
+            if( spindy%SPH%nJ.gt.0) then
+             allocate(spindy%SPH%J_t(spindy%SPH%nJ))
+             call Jlist%reboot()
+             do l=1,spindy%SPH%nJ
+              call Jlist%rd_node(spindy%SPH%J_t(l))
+              call Jlist%skip()
+             enddo
+            endif
+            call Jlist%delete()
             return
 
           end select
@@ -670,6 +679,7 @@
              read(12,*) Jr
              J%Jcart(l)%J=Jr
              J%Jcart(l)%kind=J%kind
+             
             enddo
             close(12)
             return
