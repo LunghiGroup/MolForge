@@ -26,6 +26,7 @@
          procedure     ::  make_R21_lindbladian
          procedure     ::  make_R22_lindbladian
          procedure     ::  make_R41_lindbladian
+         procedure     ::  make_R61_lindbladian
          procedure     ::  X2Q
          procedure     ::  XY2QQ
         end type open_quantum_system
@@ -352,7 +353,7 @@
          if(mpi_id.eq.0)then
           call system_clock(t1,rate)       
           write(*,*) '' 
-          write(*,*) '     Building the fourth-order Linbladian operator with linear coupling'
+          write(*,*) '     Building the fourth-order Lindbladian operator with linear coupling'
           flush(6)
          endif
 
@@ -438,6 +439,147 @@
 
         return
         end subroutine make_R41_lindbladian
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   BUILD THE LIMBLADIAN R61
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_R61_lindbladian(this,min_ener,max_ener)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        implicit none
+        class(open_quantum_system)        :: this
+        integer                           :: t1,t2,rate,l,l2,i,j,v
+        integer                           :: phx,nstart,nloc
+        integer                           :: ph,bn,ph2,bn2,ph3,bn3
+        double precision                  :: min_ener,max_ener
+        double precision                  :: freq,freq2,freq3
+        double complex                    :: valc
+        double complex, allocatable       :: Vmat(:,:),V2mat(:,:),V3mat(:,:)
+        integer, allocatable              :: proc_grid(:)
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)       
+          write(*,*) '' 
+          write(*,*) '     Building the sixth-order Lindbladian operator with linear coupling'
+          flush(6)
+         endif
+
+         allocate(Vmat(this%Hdim,this%Hdim))
+         allocate(V2mat(this%Hdim,this%Hdim))
+         allocate(V3mat(this%Hdim,this%Hdim))
+
+         if (.not.allocated(this%Vq%mat)) call this%Vq%set(this%Hdim,this%Hdim,NB,MB)
+
+         ! run on k points and bn
+
+         if(allocated(proc_grid)) deallocate(proc_grid)
+         call mpi_dist_nprocess(size(this%phonons%list,1),nloc,nstart,proc_grid,mpi_phonons_world)
+
+         ph=nstart
+         do phx=1,nloc
+          do bn=1,size(this%phonons%list(ph)%freq)
+
+           if (ph.eq.1 .and. bn.le.3) cycle
+           freq=this%phonons%list(ph)%freq(bn)
+           if (freq.lt.min_ener) cycle
+           if (freq.gt.max_ener) cycle           
+
+           if(.not.allocated(this%phonons%list(ph)%hess) ) call this%phonons%list(ph)%diagD(this%lattice)
+
+           if ( allocated(this%Vx) ) call X2Q(this,ph,bn)
+
+           Vmat=(0.0d0,0.0d0)
+
+           do l2=1,this%Hdim
+            do l=1,this%Hdim
+             call pzelget('A',' ',valc,this%Vq%mat,l2,l,this%Vq%desc)
+             Vmat(l2,l)=valc
+            enddo
+           enddo                   
+
+           do ph2=1,this%phonons%ntot
+            do bn2=1,size(this%phonons%list(ph2)%freq)
+
+             if ( (ph-1)*size(this%phonons%list(ph)%freq)+bn .ge. &
+                  (ph2-1)*size(this%phonons%list(ph2)%freq)+bn2 ) cycle 
+
+             if (ph2.eq.1 .and. bn2.le.3) cycle
+             freq2=this%phonons%list(ph2)%freq(bn2)
+             if (freq2.lt.min_ener) cycle
+             if (freq2.gt.max_ener) cycle           
+
+             if(.not.allocated(this%phonons%list(ph2)%hess) ) call this%phonons%list(ph2)%diagD(this%lattice)
+
+             if ( allocated(this%Vx) ) call X2Q(this,ph2,bn2)
+         
+             V2mat=(0.0d0,0.0d0)
+
+             do l2=1,this%Hdim
+              do l=1,this%Hdim
+               call pzelget('A',' ',valc,this%Vq%mat,l2,l,this%Vq%desc)
+               V2mat(l2,l)=valc
+              enddo
+             enddo                   
+
+              do ph3=1,this%phonons%ntot
+               do bn3=1,size(this%phonons%list(ph3)%freq)
+
+                if ( (ph2-1)*size(this%phonons%list(ph2)%freq)+bn2 .ge. &
+                     (ph3-1)*size(this%phonons%list(ph3)%freq)+bn3 ) cycle 
+
+                if (ph3.eq.1 .and. bn3.le.3) cycle
+                freq3=this%phonons%list(ph3)%freq(bn3)
+                if (freq3.lt.min_ener) cycle
+                if (freq3.gt.max_ener) cycle
+
+                if(.not.allocated(this%phonons%list(ph3)%hess) ) call this%phonons%list(ph3)%diagD(this%lattice)
+
+                if ( allocated(this%Vx) ) call X2Q(this,ph3,bn3)
+         
+                V3mat=(0.0d0,0.0d0)
+
+                do l2=1,this%Hdim
+                 do l=1,this%Hdim
+                  call pzelget('A',' ',valc,this%Vq%mat,l2,l,this%Vq%desc)
+                  V3mat(l2,l)=valc
+                 enddo
+                enddo                   
+
+                call this%make_R61(Vmat,V2mat,V3mat,this%temp,freq,freq2,freq3,this%smear,this%smear,this%smear,&
+                                this%type_smear)
+
+              enddo ! bn3
+             enddo ! ph3
+
+            enddo ! bn2
+           enddo ! ph2
+
+          enddo 
+          ph=ph+1
+         enddo
+
+         do i=1,size(this%R61%mat,1)
+          do j=1,size(this%R61%mat,2)
+           valc=(0.0d0,0.0d0)
+           call mpi_allreduce(this%R61%mat(i,j),valc,1,&
+              mpi_double_complex,mpi_sum,mpi_phonons_world,err)
+           this%R61%mat(i,j)=valc
+          enddo
+         enddo
+
+         this%R%mat=this%R%mat+this%R61%mat
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+         endif
+
+        return
+        end subroutine make_R61_lindbladian
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!

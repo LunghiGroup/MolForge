@@ -17,6 +17,7 @@
          type(dist_cmplx_mat)               :: R21
          type(dist_cmplx_mat)               :: R22
          type(dist_cmplx_mat)               :: R41
+         type(dist_cmplx_mat)               :: R61
          type(dist_cmplx_mat)               :: rho
          type(dist_cmplx_mat), allocatable  :: QMOP(:)
          contains
@@ -30,6 +31,7 @@
          procedure   ::  make_R21
          procedure   ::  make_R22
          procedure   ::  make_R41
+         procedure   ::  make_R61
          procedure   ::  get_K21
          procedure   ::  get_dK21
          procedure   ::  propagate
@@ -981,6 +983,297 @@
 
         return
         end subroutine make_R41
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!
+!!!!!   BUILD SIXTH-ORDER LIMBLADIAN OPERATOR WITH LINEAR SYSTEM-BATH COUPLING
+!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        subroutine make_R61(this,V1mat,V2mat,V3mat,temp,freq1,freq2,freq3,lw1,lw2,lw3,type_smear)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        use units_parms 
+        implicit none
+        class(liuville_space)        :: this
+        double precision             :: freq1,freq2,freq3,lw,lw1,lw2,lw3
+        double precision             :: temp,Secular,DEner,prefc
+        integer                      :: type_smear,indxl2g
+        integer                      :: la,lb,lc,ld,ii,jj,l1,l2,cc,dd
+        double complex               :: Rab,Gf
+        double complex, allocatable  :: V1mat(:,:),V2mat(:,:),V3mat(:,:)       
+        double complex, allocatable  :: Rabgpp(:,:),Rabgmm(:,:),Rabgpm(:,:),Rabgmp(:,:)
+        double complex, allocatable  :: Ragbpp(:,:),Ragbmm(:,:),Ragbpm(:,:),Ragbmp(:,:)
+        double complex, allocatable  :: Rbagpp(:,:),Rbagmm(:,:),Rbagpm(:,:),Rbagmp(:,:)
+        double complex, allocatable  :: Rgabpp(:,:),Rgabmm(:,:),Rgabpm(:,:),Rgabmp(:,:)
+        double complex, allocatable  :: Rbgapp(:,:),Rbgamm(:,:),Rbgapm(:,:),Rbgamp(:,:)
+        double complex, allocatable  :: Rgbapp(:,:),Rgbamm(:,:),Rgbapm(:,:),Rgbamp(:,:)
+              
+         if (.not.allocated(this%R%mat)) call this%R%set(this%Ldim,this%Ldim,NB,MB)
+         if (.not.allocated(this%R61%mat)) call this%R61%set(this%Ldim,this%Ldim,NB,MB)
+
+         allocate(Rabgpp(this%Hdim,this%Hdim))
+         allocate(Rabgmm(this%Hdim,this%Hdim))
+         allocate(Rabgpm(this%Hdim,this%Hdim))
+         allocate(Rabgmp(this%Hdim,this%Hdim))
+
+         allocate(Ragbpp(this%Hdim,this%Hdim))
+         allocate(Ragbmm(this%Hdim,this%Hdim))
+         allocate(Ragbpm(this%Hdim,this%Hdim))
+         allocate(Ragbmp(this%Hdim,this%Hdim))
+
+         allocate(Rbagpp(this%Hdim,this%Hdim))
+         allocate(Rbagmm(this%Hdim,this%Hdim))
+         allocate(Rbagpm(this%Hdim,this%Hdim))
+         allocate(Rbagmp(this%Hdim,this%Hdim))
+
+         allocate(Rgabpp(this%Hdim,this%Hdim))
+         allocate(Rgabmm(this%Hdim,this%Hdim))
+         allocate(Rgabpm(this%Hdim,this%Hdim))
+         allocate(Rgabmp(this%Hdim,this%Hdim))
+
+         allocate(Rbgapp(this%Hdim,this%Hdim))
+         allocate(Rbgamm(this%Hdim,this%Hdim))
+         allocate(Rbgapm(this%Hdim,this%Hdim))
+         allocate(Rbgamp(this%Hdim,this%Hdim))
+
+         allocate(Rgbapp(this%Hdim,this%Hdim))
+         allocate(Rgbamm(this%Hdim,this%Hdim))
+         allocate(Rgbapm(this%Hdim,this%Hdim))
+         allocate(Rgbamp(this%Hdim,this%Hdim))
+
+         Rabgpp=(0.0d0,0.0d0)
+         Rabgmm=(0.0d0,0.0d0)
+         Rabgpm=(0.0d0,0.0d0)
+         Rabgmp=(0.0d0,0.0d0)
+
+         Ragbpp=(0.0d0,0.0d0)
+         Ragbmm=(0.0d0,0.0d0)
+         Ragbpm=(0.0d0,0.0d0)
+         Ragbmp=(0.0d0,0.0d0)
+
+         Rbagpp=(0.0d0,0.0d0)
+         Rbagmm=(0.0d0,0.0d0)
+         Rbagpm=(0.0d0,0.0d0)
+         Rbagmp=(0.0d0,0.0d0)
+
+         Rgabpp=(0.0d0,0.0d0)
+         Rgabmm=(0.0d0,0.0d0)
+         Rgabpm=(0.0d0,0.0d0)
+         Rgabmp=(0.0d0,0.0d0)
+
+         Rbgapp=(0.0d0,0.0d0)
+         Rbgamm=(0.0d0,0.0d0)
+         Rbgapm=(0.0d0,0.0d0)
+         Rbgamp=(0.0d0,0.0d0)
+
+         Rgbapp=(0.0d0,0.0d0)
+         Rgbamm=(0.0d0,0.0d0)
+         Rgbapm=(0.0d0,0.0d0)
+         Rgbamp=(0.0d0,0.0d0)
+
+         prefc=pi*pi/2/hplank
+         lw=lw1+lw2
+
+         do ii=1,this%Hdim
+          do jj=1,this%Hdim          
+
+           do cc=1,this%Hdim
+            do dd=1,this%Hdim
+
+            ! abg
+
+             Rabgmm(ii,jj)=Rabgmm(ii,jj)+V1mat(ii,cc)*V2mat(cc,dd)*V3mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq2-freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq3-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             rabgpm(ii,jj)=rabgpm(ii,jj)+V1mat(ii,cc)*V2mat(cc,dd)*V3mat(dd,jj)&
+                  /(this%ener(cc)-this%ener(jj)+freq2-freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%ener(dd)-this%ener(jj)-freq3-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rabgmp(ii,jj)=Rabgmp(ii,jj)+V1mat(ii,cc)*V2mat(cc,dd)*V3mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq2+freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq3-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             RabgPp(ii,jj)=RabgPp(ii,jj)+V1mat(ii,cc)*V2mat(cc,dd)*V3mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq2+freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq3-cmplx(0.0d0,1.0d0,8)*lw1)
+
+            ! agb
+
+             Ragbmm(ii,jj)=Ragbmm(ii,jj)+V1mat(ii,cc)*V3mat(cc,dd)*V2mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq3-freq2-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq2-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Ragbmp(ii,jj)=Ragbmp(ii,jj)+V1mat(ii,cc)*V3mat(cc,dd)*V2mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq3+freq2-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq2-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Ragbpm(ii,jj)=Ragbpm(ii,jj)+V1mat(ii,cc)*V3mat(cc,dd)*V2mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq3-freq2-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq2-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Ragbpp(ii,jj)=Ragbpp(ii,jj)+V1mat(ii,cc)*V3mat(cc,dd)*V2mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq3+freq2-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq2-cmplx(0.0d0,1.0d0,8)*lw1)
+
+            ! bag
+
+             Rbagpm(ii,jj)=Rbagpm(ii,jj)+V2mat(ii,cc)*V1mat(cc,dd)*V3mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq1-freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq3-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rbagmm(ii,jj)=Rbagmm(ii,jj)+V2mat(ii,cc)*V1mat(cc,dd)*V3mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq1-freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq3-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rbagmp(ii,jj)=Rbagmp(ii,jj)+V2mat(ii,cc)*V1mat(cc,dd)*V3mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq1+freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq3-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rbagpp(ii,jj)=Rbagpp(ii,jj)+V2mat(ii,cc)*V1mat(cc,dd)*V3mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq1+freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq3-cmplx(0.0d0,1.0d0,8)*lw1)
+
+            ! bga
+
+             Rbgamp(ii,jj)=Rbgamp(ii,jj)+V2mat(ii,cc)*V3mat(cc,dd)*V1mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq3+freq1-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rbgamm(ii,jj)=Rbgamm(ii,jj)+V2mat(ii,cc)*V3mat(cc,dd)*V1mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq3-freq1-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rbgapm(ii,jj)=Rbgapm(ii,jj)+V2mat(ii,cc)*V3mat(cc,dd)*V1mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq3-freq1-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rbgapp(ii,jj)=Rbgapp(ii,jj)+V2mat(ii,cc)*V3mat(cc,dd)*V1mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq3+freq1-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+            ! gab
+
+             Rgabpm(ii,jj)=Rgabpm(ii,jj)+V3mat(ii,cc)*V1mat(cc,dd)*V2mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq1-freq2-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq2-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rgabmp(ii,jj)=Rgabmp(ii,jj)+V3mat(ii,cc)*V1mat(cc,dd)*V2mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq1+freq2-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq2-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rgabmm(ii,jj)=Rgabmm(ii,jj)+V3mat(ii,cc)*V1mat(cc,dd)*V2mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq1-freq2-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq2-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rgabpp(ii,jj)=Rgabpp(ii,jj)+V3mat(ii,cc)*V1mat(cc,dd)*V2mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq1+freq2-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq2-cmplx(0.0d0,1.0d0,8)*lw1)
+
+            ! gba
+
+             Rgbamp(ii,jj)=Rgbamp(ii,jj)+V3mat(ii,cc)*V2mat(cc,dd)*V1mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq2+freq1-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rgbapm(ii,jj)=Rgbapm(ii,jj)+V3mat(ii,cc)*V2mat(cc,dd)*V1mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq2-freq1-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rgbamm(ii,jj)=Rgbamm(ii,jj)+V3mat(ii,cc)*V2mat(cc,dd)*V1mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)-freq2-freq1-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)-freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+             Rgbapp(ii,jj)=Rgbapp(ii,jj)+V3mat(ii,cc)*V2mat(cc,dd)*V1mat(dd,jj)&
+                  /(this%Ener(cc)-this%Ener(jj)+freq2+freq1-cmplx(0.0d0,1.0d0,8)*lw1)&
+                  /(this%Ener(dd)-this%Ener(jj)+freq1-cmplx(0.0d0,1.0d0,8)*lw1)
+
+            enddo ! dd
+           enddo ! cc
+                
+          enddo
+         enddo
+
+         do ii=1,size(this%R%mat,1)
+          do jj=1,size(this%R%mat,2)         
+
+           l1=indxl2g(ii,NB,myrow,0,nprow)
+           l2=indxl2g(jj,MB,mycol,0,npcol)
+
+           la=this%Lbasis(l1,1)
+           lb=this%Lbasis(l1,2)
+           lc=this%Lbasis(l2,1)
+           ld=this%Lbasis(l2,2)                 
+
+           Secular=this%Ener(la)-this%Ener(lc)+this%Ener(ld)-this%Ener(lb)
+
+           if( abs(Secular).lt.1.0e-6 )then              
+           if (la.eq.lb .and. lc.eq.ld .and. la.ne.lc)then
+
+            ! +--
+
+            DEner=this%Ener(la)-this%Ener(lc)+freq1-freq2-freq3
+            Gf=(bose(temp,freq1)+1)*bose(temp,freq2)*bose(temp,freq3)*delta(type_smear,DEner,lw1)
+
+            Rab=Rgbamp(la,lc)+Rgabpm(la,lc)+Rbgamp(la,lc)+Rbagpm(la,lc)+Ragbmm(la,lc)+Rabgmm(la,lc)
+            this%R61%mat(ii,jj)=this%R61%mat(ii,jj)+conjg(Rab)*Rab*Gf*prefc
+
+            ! -+-
+
+            DEner=this%Ener(la)-this%Ener(lc)-freq1+freq2-freq3
+            Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*bose(temp,freq3)*delta(type_smear,DEner,lw1)
+
+            Rab=Rgbapm(la,lc)+Rgabmp(la,lc)+Rbgamm(la,lc)+Rbagmm(la,lc)+Ragbmp(la,lc)+Rabgpm(la,lc)
+            this%R61%mat(ii,jj)=this%R61%mat(ii,jj)+conjg(Rab)*Rab*Gf*prefc
+
+            ! --+
+
+            DEner=this%Ener(la)-this%Ener(lc)-freq1-freq2+freq3
+            Gf=bose(temp,freq1)*bose(temp,freq2)*(bose(temp,freq3)+1)*delta(type_smear,DEner,lw1)
+
+            Rab=Rgbamm(la,lc)+Rgabmm(la,lc)+Rbgapm(la,lc)+Rbagmp(la,lc)+Ragbpm(la,lc)+Rabgmp(la,lc)
+            this%R61%mat(ii,jj)=this%R61%mat(ii,jj)+conjg(Rab)*Rab*Gf*prefc
+
+           endif
+           endif
+
+          enddo
+         enddo
+
+         deallocate(Rabgpp)
+         deallocate(Rabgmm)
+         deallocate(Rabgpm)
+         deallocate(Rabgmp)
+
+         deallocate(Ragbpp)
+         deallocate(Ragbmm)
+         deallocate(Ragbpm)
+         deallocate(Ragbmp)
+
+         deallocate(Rbagpp)
+         deallocate(Rbagmm)
+         deallocate(Rbagpm)
+         deallocate(Rbagmp)
+
+         deallocate(Rgabpp)
+         deallocate(Rgabmm)
+         deallocate(Rgabpm)
+         deallocate(Rgabmp)
+
+         deallocate(Rbgapp)
+         deallocate(Rbgamm)
+         deallocate(Rbgapm)
+         deallocate(Rbgamp)
+
+         deallocate(Rgbapp)
+         deallocate(Rgbamm)
+         deallocate(Rgbapm)
+         deallocate(Rgbamp)
+
+        return
+        end subroutine make_R61
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!
