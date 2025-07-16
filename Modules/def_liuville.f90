@@ -1096,7 +1096,7 @@
                   /(this%Ener(cc)-this%Ener(jj)-freq2+freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
                   /(this%Ener(dd)-this%Ener(jj)+freq3-cmplx(0.0d0,1.0d0,8)*lw1)
 
-             RabgPp(ii,jj)=RabgPp(ii,jj)+V1mat(ii,cc)*V2mat(cc,dd)*V3mat(dd,jj)&
+             Rabgpp(ii,jj)=RabgPp(ii,jj)+V1mat(ii,cc)*V2mat(cc,dd)*V3mat(dd,jj)&
                   /(this%Ener(cc)-this%Ener(jj)+freq2+freq3-cmplx(0.0d0,1.0d0,8)*lw1)&
                   /(this%Ener(dd)-this%Ener(jj)+freq3-cmplx(0.0d0,1.0d0,8)*lw1)
 
@@ -1234,6 +1234,46 @@
             Gf=bose(temp,freq1)*bose(temp,freq2)*(bose(temp,freq3)+1)*delta(type_smear,DEner,lw1)
 
             Rab=Rgbamm(la,lc)+Rgabmm(la,lc)+Rbgapm(la,lc)+Rbagmp(la,lc)+Ragbpm(la,lc)+Rabgmp(la,lc)
+            this%R61%mat(ii,jj)=this%R61%mat(ii,jj)+conjg(Rab)*Rab*Gf*prefc
+
+            ! ++-
+
+            DEner=this%Ener(la)-this%Ener(lc)+freq1+freq2-freq3
+            Gf=(bose(temp,freq1)+1)*(bose(temp,freq2)+1)*bose(temp,freq3)*delta(type_smear,DEner,lw1)
+
+            Rab=Rgbapp(la,lc)+Rgabpp(la,lc)+Rbgamp(la,lc)+Rbagpm(la,lc)+Ragbmp(la,lc)+Rabgpm(la,lc)
+            this%R61%mat(ii,jj)=this%R61%mat(ii,jj)+conjg(Rab)*Rab*Gf*prefc
+
+            ! -++
+
+            DEner=this%Ener(la)-this%Ener(lc)-freq1+freq2+freq3
+            Gf=bose(temp,freq1)*(bose(temp,freq2)+1)*(bose(temp,freq3)+1)*delta(type_smear,DEner,lw1)
+
+            Rab=Rgbapm(la,lc)+Rgabmp(la,lc)+Rbgapm(la,lc)+Rbagmp(la,lc)+Ragbpp(la,lc)+Rabgmp(la,lc)
+            this%R61%mat(ii,jj)=this%R61%mat(ii,jj)+conjg(Rab)*Rab*Gf*prefc
+
+            ! +-+
+
+            DEner=this%Ener(la)-this%Ener(lc)+freq1-freq2+freq3
+            Gf=(bose(temp,freq1)+1)*bose(temp,freq2)*(bose(temp,freq3)+1)*delta(type_smear,DEner,lw1)
+
+            Rab=Rgbamp(la,lc)+Rgabpm(la,lc)+Rbgapp(la,lc)+Rbagpp(la,lc)+Ragbpm(la,lc)+Rabgmp(la,lc)
+            this%R61%mat(ii,jj)=this%R61%mat(ii,jj)+conjg(Rab)*Rab*Gf*prefc
+
+            ! +++
+
+            DEner=this%Ener(la)-this%Ener(lc)+freq1+freq2+freq3
+            Gf=(bose(temp,freq1)+1)*(bose(temp,freq2)+1)*(bose(temp,freq3)+1)*delta(type_smear,DEner,lw1)
+
+            Rab=Rgabpp(la,lc)+Rgbapp(la,lc)+Rbgapp(la,lc)+Rbagpp(la,lc)+Ragbpp(la,lc)+Rabgpp(la,lc)
+            this%R61%mat(ii,jj)=this%R61%mat(ii,jj)+conjg(Rab)*Rab*Gf*prefc
+
+            ! ---
+
+            DEner=this%Ener(la)-this%Ener(lc)-freq1-freq2-freq3
+            Gf=bose(temp,freq1)*bose(temp,freq2)*bose(temp,freq3)*delta(type_smear,DEner,lw1)
+
+            Rab=Rgbamm(la,lc)+Rgabmm(la,lc)+Rbgamm(la,lc)+Rbagmm(la,lc)+Ragbmm(la,lc)+Rabgmm(la,lc)
             this%R61%mat(ii,jj)=this%R61%mat(ii,jj)+conjg(Rab)*Rab*Gf*prefc
 
            endif
