@@ -55,6 +55,7 @@
          integer                            :: s2print=0         
          contains
          procedure   ::  make_basis => make_basis_H
+         procedure   ::  make_basis_new
          procedure   ::  make_Lbasis => make_basis_L
          procedure   ::  make_kbasis
          procedure   ::  make_Hmat_nodes
@@ -64,6 +65,7 @@
          procedure   ::  make_S => make_S_H
          procedure   ::  make_M => make_M_H
          procedure   ::  make_rho0 => make_rho0_H
+         procedure   ::  make_rho0_new
          procedure   ::  make_U => make_propagator_H
          procedure   ::  make_R => make_R_H
          procedure   ::  make_R2 => make_R2_H
@@ -2675,6 +2677,116 @@
         return
         end subroutine make_rho0_H
 
+        subroutine make_rho0_new(this,type_rho0,temp,ref_state,rho_restart_file)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        use sparse_class
+        use units_parms
+        implicit none
+        class(spins_hilbert)      :: this
+        type(dist_cmplx_mat)      :: rho
+        type(csr_mat_cmplx)       :: sprho
+        double precision          :: temp,part_funct,valre,valim
+        complex(8)                :: sum,val
+        complex(8),allocatable    :: rho_i(:,:)
+        integer                   :: ref_state(:)
+        integer                   :: i,ii,jj,j,k,v,l,error
+        integer                   :: indxl2g,kpt,size_block,state_trunc
+        integer                   :: t1,t2,rate
+        character(len=100)        :: type_rho0
+        character(len=20)         :: rho_restart_file
+        logical                   :: found
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)
+          write(*,*) '     Building starting density matrix'
+          flush(6)
+         endif
+
+         if(allocated(this%rho%mat)) call this%rho%dealloc()
+         call this%rho%set(this%Hdim,this%Hdim,NB,MB)
+         this%rho%mat=(0.0d0,0.0d0)
+
+         if(allocated(this%rho0%mat)) call this%rho0%dealloc()
+         call this%rho0%set(this%Hdim,this%Hdim,NB,MB)
+         this%rho0%mat=(0.0d0,0.0d0)
+
+         select case (type_rho0)
+
+          case ('READ_FILE')
+
+           if(mpi_id.eq.0) open(121,file=rho_restart_file)
+           do i=1,this%Hdim
+            do j=1,this%Hdim
+             if(mpi_id.eq.0) read(121,*) ii,jj,valre,valim
+             if(mpi_id.eq.0) val=cmplx(valre,valim,8)
+             call mpi_bcast(val,1,mpi_double_complex,0,mpi_blacs_world,err)
+             call pzelset(this%rho%mat,i,j,this%rho%desc,val)
+            enddo
+           enddo
+           if(mpi_id.eq.0) close(121)
+
+          case ('FULLY_POLARIZED')
+           if (mpi_id.eq.0) then
+            found=.false.
+            state_trunc=-1
+
+            do v=1,this%Hdim
+             if (all(this%basis(v,:)==ref_state(:)/2.0d0)) then
+              state_trunc=v
+              found = .true.
+              exit
+             endif
+            enddo
+
+            if (.not. found) then
+             write(*,*) '     ERROR: reference state not found in truncated basis!'
+             flush(6)
+             stop
+            endif
+           endif
+
+           call mpi_bcast(state_trunc,1,mpi_integer,0,mpi_blacs_world,error)
+
+           do ii=1,size(this%rho%mat,1)
+            do jj=1,size(this%rho%mat,2)
+             i=indxl2g(ii,NB,myrow,0,nprow)
+             j=indxl2g(jj,MB,mycol,0,npcol)
+             if(i.eq.state_trunc .and. j.eq.state_trunc) this%rho%mat(ii,jj)=(1.0d0,0.0d0)
+            enddo
+           enddo
+
+           if(this%sparse)then
+            call this%sp_rho%tosparse(this%Hdim,this%rho)
+            if(this%ntot.gt.1) then
+             call mult2_sparse_cmplx(.false.,this%sp_rho,this%sp_kbasis,sprho)
+             call this%sp_rho%delete()
+             call mult2_sparse_cmplx(.true.,this%sp_kbasis,sprho,this%sp_rho)
+             call sprho%delete()
+            endif
+             call this%rho%dealloc()
+             call this%sp_rho%todense(this%rho)
+            else
+             if(this%ntot.gt.1) then
+              call this%to_kbasis(this%rho)
+             endif
+            endif
+            if(this%make_Heig) call this%to_eigenbasis(this%rho)
+
+         end select
+
+         this%rho0%mat=this%rho%mat
+
+         if(mpi_id.eq.0)then
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return
+        end subroutine make_rho0_new
+
         subroutine to_eigenbasis(this,mat)
         use mpi
         use mpi_utils
@@ -3470,29 +3582,32 @@
         return
         end function get_Hij_2
 
-
-        subroutine make_SH_rep(this,SH,spin_id,spin_id2)
+        subroutine make_SH_rep(this,SH,spin_id,spin_id2,ignore_spins,detuning_B,detuning_type)
         use spinham_class
         implicit none
         class(spins_hilbert)       :: this
         class(SpinHamiltonian)     :: SH
-        integer                    :: i,j,l2,l,s1,s2,l1
+        integer                    :: i,j,l2,l,s1,s2,l1,n
         integer                    :: ii,jj,ii1,ii2,jj1,jj2
-        integer                    :: t1,t2,rate,a,b,c,d,spin_id,spin_id2
-        double precision           :: spin2(2),psi2(2,2)
-        double precision           :: spin1,psi1(2)
+        integer                    :: t1,t2,rate,a,b,c,d,spin_id,spin_id2,k
+        integer,allocatable        :: seed(:)
+        double precision           :: spin2(2),psi2(2,2),B_vec(3)=0.0d0
+        double precision           :: spin1,psi1(2),r
+        integer,optional           :: ignore_spins(:)
+        double precision,optional  :: detuning_B
+        character(len=10),optional :: detuning_type
 
 !         if(mpi_id.eq.0)then
-!          call system_clock(t1,rate)        
+!          call system_clock(t1,rate)
 !          write(*,*) '   Calculation of SH representaion'
 !          flush(6)
-!         endif         
+!         endif
 
          if(.not.allocated(this%SHrep))then
           allocate(this%SHrep(this%nspins_pr,this%nspins))
          endif
 
-         do s1=1,this%nspins_pr  
+         do s1=1,this%nspins_pr
           if(allocated(this%SHrep(s1,s1)%mat)) deallocate(this%SHrep(s1,s1)%mat)
           ii=nint(2*this%spin(this%kind(s1)))+1
           allocate(this%SHrep(s1,s1)%mat(ii,ii))
@@ -3508,7 +3623,12 @@
           enddo
          enddo
 
-         do s1=1,this%nspins_pr  
+         call random_seed(size=n)
+         allocate(seed(n))
+
+         seed = 123
+         call random_seed(put=seed)
+         do s1=1,this%nspins_pr
           if(spin_id.ne.spin_id2) cycle
           if(spin_id.ne.-1 .and. spin_id.ne.s1) cycle
 
@@ -3516,6 +3636,34 @@
           ii=nint(2*this%spin(this%kind(s1)))+1
           allocate(this%SHrep(s1,s1)%mat(ii,ii))
           this%SHrep(s1,s1)%mat=(0.0d0,0.0d0)
+
+          B_vec=this%Bfield
+          if(present(detuning_type).and.present(ignore_spins).and.present(detuning_type))then
+           select case (detuning_type)
+
+            case ('NONE')
+
+            case ('FIXED')
+             if(.not.any(ignore_spins==s1))then
+              B_vec(3)=B_vec(3)+detuning_B
+             endif
+
+            case ('RANGE')
+             if(.not.any(ignore_spins==s1))then
+              do
+               call random_number(r)
+               r=(2.0d0*r-1.0d0)*detuning_B
+               if(r/=0.0d0) exit
+              enddo
+              B_vec(3)=B_vec(3)+r
+             endif
+
+            case default
+             write(*,*) 'ERROR: Unknown detuning_type: ', trim(detuning_type)
+             error stop
+
+           end select
+          endif
 
           do ii=1,nint(2*this%spin(this%kind(s1)))+1
            do jj=1,nint(2*this%spin(this%kind(s1)))+1
@@ -3525,7 +3673,7 @@
             spin1=this%spin(this%kind(s1))
 
         !  Stevens operators matrix elements
-                   
+
             do i=1,SH%nO
              if(this%kind(s1).eq.SH%O(i)%kind)then
               this%SHrep(s1,s1)%mat(ii,jj)=this%SHrep(s1,s1)%mat(ii,jj)&
@@ -3538,7 +3686,7 @@
             do i=1,SH%nG
              if(this%kind(s1).eq.SH%G(i)%kind)then
               this%SHrep(s1,s1)%mat(ii,jj)=this%SHrep(s1,s1)%mat(ii,jj)&
-                +SH%G(i)%mat_elem(psi1,spin1,this%Bfield,this%bohr_mag(this%kind(s1)))
+              +SH%G(i)%mat_elem(psi1,spin1,B_vec,this%bohr_mag(this%kind(s1)))
              endif
             enddo
 
@@ -3595,7 +3743,7 @@
                         +SH%J(i)%mat_elem(psi2,spin2)
                  endif
                 endif
-                if(this%kind(s1).eq.SH%J(i)%kind(2) .and. this%kind(s2).eq.SH%J(i)%kind(1) .and. & 
+                if(this%kind(s1).eq.SH%J(i)%kind(2) .and. this%kind(s2).eq.SH%J(i)%kind(1) .and. &
                    SH%J(i)%kind(1).ne.SH%J(i)%kind(2) ) then
                  if(this%ntot.gt.1 .and. s2.gt.this%nspins_pr)then
                   this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
@@ -3626,7 +3774,7 @@
                         +SH%D2S(i)%mat_elem(psi2,spin2)
                  endif
                 endif
-                if(this%kind(s1).eq.SH%D2S(i)%kind(2) .and. this%kind(s2).eq.SH%D2S(i)%kind(1) .and. & 
+                if(this%kind(s1).eq.SH%D2S(i)%kind(2) .and. this%kind(s2).eq.SH%D2S(i)%kind(1) .and. &
                    SH%D2S(i)%kind(1).ne.SH%D2S(i)%kind(2) ) then
                  if(this%ntot.gt.1 .and. s2.gt.this%nspins_pr)then
                   this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
@@ -3635,7 +3783,7 @@
                   this%SHrep(s1,s2)%mat(ii,jj)=this%SHrep(s1,s2)%mat(ii,jj)&
                         +SH%D2S(i)%mat_elem(psi2,spin2)
                  endif
-                endif              
+                endif
 
                 endif
                enddo
@@ -3653,7 +3801,7 @@
                         +SH%Ddip(i)%mat_elem(psi2,spin2)
                  endif
                 endif
-      
+
                enddo
 
                jj=jj+1
@@ -3664,12 +3812,11 @@
             enddo
            enddo
 
-          enddo ! s2           
+          enddo ! s2
          enddo ! s1
 
         return
         end subroutine make_SH_rep
-
 
         function get_Hij(this,SH,l,l2) result(val)
         use spinham_class
@@ -4702,6 +4849,91 @@
         return
         end subroutine make_basis_H
 
+        subroutine make_basis_new(this,max_ex,max_corr,max_dist,tinv,ref_state)
+        use mpi
+        use mpi_utils
+        use blacs_utils
+        implicit none
+        class(spins_hilbert)            :: this
+        integer                         :: si,v,i,sj,ii,jj,indxl2g,error
+        integer                         :: max_ex,max_corr
+        integer                         :: ref_state(:)
+        double precision                :: max_dist(:,:)
+        integer                         :: t1,t2,rate
+        integer, allocatable            :: basis_tmp(:)
+        logical                         :: tinv
+
+
+         if (max_ex.eq.-1 ) max_ex=this%nspins
+         if (max_ex.ge.this%nspins/2) max_ex=this%nspins
+
+         if(mpi_id.eq.0)then
+          call system_clock(t1,rate)
+          write(*,*) ''
+          write(*,*) '     Building Basis Set'
+          write(*,*) '     Maximum number of spin excitations: ',max_ex
+          flush(6)
+         endif
+
+         if(mpi_id.eq.0)then
+          do i=1,this%nspins
+           if(abs(ref_state(i))>nint(2*this%spin(this%kind(i))))then
+            if(mpi_id.eq.0)then
+             write(*,*) '     ERROR: ref_state(',i,') out of range: ', ref_state(i)
+            endif
+            stop
+           endif
+          enddo
+         endif
+
+         if(mpi_id.eq.0)then
+          allocate(basis_tmp(this%nspins))
+
+          si=1
+          v=1
+
+          call get_Hdim_new(this,basis_tmp,max_ex,max_dist,v,si,ref_state)
+
+          this%Hdim=(v-1)
+          if (max_ex.lt.this%nspins/2.and.tinv) this%Hdim=this%Hdim*2
+         endif
+         call mpi_bcast(this%Hdim,1,mpi_integer,0,mpi_comm_world,error)
+
+         allocate(this%basis(this%Hdim,this%nspins))
+
+         if(mpi_id.eq.0)then
+          si=1
+          v=1
+
+          call build_basis_new(this,basis_tmp,max_ex,max_dist,v,si,ref_state)
+
+          if(max_ex.lt.this%nspins/2.and.tinv)then
+           si=this%Hdim
+           do v=1,this%Hdim/2
+            this%basis(si,:)=-1.0d0*this%basis(v,:)
+            si=si-1
+           enddo
+          endif
+
+          deallocate(basis_tmp)
+         endif
+         call mpi_bcast(this%basis,this%Hdim*this%nspins,mpi_double_precision,0,mpi_comm_world,error)
+
+         if(mpi_id.eq.0)then
+!          open(15,file='basis')
+          do v=1,this%Hdim
+!           write(*,*) this%basis(v,:)
+          enddo
+!          close(15)
+          write(*,*) '     Total Hilbert space size: ',this%Hdim
+          call system_clock(t2)
+          write(*,*) '     Task completed in ',real(t2-t1)/real(rate),'s'
+          flush(6)
+         endif
+
+        return
+        end subroutine make_basis_new
+
         recursive subroutine get_Hdim(this,basis_tmp,max_ex,max_dist,v,si)
         implicit none
         class(spins_hilbert)          :: this
@@ -4775,6 +5007,76 @@
         return
         end subroutine get_Hdim
 
+        recursive subroutine get_Hdim_new(this,basis_tmp,max_ex,max_dist,v,si,ref_state)
+        implicit none
+        class(spins_hilbert)          :: this
+        integer                       :: i,j,si,sj,v,max_ex,nex
+        integer                       :: celli,cellj,k1,k2
+        double precision              :: max_dist(:,:)
+        integer                       :: basis_tmp(:),ref_state(:)
+        logical                       :: skip_spin=.false.
+
+        if ( v.eq.1 .and. si.eq.1 ) then
+         basis_tmp(:)=ref_state(:)
+        endif
+
+        skip_spin=.false.
+
+        do j=1,si-1
+         celli=int((si-1)/this%nspins_pr)+1
+         cellj=int((j-1)/this%nspins_pr)+1
+         k1=mod((si-1),this%nspins_pr)+1
+         k2=mod((j-1),this%nspins_pr)+1
+         if (basis_tmp(j).ne.ref_state(j)) then
+          if(abs(this%dist(k1,celli,k2,cellj)).gt.max_dist(this%kind(j),this%kind(si))) skip_spin=.true.
+         endif
+        enddo
+
+        if(skip_spin)then
+
+         basis_tmp(si)=ref_state(si)
+         if(si.lt.this%nspins)then
+          sj=si+1
+          call get_Hdim_new(this,basis_tmp,max_ex,max_dist,v,sj,ref_state)
+         else
+          v=v+1
+         endif
+
+        else
+
+         if(si.lt.this%nspins)then
+
+          do i=-nint(2*this%spin(this%kind(si))),nint(2*this%spin(this%kind(si))),2
+
+           basis_tmp(si)=i
+
+           do j=si+1,this%nspins
+            basis_tmp(j)=ref_state(j)
+           enddo
+
+           call check_nex_new(this,basis_tmp,max_ex,skip_spin,ref_state)
+
+           if( .not. skip_spin )then
+            sj=si+1
+            call get_Hdim_new(this,basis_tmp,max_ex,max_dist,v,sj,ref_state)
+           else
+            v=v+1
+           endif
+
+          enddo
+
+         else
+
+          do i=-nint(2*this%spin(this%kind(si))),nint(2*this%spin(this%kind(si))),2
+           basis_tmp(si)=i
+           v=v+1
+          enddo
+
+         endif
+        endif
+
+        return
+        end subroutine get_Hdim_new
 
         recursive subroutine build_basis(this,basis_tmp,max_ex,max_dist,v,si)
         use blacs_utils        
@@ -4855,6 +5157,81 @@
 
         end subroutine build_basis
 
+        recursive subroutine build_basis_new(this,basis_tmp,max_ex,max_dist,v,si,ref_state)
+        use blacs_utils
+        implicit none
+        class(spins_hilbert)          :: this
+        integer                       :: i,j,si,sj,v,max_ex
+        integer                       :: celli,cellj,k1,k2
+        integer                       :: nex,l
+        double precision              :: max_dist(:,:)
+        integer                       :: basis_tmp(:),ref_state(:)
+        logical                       :: skip_spin=.false.
+
+        if ( v.eq.1 .and. si.eq.1 ) then
+          basis_tmp(:)=ref_state(:)
+        endif
+
+        skip_spin=.false.
+
+        do j=1,si-1
+         celli=int((si-1)/this%nspins_pr)+1
+         cellj=int((j-1)/this%nspins_pr)+1
+         k1=mod((si-1),this%nspins_pr)+1
+         k2=mod((j-1),this%nspins_pr)+1
+         if (basis_tmp(j).ne.ref_state(j)) then
+          if(abs(this%dist(k1,celli,k2,cellj)).gt.max_dist(this%kind(j),this%kind(si))) skip_spin=.true.
+         endif
+        enddo
+
+        if(skip_spin)then
+
+         basis_tmp(si)=ref_state(si)
+          if(si.lt.this%nspins)then
+           sj=si+1
+           call build_basis_new(this,basis_tmp,max_ex,max_dist,v,sj,ref_state)
+          else
+           this%basis(v,:)=basis_tmp(:)/2.0d0
+           v=v+1
+          endif
+
+        else
+
+        if(si.lt.this%nspins)then
+
+         do i=-nint(2*this%spin(this%kind(si))),nint(2*this%spin(this%kind(si))),2
+
+          basis_tmp(si)=i
+
+          do j=si+1,this%nspins
+           basis_tmp(j)=ref_state(j)
+          enddo
+
+          call check_nex_new(this,basis_tmp,max_ex,skip_spin,ref_state)
+
+          if( .not. skip_spin )then
+           sj=si+1
+           call build_basis_new(this,basis_tmp,max_ex,max_dist,v,sj,ref_state)
+          else
+           this%basis(v,:)=basis_tmp(:)/2.0d0
+           v=v+1
+          endif
+
+         enddo
+
+        else
+
+          do i=-nint(2*this%spin(this%kind(si))),nint(2*this%spin(this%kind(si))),2
+           basis_tmp(si)=i
+           this%basis(v,:)=basis_tmp(:)/2.0d0
+           v=v+1
+          enddo
+
+        endif
+        endif
+
+        return
+        end subroutine build_basis_new
 
         subroutine check_nex(this,basis_tmp,max_ex,skip_spin)
         implicit none
@@ -4911,6 +5288,61 @@
 
         return
         end subroutine check_nex
+
+        subroutine check_nex_new(this,basis_tmp,max_ex,skip_spin,ref_state)
+        implicit none
+        class(spins_hilbert)  :: this
+        integer               :: i,j,k,nex,max_ex,basis_tmp(:),ref_state(:)
+        integer,allocatable   :: cas_nex(:)
+        logical               :: skip_spin
+
+         skip_spin=.false.
+
+         if( allocated(this%active_space) )then
+          allocate(cas_nex(size(this%active_space)))
+          cas_nex=0
+         endif
+
+         nex=0
+         do i=1,this%nspins
+          if(basis_tmp(i).ne.ref_state(i)) then
+
+         ! total nex
+
+           nex=nex+1
+
+           if(nex.ge.max_ex)then
+            skip_spin=.true.
+            return
+           endif
+
+         ! compute the sub_space nex if any
+
+           if( allocated(this%active_space) )then
+            do j=1,size(this%active_space)
+             do k=1,size(this%active_space(j)%kind)
+
+              if(this%active_space(j)%kind(k).eq.this%kind(i))then
+               cas_nex(j)=cas_nex(j)+1
+              endif
+
+             enddo
+
+             if(cas_nex(j).ge.this%active_space(j)%max_ex)then
+              skip_spin=.true.
+              return
+             endif
+
+            enddo
+           endif
+
+          endif
+         enddo
+
+         if( allocated(cas_nex) ) deallocate(cas_nex)
+
+        return
+        end subroutine check_nex_new
        
         function get_Tij(this,i,j,v) result (Tij)
         implicit none 

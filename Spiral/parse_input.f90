@@ -167,6 +167,10 @@
             operation='MAKE_SH_MAPP'
             exit
 
+           case('&SDIP_DYNAMICS')
+            call parse_sdip_dyn(spindy)
+            operation='SDIP_DYN'
+            exit
 
            case default
            write(*,*) 'Word',trim(word),&
@@ -944,6 +948,10 @@
          fulldiag=.true.
          dump_s=.false.
          nex_max=-1
+         allocate(ref_state(spindy%nspins))
+         do i=1,spindy%nspins
+          ref_state(i)=-nint(2*spindy%spin(spindy%kind(i)))
+         enddo
          ncorr_max=-1
          nexclude=0
          dist_max=100.0d0
@@ -1025,6 +1033,12 @@
            case('MAX_EX')
             call get_word(line,word,2)
             read(word,*) nex_max
+
+           case('STATE')
+            do i=1,spindy%nspins
+             call get_word(line,word,1+i)
+             read(word,*) ref_state(i)
+            enddo
 
            case('MAX_CORR')
             call get_word(line,word,2)
@@ -1149,10 +1163,13 @@
         class(spins_group)             :: spindy
         type(SpinBath), allocatable    :: spin_bath(:)
         character(len=:),allocatable   :: line,word
-        integer                        :: l
+        integer                        :: l,ignore
         logical                        :: eof=.false.
 
          spindy%bfield=0.0d0
+         detuning_type='NONE'
+         detuning_B=0.0d0
+         allocate(ignore_spins(0))
 
          do 
 
@@ -1175,6 +1192,21 @@
             read(word,*) spindy%bfield(2)
             call get_word(line,word,4)
             read(word,*) spindy%bfield(3)
+
+           case('DETUNING_B')
+            call get_word(line,word,2)
+            read(word,*) ignore
+            if(allocated(ignore_spins)) deallocate(ignore_spins)
+            allocate(ignore_spins(ignore))
+            do l=1,ignore
+             call get_word(line,word,2+l)
+             read(word,*) ignore_spins(l)
+            enddo
+            call get_word(line,word,3+ignore)
+            call To_upper(word)
+            read(word,*) detuning_type
+            call get_word(line,word,4+ignore)
+            read(word,*) detuning_B
 
            case('&CELL')
             call parse_cell(spindy)
@@ -1302,7 +1334,7 @@
             read(word,*) D2S_tmp%kind(2)
             call read_3x3mat(D2S_tmp%D)
             call D2S%add_node(D2S_tmp)
-            call D2S%add_node(D2S_tmp)
+            !call D2S%add_node(D2S_tmp)
 
            case('SPINSPIN')
             spindy%SH%make_dipolar=.true.
@@ -2061,5 +2093,721 @@
          
         return
         end subroutine parse_rot
+
+        subroutine parse_sdip_dyn(spindy)
+        use parser_class
+        use spins_dist_rs_class
+        use hilbert_dist_class
+        use control_variables
+        implicit none
+        character(len=:),allocatable     :: line,word
+        logical                          :: eof=.false.
+        class(spins_hilbert)             :: spindy
+
+         do
+
+          call get_line(10,line,eof)
+          if (eof) exit
+
+          call get_word(line,word,1)
+          call To_upper(word)
+
+          select case (word)
+
+          case('&SUAITH') ! Spin Unitary dynamics Assembly in Truncated Hilbert space (Excitation Truncated Hilbert space On Spins)
+           call parse_suaith(spindy)
+           dynamics_method='SUAITH'
+
+          case('&KRYLOV')
+           call parse_krylov(spindy)
+           dynamics_method='KRYLOV'
+
+          case('&CHEBYSHEV')
+           call parse_chebyshev(spindy)
+           dynamics_method='CHEBYSHEV'
+
+          case('&CCE')
+           call parse_cce(spindy)
+           dynamics_method='CCE'
+
+          case('&END')
+
+            return
+
+          end select
+
+         enddo
+
+        return
+        end subroutine parse_sdip_dyn
+
+        subroutine parse_suaith(spindy)
+        use control_variables
+        use parser_class
+        use hilbert_dist_class
+        implicit none
+        class(spins_hilbert)           :: spindy
+        character(len=:),allocatable   :: line,word
+        integer                        :: l,i,int_val
+        double precision               :: dbl_val
+        logical                        :: eof=.false.
+
+         fulldiag=.true.
+         dump_s=.false.
+         nex_max=-1
+         allocate(ref_state(spindy%nspins))
+         do i=1,spindy%nspins
+          ref_state(i)=-nint(2*spindy%spin(spindy%kind(i)))
+         enddo
+         ncorr_max=-1
+         nexclude=0
+         dist_max=100.0d0
+         dump_freq=1
+         tinv=.false.
+         allocate(print_si(1))
+         s2print=1
+         print_si(1)=-1
+
+         call dist_kind%init()
+
+         do
+
+          call get_line(10,line,eof)
+          if (eof) exit
+
+          call get_word(line,word,1)
+          call To_upper(word)
+
+          select case (word)
+
+           case('FULLDIAG')
+            fulldiag=.true.
+
+           case('NODIAG')
+            fulldiag=.false.
+
+           case('DUMP_H0')
+            spindy%printH0=.true.
+
+           case('DUMP_HEIG')
+            spindy%printHeig=.true.
+
+           case('DUMP_RHO')
+            spindy%printRho=.true.
+
+           case('DUMP_RMAT')
+            spindy%printRmat=.true.
+
+           case('DUMP_S')
+            dump_s=.true.
+
+           case('MAX_DIST')
+            call get_word(line,word,2)
+            read(word,*) dist_max
+
+           case('HSIZE')
+            call get_word(line,word,2)
+            read(word,*) spindy%Hdim
+
+           case('MAX_DIST_KIND')
+            call get_word(line,word,2)
+            read(word,*) int_val
+            call dist_kind%add_node(int_val)
+            call get_word(line,word,3)
+            read(word,*) int_val
+            call dist_kind%add_node(int_val)
+            call get_word(line,word,4)
+            read(word,*) dbl_val
+            call dist_kind%add_node(dbl_val)
+
+           case('EX_LIST')
+            call get_word(line,word,2)
+            read(word,*) nexclude
+            allocate(ex_list(nexclude,2))
+            i=1
+            do l=1,nexclude
+             call get_word(line,word,2+i)
+             read(word,*) ex_list(l,1)
+             i=i+1
+             call get_word(line,word,2+i)
+             read(word,*) ex_list(l,2)
+             i=i+1
+            enddo
+
+           case('T_INV')
+            tinv=.true.
+
+           case('MAX_EX')
+            call get_word(line,word,2)
+            read(word,*) nex_max
+
+           case('STATE')
+            do i=1,spindy%nspins
+             call get_word(line,word,1+i)
+             read(word,*) ref_state(i)
+            enddo
+
+           case('MAX_CORR')
+            call get_word(line,word,2)
+            read(word,*) ncorr_max
+
+           case('DUMP_FREQ')
+            call get_word(line,word,2)
+            read(word,*) dump_freq
+
+           case('DUMP_MI')
+            call get_word(line,word,2)
+            read(word,*) s2print
+            deallocate(print_si)
+            allocate(print_si(s2print))
+            do l=3,s2print+2
+             call get_word(line,word,l)
+             read(word,*) print_si(l-2)
+            enddo
+
+           case('&ACTIVE_SPACE')
+            call parse_active_space
+
+           case('&END')
+            return
+
+           case default
+            write(6,*) 'Err: Keyword ',trim(word),' &
+                        in subroutine parse_suaith not recognized'
+            stop
+
+          end select
+
+         enddo
+
+         write(*,*) 'Err: Unexpected end of file &
+                     in subroutine parse_suaith'
+         stop
+
+        return
+        end subroutine parse_suaith
+
+        subroutine parse_krylov(spindy)
+        use control_variables
+        use parser_class
+        use hilbert_dist_class
+        implicit none
+        class(spins_hilbert)           :: spindy
+        character(len=:),allocatable   :: line,word
+        integer                        :: l
+        logical                        :: eof=.false.
+
+        do
+
+          call get_line(10,line,eof)
+          if (eof) exit
+
+          call get_word(line,word,1)
+          call To_upper(word)
+
+          select case (word)
+
+           !=====================================================================
+           ! Initial state
+           !=====================================================================
+           case('&INITIAL_STATE')
+            call parse_state(spindy)
+
+           !=====================================================================
+           ! Krylov space
+           !=====================================================================
+           case('KDIM')
+            call get_word(line,word,2)
+            read(word,*) krylov_dim
+
+           case('TOL')
+            call get_word(line,word,2)
+            read(word,*) krylov_tol
+
+           case('BREAKDOWN_TOL')
+            call get_word(line,word,2)
+            read(word,*) krylov_breakdown_tol
+
+           case('ORTH_TOL')
+            call get_word(line,word,2)
+            read(word,*) krylov_orth_tol
+
+           case('REORTHO')
+            call get_word(line,word,2)
+            call To_upper(word)
+
+            select case(word)
+
+             case('NONE')
+              krylov_reortho=0
+
+             case('FULL')
+              krylov_reortho=1
+
+             case('SELECTIVE')
+              krylov_reortho=2
+
+             case default
+              write(6,*) 'Err: Unknown REORTHO option ',trim(word)
+              stop
+
+            end select
+
+           case('RESTART')
+            call get_word(line,word,2)
+            read(word,*) krylov_restart
+
+           case('MAX_RESTART')
+            call get_word(line,word,2)
+            read(word,*) krylov_max_restart
+
+           case('ADAPTIVE_RESTART')
+            call get_word(line,word,2)
+            call To_upper(word)
+
+            select case(word)
+
+             case('TRUE','YES','ON','1')
+              krylov_adaptive_restart=.true.
+
+             case('FALSE','NO','OFF','0')
+              krylov_adaptive_restart=.false.
+
+             case default
+              write(6,*) 'Err: Invalid ADAPTIVE_RESTART option'
+              stop
+
+            end select
+
+           case('FULL_BASIS')
+            call get_word(line,word,2)
+            call To_upper(word)
+
+            select case(word)
+
+             case('TRUE','YES','ON','1')
+              krylov_full_basis=.true.
+
+             case('FALSE','NO','OFF','0')
+              krylov_full_basis=.false.
+
+             case default
+              write(6,*) 'Err: Invalid FULL_BASIS option'
+              stop
+
+            end select
+
+           case('REBUILD_SPACE')
+            krylov_rebuild=.true.
+
+           !=====================================================================
+           ! Tensor networks
+           !=====================================================================
+           case('MPS_BOND_MAX')
+            call get_word(line,word,2)
+            read(word,*) mps_bond_dimension_max
+
+           case('MPO_BOND_MAX')
+            call get_word(line,word,2)
+            read(word,*) mpo_bond_dimension_max
+
+           case('MPS_TRUNC_TOL')
+            call get_word(line,word,2)
+            read(word,*) mps_trunc_tol
+
+           case('MPO_TRUNC_TOL')
+            call get_word(line,word,2)
+            read(word,*) mpo_trunc_tol
+
+           !=====================================================================
+           ! Time evolution
+           !=====================================================================
+           case('TSTART')
+            call get_word(line,word,2)
+            read(word,*) krylov_tstart
+
+           case('TFINAL')
+            call get_word(line,word,2)
+            read(word,*) krylov_tfinal
+
+           case('DT')
+            call get_word(line,word,2)
+            read(word,*) krylov_dt
+
+           case('NSTEPS')
+            call get_word(line,word,2)
+            read(word,*) krylov_nsteps
+
+           !=====================================================================
+           ! Output
+           !=====================================================================
+           case('OUTPUT_STRIDE')
+            call get_word(line,word,2)
+            read(word,*) krylov_output_stride
+
+           case('DUMP_MI')
+            call get_word(line,word,2)
+            read(word,*) s2print
+            if(allocated(print_si)) deallocate(print_si)
+            allocate(print_si(s2print))
+            do l=3,s2print+2
+             call get_word(line,word,l)
+             read(word,*) print_si(l-2)
+            enddo
+
+           case('ENERGY')
+            call get_word(line,word,2)
+            call To_upper(word)
+            krylov_calc_energy=(word=='TRUE'.or.word=='YES'.or.word=='ON'.or.word=='1')
+
+           case('ENTROPY')
+            call get_word(line,word,2)
+            call To_upper(word)
+            krylov_calc_entropy=(word=='TRUE'.or.word=='YES'.or.word=='ON'.or.word=='1')
+
+           case('STORE_STATES')
+            call get_word(line,word,2)
+            call To_upper(word)
+            krylov_store_states=(word=='TRUE'.or.word=='YES'.or.word=='ON'.or.word=='1')
+
+           case('REPORT_TRUNCATION')
+            call get_word(line,word,2)
+            call To_upper(word)
+            krylov_report_truncation=(word=='TRUE'.or.word=='YES'.or.word=='ON'.or.word=='1')
+
+           case('VERBOSE')
+            call get_word(line,word,2)
+            call To_upper(word)
+            krylov_verbose=(word=='TRUE'.or.word=='YES'.or.word=='ON'.or.word=='1')
+
+           case('SAVE_CHECKPOINT')
+            call get_word(line,word,2)
+            call To_upper(word)
+            krylov_save_checkpoint=(word=='TRUE'.or.word=='YES'.or.word=='ON'.or.word=='1')
+
+           case('CHECKPOINT_STRIDE')
+            call get_word(line,word,2)
+            read(word,*) krylov_checkpoint_stride
+
+           case('&END')
+
+            if(krylov_dim<=0) then
+             write(6,*) 'Err: KDIM must be specified.'
+             stop
+            endif
+
+            if(krylov_dt<=0.0d0) then
+             write(6,*) 'Err: DT must be positive.'
+             stop
+            endif
+
+            if(krylov_nsteps==0) then
+             krylov_nsteps=nint((krylov_tfinal-krylov_tstart)/krylov_dt)
+            endif
+
+            return
+
+           case default
+            write(6,*) 'Err: Keyword ',trim(word),' not recognised in &KRYLOV'
+            stop
+
+          end select
+
+         enddo
+
+         write(6,*) 'Err: Unexpected end of file in parse_krylov'
+         stop
+
+        return
+        end subroutine parse_krylov
+
+        subroutine parse_chebyshev(spindy)
+        use control_variables
+        use parser_class
+        use hilbert_dist_class
+        implicit none
+        class(spins_hilbert)           :: spindy
+        character(len=:),allocatable   :: line,word
+        logical                        :: eof=.false.
+
+         do
+
+          call get_line(10,line,eof)
+          if (eof) exit
+
+          call get_word(line,word,1)
+          call To_upper(word)
+
+          select case (word)
+
+           case('ORDER')
+            call get_word(line,word,2)
+            read(word,*) chebyshev_order
+
+           case('AUTO_SCALE')
+            chebyshev_auto_scale = .true.
+
+           case('EMIN')
+            call get_word(line,word,2)
+            read(word,*) chebyshev_emin
+            chebyshev_auto_scale = .false.
+
+           case('EMAX')
+            call get_word(line,word,2)
+            read(word,*) chebyshev_emax
+            chebyshev_auto_scale = .false.
+
+           case('&END')
+            if (chebyshev_order <= 0) then
+                write(6,*) 'Err: ORDER must be specified in &CHEBYSHEV'
+                stop
+            endif
+
+            if (.not. chebyshev_auto_scale) then
+                if (chebyshev_emax <= chebyshev_emin) then
+                    write(6,*) 'Err: EMAX must be greater than EMIN'
+                    stop
+                endif
+            endif
+
+            return
+
+           case default
+            write(6,*) 'Err: Keyword ',trim(word),' &
+                        in subroutine parse_chebyshev not recognized'
+            stop
+
+          end select
+
+         enddo
+
+         write(*,*) 'Err: Unexpected end of file &
+                     in subroutine parse_chebyshev'
+         stop
+
+        return
+        end subroutine parse_chebyshev
+
+        subroutine parse_cce(spindy)
+        use control_variables
+        use parser_class
+        use hilbert_dist_class
+        implicit none
+        class(spins_hilbert)           :: spindy
+        character(len=:),allocatable   :: line,word
+        logical                        :: eof=.false.
+        integer                        :: l
+
+         do
+
+          call get_line(10,line,eof)
+          if (eof) exit
+
+          call get_word(line,word,1)
+          call To_upper(word)
+
+          select case (word)
+
+           case('ORDER')
+            call get_word(line,word,2)
+            read(word,*) cce_order
+
+           case('R_INT')
+            call get_word(line,word,2)
+            read(word,*) cce_r_int
+
+           case('MAX_CLUSTERS')
+            allocate(cce_max_clusters(cce_order))
+            do l=1,cce_order
+             call get_word(line,word,l+1)
+             read(word,*) cce_max_clusters(l)
+            enddo
+
+           case('&END')
+            if (cce_order <= 0) then
+                write(6,*) 'Err: ORDER must be specified in &CCE'
+                stop
+            endif
+
+            return
+
+           case default
+            write(6,*) 'Err: Keyword ',trim(word),' &
+                        in subroutine parse_cce not recognized'
+            stop
+
+          end select
+
+         enddo
+
+         write(*,*) 'Err: Unexpected end of file &
+                     in subroutine parse_cce'
+         stop
+
+        return
+        end subroutine parse_cce
+
+        subroutine parse_state(spindy)
+        use control_variables
+        use parser_class
+        use hilbert_dist_class
+        implicit none
+        class(spins_hilbert)           :: spindy
+        character(len=:),allocatable   :: line,word
+        logical                        :: eof=.false.
+        integer                        :: l,kind,nsup_states
+        double precision               :: down_real,down_img,up_real,up_img,re,im,coeff_real,coeff_img
+        complex(8), allocatable        :: tmp_coeff(:)
+        integer, allocatable           :: tmp_basis(:,:)
+
+         do
+
+          call get_line(10,line,eof)
+          if (eof) exit
+
+          call get_word(line,word,1)
+          call To_upper(word)
+
+          select case (word)
+
+           case('TYPE')
+
+            call get_word(line,word,2)
+            call To_upper(word)
+
+            select case(word)
+
+             case('BASIS')
+              initial_state_type = 0
+
+              if (allocated(basis_state)) deallocate(basis_state)
+              allocate(basis_state(spindy%nspins))
+
+             case('PRODUCT')
+              initial_state_type = 1
+
+              if (allocated(product_state)) deallocate(product_state)
+
+              allocate(product_state(maxval(nint(2.0d0*spindy%spin(1:spindy%nkinds))+1),spindy%nkinds))
+              product_state = (0.0d0,0.0d0)
+              do l=1, spindy%nkinds
+               product_state(1,l) = (1.0d0,0.0d0)
+              enddo
+
+             case('SUPERPOSITION')
+              initial_state_type = 2
+
+              if (allocated(sup_coeff)) deallocate(sup_coeff)
+              if (allocated(sup_basis)) deallocate(sup_basis)
+
+              nsup_states = 0
+
+             case default
+
+             write(6,*) 'Err: Unknown state TYPE ',trim(word)
+             stop
+
+            end select
+
+           case('STATE')
+
+            if (initial_state_type.ne.0 .and. initial_state_type.ne.2) then
+             write(6,*) 'Err: STATE only valid for BASIS and SUPERPOSITION'
+             stop
+            endif
+
+            if (initial_state_type.eq.0) then
+             do l=1,spindy%nspins
+              call get_word(line,word,l+1)
+              read(word,*) basis_state(l)
+             enddo
+
+            else if (initial_state_type.eq.2) then
+             if (allocated(tmp_coeff)) deallocate(tmp_coeff)
+             if (allocated(tmp_basis)) deallocate(tmp_basis)
+
+             allocate(tmp_coeff(nsup_states+1))
+             allocate(tmp_basis(spindy%nspins,nsup_states+1))
+
+             if (nsup_states>0) then
+              tmp_coeff(1:nsup_states) = sup_coeff
+              tmp_basis(:,1:nsup_states) = sup_basis
+             endif
+
+             call get_word(line,word,2)
+             read(word,*) re
+
+             call get_word(line,word,3)
+             read(word,*) im
+
+             tmp_coeff(nsup_states+1) = cmplx(re,im,kind=8)
+
+             do l=1,spindy%nspins
+              call get_word(line,word,l+3)
+              read(word,*) tmp_basis(l,nsup_states+1)
+
+              if (abs(tmp_basis(l,nsup_states+1))>2*spindy%spin(spindy%kind(l))) then
+               write(6,*) 'Err: Invalid spin projection on site ',l
+               stop
+              endif
+
+              if (mod(nint(tmp_basis(l,nsup_states+1)+2*spindy%spin(spindy%kind(l))),2)/=0) then
+               write(6,*) 'Err: Invalid spin projection on site ',l
+               stop
+              endif
+             enddo
+
+             call move_alloc(tmp_coeff,sup_coeff)
+             call move_alloc(tmp_basis,sup_basis)
+
+             nsup_states = nsup_states+1
+            endif
+
+           case('SKIND')
+
+            if (initial_state_type.ne.1) then
+             write(6,*) 'Err: SKIND only valid for PRODUCT'
+             stop
+            endif
+
+            call get_word(line,word,2)
+            read(word,*) kind
+
+            if (kind<1.or.kind>spindy%nkinds) then
+             write(6,*) 'Err: Invalid spin kind ',kind
+             stop
+            endif
+
+            ! Read one complex amplitude per basis state:
+            ! real and imaginary parts alternate after the kind index.
+            do l=1, nint(2.0d0*spindy%spin(kind))+1
+             call get_word(line,word,2*l+1)
+             read(word,*) coeff_real
+
+             call get_word(line,word,2*l+2)
+             read(word,*) coeff_img
+
+             product_state(l,kind) = cmplx(coeff_real,coeff_img,kind=8)
+            enddo
+
+           case('&END')
+
+            return
+
+           case default
+            write(6,*) 'Err: Keyword ',trim(word),' &
+                        in subroutine parse_state not recognized'
+            stop
+
+          end select
+
+         enddo
+
+         write(*,*) 'Err: Unexpected end of file &
+                     in subroutine parse_state'
+         stop
+
+        return
+        end subroutine parse_state
 
         end module spindy_parser

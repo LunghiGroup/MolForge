@@ -1,6 +1,6 @@
 #! /bin/bash
 
-export MOLFORGE=~/ERC/MolForge
+export MOLFORGE=~/MolForge
 
 export cifname=$1
 

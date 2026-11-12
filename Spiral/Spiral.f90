@@ -201,6 +201,7 @@
           if(mpi_id.eq.0) call parse_input(input,spindy,phondy,lattice,gsh)
          
           call mpi_bcast(operation,100,mpi_character,0,mpi_comm_world,err)
+          call mpi_bcast(dynamics_method,100,mpi_character,0,mpi_comm_world,err)
 
           if(operation.eq.'END') exit
 

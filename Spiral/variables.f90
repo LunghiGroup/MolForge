@@ -10,6 +10,7 @@
          type(general_pulse),allocatable    :: pulse_pi2(:)
 
          character(len=100)            :: operation
+         character(len=100)            :: dynamics_method='NONE'
 
          double precision              :: spin_temp
          character(len=100)            :: type_rho0
@@ -18,11 +19,71 @@
          logical                       :: fulldiag=.true.
          logical                       :: tinv=.true.
          integer                       :: nex_max,ncorr_max,nexclude
+         integer, allocatable          :: ref_state(:)
          double precision, allocatable :: max_dist(:,:)
-         double precision              :: dist_max
+         double precision              :: dist_max,detuning_B
+         character(len=10)             :: detuning_type
          type(sub_space), allocatable  :: active_space(:)
-         integer, allocatable          :: ex_list(:,:)
+         integer, allocatable          :: ex_list(:,:),ignore_spins(:)
          type(list)                    :: dist_kind
+
+         !=============================================================
+         ! Tensor-network parameters
+         !=============================================================
+         integer                       :: mps_bond_dimension_max=500
+         integer                       :: mpo_bond_dimension_max=500
+         double precision              :: mps_trunc_tol=1.0d-8
+         double precision              :: mpo_trunc_tol=1.0d-8
+
+         !=============================================================
+         ! Krylov parameters
+         !=============================================================
+         integer                       :: krylov_dim=-1
+         integer                       :: krylov_restart=-1
+         integer                       :: krylov_max_restart=1000
+         integer                       :: krylov_reortho=0
+         logical                       :: krylov_full_basis=.true.
+         logical                       :: krylov_adaptive_restart=.false.
+         logical                       :: krylov_rebuild=.false.
+         double precision              :: krylov_tol=1.0d-10
+         double precision              :: krylov_breakdown_tol=1.0d-14
+         double precision              :: krylov_orth_tol=1.0d-12
+
+         !=============================================================
+         ! Time evolution
+         !=============================================================
+         double precision              :: krylov_tstart=0.0d0
+         double precision              :: krylov_tfinal=0.0d0
+         double precision              :: krylov_dt=0.01d0
+         integer                       :: krylov_nsteps=0
+
+         !=============================================================
+         ! Initial state
+         !=============================================================
+         integer                       :: initial_state_type = -1
+
+         !=============================================================
+         ! Output control
+         !=============================================================
+         integer                       :: krylov_output_stride=1
+         logical                       :: krylov_store_states=.false.
+         logical                       :: krylov_calc_energy=.false.
+         logical                       :: krylov_calc_entropy=.false.
+         logical                       :: krylov_report_truncation=.true.
+         logical                       :: krylov_verbose=.false.
+         logical                       :: krylov_save_checkpoint=.false.
+         integer                       :: krylov_checkpoint_stride=1000
+
+         integer, allocatable          :: basis_state(:),sup_basis(:,:)
+         complex(8), allocatable       :: product_state(:,:),sup_coeff(:)
+
+         integer                       :: chebyshev_order=-1
+         logical                       :: chebyshev_auto_scale=.true.
+         double precision              :: chebyshev_emin=0.0d0,chebyshev_emax=0.0d0
+
+         integer                       :: cce_order=-1
+         integer, allocatable          :: cce_max_clusters(:)
+         double precision              :: cce_r_int=1.0d10
 
          logical                       :: dump_s=.true.
          character(len=20)             :: rho_restart_file
@@ -56,7 +117,7 @@
         use hilbert_dist_class
         implicit none
         class(spins_hilbert)   :: spindy
-        integer                :: l,nkinds,ncas,i,j,nelem
+        integer                :: l,nkinds,ncas,i,j,nelem,N
         double precision       :: val
         logical                :: do_cas=.false.
          
@@ -87,6 +148,29 @@
          call mpi_bcast(euler,3,mpi_double_precision,0,mpi_comm_world,err)
 
          call mpi_bcast(rho_restart_file,20,mpi_character,0,mpi_comm_world,err)
+
+         call mpi_bcast(detuning_type,10,mpi_character,0,mpi_comm_world,err)
+         call mpi_bcast(detuning_B,1,mpi_double_precision,0,mpi_comm_world,err)
+
+         if(detuning_B/=0.0d0)then
+          if(mpi_id==0) N=size(ignore_spins)
+          call mpi_bcast(N,1,mpi_integer,0,mpi_comm_world,err)
+          if (mpi_id/=0) allocate(ignore_spins(N))
+          call mpi_bcast(ignore_spins,N,mpi_integer,0,mpi_comm_world,err)
+         endif
+
+         if(mpi_id==0)then
+          if(.not.allocated(ref_state))then
+           allocate(ref_state(spindy%nspins))
+           do i=1,spindy%nspins
+            ref_state(i)=-nint(2*spindy%spin(spindy%kind(i)))
+           enddo
+          endif
+         else
+          if(.not.allocated(ref_state)) allocate(ref_state(spindy%nspins))
+         endif
+
+         call mpi_bcast(ref_state,spindy%nspins,mpi_integer,0,mpi_comm_world,err)
 
          if(.not.allocated(max_dist)) allocate(max_dist(spindy%nkinds,spindy%nkinds))
          max_dist=dist_max
@@ -245,6 +329,7 @@
         use pulses_class
         use spinham_map_class
         use mpi_utils
+        use krylov_class
         implicit none
         class(spins_hilbert)              :: spindy,gsh
         class(atoms_group)                :: lattice
@@ -309,7 +394,8 @@
            if(mpi_id.eq.0) write(6,*) 'Building the Initial Density Matrix.............................................'
            if(mpi_id.eq.0) write(6,*) ''
            call bcast_rho0()
-           call spindy%make_rho0(type_rho0,spin_temp,rho_restart_file)
+           !call spindy%make_rho0(type_rho0,spin_temp,rho_restart_file)
+           call spindy%make_rho0_new(type_rho0,spin_temp,ref_state,rho_restart_file)
 
           case ('MAKE_HILBERT')
            if(mpi_id.eq.0) write(6,*) ''
@@ -317,11 +403,13 @@
            if(mpi_id.eq.0) write(6,*) ''
            call bcast_method(spindy)
            if(spindy%SH%make_dipolar) call spindy%set_dipolar(spindy%SH,ex_list)
-           call spindy%make_basis(nex_max,ncorr_max,max_dist,tinv)
+           !call spindy%make_basis(nex_max,ncorr_max,max_dist,tinv)
+           call spindy%make_basis_new(nex_max,ncorr_max,max_dist,tinv,ref_state)
            call spindy%make_kbasis()
            call spindy%make_Hmat_nodes()
            call spindy%SH%rot(euler)
-           call spindy%make_SH_rep(spindy%SH,-1,-1)
+           !call spindy%make_SH_rep(spindy%SH,-1,-1)
+           call spindy%make_SH_rep(spindy%SH,-1,-1,ignore_spins,detuning_B,detuning_type)
            call spindy%make_Hmat_2()
            if(fulldiag) call spindy%diag_Hmat()
            call spindy%make_S()           
@@ -449,6 +537,126 @@
              else
              endif
             enddo
+
+          case ('SDIP_DYN')
+           if(mpi_id.eq.0) write(6,*) ''
+           if(mpi_id.eq.0) write(6,*) 'Calculating the Spin-Spin Dipolar Dynamics.............................................'
+           if(mpi_id.eq.0) write(6,*) ''
+
+           select case (dynamics_method)
+
+            case ('SUAITH')
+             if(mpi_id.eq.0) write(*,*) ''
+             if(mpi_id.eq.0) write(*,*) '  Using Spin Unitary-Dynamics Assembly in Truncated Hilbert-Space (SUAITH)'
+             if(mpi_id.eq.0) write(*,*) ''
+
+            case ('KRYLOV')
+             block
+             !---------------------------------------------------------------
+             ! Create the Krylov propagator.
+             !
+             ! The Krylov object is local to this KRYLOV operation. It owns
+             ! the Hamiltonian MPO, initial MPS, Krylov basis and all
+             ! associated Lanczos workspace.
+             !---------------------------------------------------------------
+             type(krylov_space) :: krylov
+             !---------------------------------------------------------------
+             ! Announce the selected dynamics method.
+             !---------------------------------------------------------------
+             if(mpi_id.eq.0) write(*,*) ''
+             if(mpi_id.eq.0) write(*,*) '  Using Krylov Subspace Approach'
+             if(mpi_id.eq.0) write(*,*) ''
+             !-------------------------------------------------------------
+             ! Transfer the parsed input parameters directly into the
+             ! parameter object owned by the Krylov propagator.
+             !-------------------------------------------------------------
+             if(mpi_id.eq.0)then
+              krylov%parameters%dimension           = krylov_dim
+              krylov%parameters%restart             = krylov_restart
+              krylov%parameters%max_restart         = krylov_max_restart
+              krylov%parameters%reorthogonalization = krylov_reortho
+              krylov%parameters%full_basis          = krylov_full_basis
+              krylov%parameters%adaptive_restart    = krylov_adaptive_restart
+              krylov%parameters%rebuild             = krylov_rebuild
+
+              krylov%parameters%tol                 = krylov_tol
+              krylov%parameters%breakdown_tol       = krylov_breakdown_tol
+              krylov%parameters%orth_tol            = krylov_orth_tol
+
+              krylov%parameters%tstart              = krylov_tstart
+              if(krylov_tfinal>0.0d0)then
+               krylov%parameters%tfinal             = krylov_tfinal
+              else
+               krylov%parameters%tfinal             = krylov_dt*krylov_nsteps
+              endif
+              krylov%parameters%dt                  = krylov_dt
+              krylov%parameters%nsteps              = krylov_nsteps
+
+              krylov%parameters%mps_bond_dimension_max = mps_bond_dimension_max
+              krylov%parameters%mpo_bond_dimension_max = mpo_bond_dimension_max
+              krylov%parameters%mps_trunc_tol          = mps_trunc_tol
+              krylov%parameters%mpo_trunc_tol          = mpo_trunc_tol
+
+              krylov%parameters%output_stride      = krylov_output_stride
+              krylov%parameters%store_states       = krylov_store_states
+              krylov%parameters%calc_energy        = krylov_calc_energy
+              krylov%parameters%calc_entropy       = krylov_calc_entropy
+              krylov%parameters%report_truncation  = krylov_report_truncation
+              krylov%parameters%verbose            = krylov_verbose
+              krylov%parameters%save_checkpoint    = krylov_save_checkpoint
+              krylov%parameters%checkpoint_stride  = krylov_checkpoint_stride
+             endif
+             call krylov%parameters%bcast_params()
+             !-------------------------------------------------------------
+             ! Initialise the Krylov propagator.
+             !
+             ! This constructs:
+             !
+             !   1. Initial MPS
+             !   2. Hamiltonian MPO
+             !   3. Krylov basis
+             !   4. Lanczos workspace
+             !-------------------------------------------------------------
+             if(spindy%SH%make_dipolar) call spindy%set_dipolar(spindy%SH,ex_list)
+             call krylov%initialize(spindy,initial_state_type,basis_state,product_state,sup_basis,sup_coeff)
+             !-------------------------------------------------------------
+             ! Construct the spin observable MPOs.
+             !-------------------------------------------------------------
+             if(mpi_id==0)then
+              call krylov%construct_observables(s2print,print_si)
+             endif
+             !-------------------------------------------------------------
+             ! Distribute the observable MPOs to all MPI processes.
+             !-------------------------------------------------------------
+             call krylov%Sx%bcast_mpo()
+             call krylov%Sy%bcast_mpo()
+             call krylov%Sz%bcast_mpo()
+             !-------------------------------------------------------------
+             ! Perform the Lanczos time evolution.
+             !
+             ! All Hamiltonian application, Krylov-space construction,
+             ! reorthogonalisation, restarting, time propagation and
+             ! tensor-network truncation are handled internally by the
+             ! Krylov object.
+             !-------------------------------------------------------------
+             call krylov%propagate()
+             !-------------------------------------------------------------
+             ! Release Krylov-specific resources.
+             !-------------------------------------------------------------
+             call krylov%finalize()
+             end block
+
+            case ('CHEBYSHEV')
+             if(mpi_id.eq.0) write(*,*) ''
+             if(mpi_id.eq.0) write(*,*) '  Using Chebyshev Polynomial Expansion'
+             if(mpi_id.eq.0) write(*,*) ''
+
+            case ('CCE')
+             if(mpi_id.eq.0) write(*,*) ''
+             if(mpi_id.eq.0) write(*,*) '  Using Cluster-Correlation Expansion (CCE)'
+             if(mpi_id.eq.0) write(*,*) ''
+
+           end select
 
          end select
 

@@ -39,7 +39,9 @@
  mpif90 -g -O2 -c def_swarm.f90
  mpif90 -g -O2 -c def_mlmodel_training.f90
  mpif90 -g -O2 -c def_ff_training.f90
- mpif90 -g -O2 -c def_spinham_map.f90  
+ mpif90 -g -O2 -c def_spinham_map.f90
+
+ mpif90 -g -O2 -c def_tensor_network.f90
+ mpif90 -g -O2 -c def_krylov.f90
 
  ar crv libmolforge.a *.o
-
